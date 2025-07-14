@@ -1,0 +1,31 @@
+[
+    {
+        "key": "ctrl+shift+f5",
+        "command": "dart.flutter.run",
+        "args": {
+            "deviceId": "android"
+        },
+        "when": "dartCodeAnalysisServer"
+    },
+    {
+        "key": "ctrl+shift+f6",
+        "command": "dart.flutter.hotReload",
+        "when": "dartCodeAnalysisServer"
+    },
+    {
+        "key": "ctrl+shift+f7",
+        "command": "dart.flutter.hotRestart",
+        "when": "dartCodeAnalysisServer"
+    },
+    {
+        "key": "ctrl+shift+f8",
+        "command": "dart.flutter.stop",
+        "when": "dartCodeAnalysisServer"
+    },
+    {
+        "key": "ctrl+shift+f9",
+        "command": "workbench.action.tasks.runTask",
+        "args": "Flutter: Start Android Emulator",
+        "when": "dartCodeAnalysisServer"
+    }
+] 

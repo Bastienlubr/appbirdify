@@ -1,0 +1,32 @@
+{
+    "dart.flutterSdkPath": "C:\\src\\flutter\\flutter",
+    "dart.devToolsLocation": "external",
+    "dart.devToolsTheme": "dark",
+    "dart.previewFlutterUiGuides": true,
+    "dart.previewFlutterUiGuidesCustomTracking": true,
+    "dart.hotReloadOnSave": "all",
+    "dart.hotRestartOnSave": "never",
+    "dart.showTodos": true,
+    "dart.analyzerPath": "C:\\src\\flutter\\flutter\\bin\\cache\\dart-sdk\\bin\\dart.exe",
+    "dart.analysisServerFolding": true,
+    "dart.analysisServerSnippets": true,
+    "dart.completeFunctionCalls": true,
+    "dart.enableSdkFormatter": true,
+    "dart.lineLength": 80,
+    "dart.pubAdditionalArgs": [],
+    "dart.pubTestLogWriter": "json",
+    "dart.testRunner": "flutter_test",
+    "dart.vmAdditionalArgs": [],
+    "dart.warnWhenEditingFilesOutsideWorkspace": true,
+    "dart.warnWhenEditingFilesInPubCache": true,
+    "dart.closingLabels": true,
+    "dart.constructorCalls": true,
+    "dart.inlayHints": {
+        "enabled": "all",
+        "parameterNames": "all",
+        "parameterTypes": "all",
+        "variableTypes": "all",
+        "returnTypes": "all",
+        "constantTypes": "all"
+    }
+} 

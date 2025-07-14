@@ -1,0 +1,31 @@
+id_mission,biome,num_question,titre_mission,bonne_reponse,URL_bonne_reponse,mauvaise_reponse
+F01,Milieu forestier,1,La voix de la canopée ,Loriot d’Europe,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FLoriot%20d'Europe.mp3?alt=media&token=35f3b63f-a578-4914-ba53-81adeffeea97,Merle noir
+F01,Milieu forestier,2,La voix de la canopée ,Mésange noire,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FM%C3%A9sange%20noire.wav?alt=media&token=de90b0e5-dba4-4d6f-83b5-592d5a1f1f06,Grive musicienne
+F01,Milieu forestier,3,La voix de la canopée ,Mésange huppée,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FM%C3%A9sange%20hupp%C3%A9e.wav?alt=media&token=63defbc9-0606-4237-aafd-704de8007349,Rossignol philomèle
+F01,Milieu forestier,4,La voix de la canopée ,Bouvreuil pivoine,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBouvreuil%20pivoine.mp3?alt=media&token=58090830-6a86-4a48-bc7b-e4e268cb4e49,Mésange charbonnière
+F01,Milieu forestier,5,La voix de la canopée ,Gros-bec casse-noyaux,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGros-bec%20casse-noyaux.mp3?alt=media&token=7bb76fc9-e3d1-4b9d-b15f-2dd5c8222463,Mésange bleue
+F01,Milieu forestier,6,La voix de la canopée ,Gobemouche nain,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGobemouche%20nain.wav?alt=media&token=f7948315-c3df-4879-88b7-31cd4cc88922,Chardonneret élégant
+F01,Milieu forestier,7,La voix de la canopée ,Accenteur mouchet,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAccenteur%20mouchet.wav?alt=media&token=1bf3e94c-960d-4404-918c-829285d8c0f6,Serin cini
+F01,Milieu forestier,8,La voix de la canopée ,Pinson des arbres,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPinson%20des%20arbres.mp3?alt=media&token=e7eda18a-caf7-4f96-8913-82bac5607a82,Fauvette des jardins
+F01,Milieu forestier,9,La voix de la canopée ,Fauvette à tête noire,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FFauvette%20%C3%A0%20t%C3%AAte%20noire.mp3?alt=media&token=adb7a9b4-80df-4ebc-8691-db423e25a456,Bergeronnette grise
+F01,Milieu forestier,10,La voix de la canopée ,Pic épeiche,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPic%20%C3%A9peiche.wav?alt=media&token=b4d16b30-b4db-4756-8a22-02fc4a78281e,Roitelet à triple bandeau
+,,,,Pouillot fitis,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPouillot%20fitis.wav?alt=media&token=a76a33a9-e013-4383-9d28-438983e13d88,Pouillot siffleur
+,,,,Pouillot ibérique,,Rougequeue à front blanc
+,,,,Gobemouche gris,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGobemouche%20gris.wav?alt=media&token=6aa62fd4-1e75-4bc6-bfec-8ae4e5180eca,Tourterelle des bois
+,,,,Grimpereau des jardins,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGrimpereau%20des%20jardins.wav?alt=media&token=a06d2c27-ca87-40f7-95dc-1a2d3063e479,Choucas des tours
+,,,,Coucou gris,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCoucou%20gris.mp3?alt=media&token=7b5a14de-e99e-4aca-8822-cfedad0df5a5,Corbeau freux
+,,,,,,Bergeronnette des ruisseaux
+,,,,,,Canard colvert
+,,,,,,Chevêche d’Athéna
+,,,,,,Corneille noire
+,,,,,,Faucon crécerelle
+,,,,,,Faucon pèlerin
+,,,,,,Fauvette mélanocéphale
+,,,,,,Geai des chênes
+,,,,,,Gobemouche gris
+,,,,,,Grimpereau des jardins
+,,,,,,Grive draine
+,,,,,,Grive mauvis
+,,,,,,Hirondelle rustique
+,,,,,,Mésange huppée
+,,,,,,Hirondelle de fenêtre
