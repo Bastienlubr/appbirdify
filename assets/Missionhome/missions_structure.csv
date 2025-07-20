@@ -1,0 +1,3 @@
+id,titre,description,biome,niveau,deverrouillee,etoiles,csv_url,dernier_score
+foret_01,Chants de la forêt I,Découvre les oiseaux typiques des sous-bois.,forêt,1,True,0,https://your-storage-link.com/quiz/foret_01.csv,0
+urbain_01,Les voix de la ville,Apprends à reconnaître les espèces citadines.,urbain,1,True,0,https://your-storage-link.com/quiz/urbain_01.csv,0

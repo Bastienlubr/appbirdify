@@ -1,16 +1,73 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'home_page.dart';
 import 'quiz_page.dart';
+import '../services/firestore_service.dart';
+import '../models/mission.dart';
+import '../utils/star_utils.dart';
 
-class QuizEndPage extends StatelessWidget {
+class QuizEndPage extends StatefulWidget {
   final int score;
   final int totalQuestions;
+  final Mission? mission; // Mission associée au quiz (peut être null)
 
   const QuizEndPage({
     super.key,
     required this.score,
     required this.totalQuestions,
+    this.mission,
   });
+
+  @override
+  State<QuizEndPage> createState() => _QuizEndPageState();
+}
+
+class _QuizEndPageState extends State<QuizEndPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Mettre à jour les étoiles si une mission est fournie
+    if (widget.mission != null) {
+      _updateMissionStars();
+    }
+  }
+
+  /// Met à jour les étoiles de la mission dans Firestore
+  Future<void> _updateMissionStars() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null || widget.mission == null) return;
+
+      // Récupérer les étoiles actuelles de la mission
+      int currentStars = widget.mission!.lastStarsEarned;
+      
+      // Calculer les nouvelles étoiles
+      int newStars = StarUtils.computeUpdatedStars(currentStars, widget.score);
+      
+      // Si de nouvelles étoiles ont été gagnées
+      if (newStars > currentStars) {
+        // Mettre à jour dans Firestore (pas de mise à jour locale car lastStarsEarned est final)
+        
+        // Mettre à jour dans Firestore
+        await FirestoreService().updateMissionStars(
+          user.uid, 
+          widget.mission!.id, 
+          newStars
+        );
+        
+        if (kDebugMode) {
+          debugPrint('Nouvelles étoiles gagnées pour ${widget.mission!.id}: $newStars (était $currentStars)');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Erreur lors de la mise à jour des étoiles: $e');
+      }
+    }
+  }
+
+
 
   String _getFeedbackMessage(int score, int total) {
     final ratio = score / total;
@@ -83,7 +140,7 @@ class QuizEndPage extends StatelessWidget {
                   
                   // Score
                   Text(
-                    "Tu as obtenu $score sur $totalQuestions",
+                    "Tu as obtenu ${widget.score} sur ${widget.totalQuestions}",
                     style: const TextStyle(
                       fontFamily: 'Quicksand',
                       fontSize: 20,
@@ -96,7 +153,7 @@ class QuizEndPage extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     child: Text(
-                      _getFeedbackMessage(score, totalQuestions),
+                      _getFeedbackMessage(widget.score, widget.totalQuestions),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontFamily: 'Quicksand',

@@ -11,11 +11,11 @@ final List<Milieu> milieux = [
     imageAsset: 'assets/images/Milieu/milieu_urbain.png',
     color: const Color(0xFF386641), // Vert foncé
     missions: [
-      Mission(id: 'mission_1', milieu: 'urbain', index: 1, status: 'available', questions: [], title: 'MISSION', csvFile: 'U01 - template_mission_quiz.csv'),
-      Mission(id: 'mission_2', milieu: 'urbain', index: 2, status: 'available', questions: [], title: 'MISSION', csvFile: 'U02 - template_mission_quiz.csv'),
-      Mission(id: 'mission_3', milieu: 'urbain', index: 3, status: 'available', questions: [], title: 'MISSION', csvFile: null),
-      Mission(id: 'mission_4', milieu: 'urbain', index: 4, status: 'available', questions: [], title: 'MISSION', csvFile: null),
-      Mission(id: 'mission_final', milieu: 'urbain', index: 5, status: 'available', questions: [], title: 'FINAL', csvFile: null),
+      Mission(id: 'mission_U01', milieu: 'urbain', index: 1, status: 'available', questions: [], title: 'MISSION', csvFile: 'U01 - template_mission_quiz.csv'),
+      Mission(id: 'mission_U02', milieu: 'urbain', index: 2, status: 'available', questions: [], title: 'MISSION', csvFile: 'U02 - template_mission_quiz.csv'),
+      Mission(id: 'mission_U03', milieu: 'urbain', index: 3, status: 'available', questions: [], title: 'MISSION', csvFile: null),
+      Mission(id: 'mission_U04', milieu: 'urbain', index: 4, status: 'available', questions: [], title: 'MISSION', csvFile: null),
+      Mission(id: 'mission_U05', milieu: 'urbain', index: 5, status: 'available', questions: [], title: 'FINAL', csvFile: null),
     ],
   ),
   
@@ -26,11 +26,11 @@ final List<Milieu> milieux = [
     imageAsset: 'assets/images/Milieu/milieu_forestier.png',
     color: const Color(0xFF6A994E), // Vert moyen
     missions: [
-      Mission(id: 'mission_1', milieu: 'forestier', index: 1, status: 'available', questions: [], title: 'MISSION', csvFile: 'F01 - template_mission_quiz.csv'),
-      Mission(id: 'mission_2', milieu: 'forestier', index: 2, status: 'available', questions: [], title: 'MISSION', csvFile: 'F02 - template_mission_quiz.csv'),
-      Mission(id: 'mission_3', milieu: 'forestier', index: 3, status: 'available', questions: [], title: 'MISSION', csvFile: null),
-      Mission(id: 'mission_4', milieu: 'forestier', index: 4, status: 'available', questions: [], title: 'MISSION', csvFile: null),
-      Mission(id: 'mission_final', milieu: 'forestier', index: 5, status: 'available', questions: [], title: 'FINAL', csvFile: null),
+      Mission(id: 'mission_F01', milieu: 'forestier', index: 1, status: 'available', questions: [], title: 'MISSION', csvFile: 'F01 - template_mission_quiz.csv'),
+      Mission(id: 'mission_F02', milieu: 'forestier', index: 2, status: 'available', questions: [], title: 'MISSION', csvFile: 'F02 - template_mission_quiz.csv'),
+      Mission(id: 'mission_F03', milieu: 'forestier', index: 3, status: 'available', questions: [], title: 'MISSION', csvFile: null),
+      Mission(id: 'mission_F04', milieu: 'forestier', index: 4, status: 'available', questions: [], title: 'MISSION', csvFile: null),
+      Mission(id: 'mission_F05', milieu: 'forestier', index: 5, status: 'available', questions: [], title: 'FINAL', csvFile: null),
     ],
   ),
   

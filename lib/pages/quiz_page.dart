@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:animations/animations.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/quiz_generator.dart';
+import '../services/quiz_life_manager.dart';
+import '../widgets/lives_display_widget.dart';
 import 'quiz_end_page.dart';
 
 class QuizPage extends StatefulWidget {
@@ -37,7 +40,36 @@ class _QuizPageState extends State<QuizPage> {
   void initState() {
     super.initState();
     _audioPlayer = AudioPlayer();
-    _loadQuiz();
+    _initializeQuiz();
+  }
+
+  Future<void> _initializeQuiz() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Vérifier si l'utilisateur peut lancer le quiz
+        final canStart = await QuizLifeManager.canStartQuiz(user.uid);
+        if (!canStart) {
+          if (!context.mounted) return;
+          
+          // Afficher un message d'erreur et retourner à l'accueil
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Vous n\'avez plus de vies disponibles. Revenez demain !'),
+              backgroundColor: Color(0xFFBC4749),
+            ),
+          );
+          Navigator.pop(context);
+          return;
+        }
+      }
+      
+      // Charger le quiz si les vies sont suffisantes
+      _loadQuiz();
+    } catch (e) {
+      // En cas d'erreur, charger le quiz quand même
+      _loadQuiz();
+    }
   }
 
   @override
@@ -69,6 +101,8 @@ class _QuizPageState extends State<QuizPage> {
                   // Bouton "échappe" personnalisé à gauche
                   GestureDetector(
                     onTap: () {
+                      // Annuler le quiz sans consommer de vies
+                      QuizLifeManager.cancelQuiz();
                       Navigator.pop(context);
                     },
                     child: Container(
@@ -87,7 +121,7 @@ class _QuizPageState extends State<QuizPage> {
                       ),
                       child: Center(
                         child: Image.asset(
-                          "assets/Images\Bouton\bouton echap.png",
+                          "assets/Images/Bouton/bouton echap.png",
                           width: 24,
                           height: 24,
                           errorBuilder: (context, error, stackTrace) {
@@ -103,61 +137,7 @@ class _QuizPageState extends State<QuizPage> {
                   ),
                   
                   // Compteur de vies à droite
-                  Stack(
-                    alignment: Alignment.topRight,
-                    children: [
-                      // Image de fond du compteur
-                      Image.asset(
-                        'assets/Images/Bouton/viequizmission.png',
-                        width: 80,
-                        height: 40,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            width: 80,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFD2DBB2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          );
-                        },
-                      ),
-                      // Contenu superposé (cœur + nombre)
-                      Positioned(
-                        left: 10,
-                        top: -5,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Icône cœur
-                            Image.asset(
-                              'assets/Images/Bouton/Copie de Copie de Un bol d\'Air Frais (23).png',
-                              width: 35,
-                              height: 35,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.favorite,
-                                  color: Colors.red,
-                                  size: 35,
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 4),
-                            // Nombre de vies
-                            const Text(
-                              '3',
-                              style: TextStyle(
-                                fontFamily: 'Quicksand',
-                                fontSize: 35,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  const LivesQuizWidget(),
                 ],
               ),
             ),
@@ -542,6 +522,11 @@ class _QuizPageState extends State<QuizPage> {
     // Arrêter l'audio immédiatement quand une réponse est sélectionnée
     await _stopAudio();
     
+    // Consommer une vie si la réponse est incorrecte
+    if (!isCorrect) {
+      QuizLifeManager.loseLife();
+    }
+    
     setState(() {
       _selectedAnswer = selectedAnswer;
       _showFeedback = true;
@@ -555,20 +540,18 @@ class _QuizPageState extends State<QuizPage> {
 
     // Afficher le message de feedback
     await Future.delayed(const Duration(milliseconds: 800));
-    if (mounted) {
-      setState(() {
-        _showFeedbackMessage = true;
-        _feedbackMessage = isCorrect 
-            ? "Bravo, c'était bien ${currentQuestion.correctAnswer} !"
-            : "Raté ! C'était ${currentQuestion.correctAnswer}";
-      });
-    }
+    if (!context.mounted) return;
+    setState(() {
+      _showFeedbackMessage = true;
+      _feedbackMessage = isCorrect 
+          ? "Bravo, c'était bien ${currentQuestion.correctAnswer} !"
+          : "Raté ! C'était ${currentQuestion.correctAnswer}";
+    });
 
     // Afficher le feedback pendant le délai configuré puis passer à la question suivante
     await Future.delayed(const Duration(milliseconds: 2000));
-    if (mounted) {
-      _goToNextQuestion();
-    }
+    if (!context.mounted) return;
+    _goToNextQuestion();
   }
 
   void _goToNextQuestion() async {
@@ -591,7 +574,20 @@ class _QuizPageState extends State<QuizPage> {
     _loadAndPlayAudio(nextQuestion.audioUrl);
   }
 
-  void _onQuizCompleted() {
+  void _onQuizCompleted() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Finaliser le quiz et synchroniser les vies
+        await QuizLifeManager.finishQuiz(user.uid);
+      }
+    } catch (e) {
+      // En cas d'erreur, continuer quand même
+      debugPrint('Erreur lors de la finalisation du quiz: $e');
+    }
+
+    if (!context.mounted) return;
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => QuizEndPage(

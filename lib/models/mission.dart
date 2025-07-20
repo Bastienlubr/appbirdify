@@ -6,6 +6,10 @@ class Mission {
   final List<Map<String, dynamic>> questions;
   final String? title;
   final String? csvFile;
+  final String? titreMission;
+  final String? sousTitre;
+  final String? iconUrl;
+  final int lastStarsEarned;
 
   Mission({
     required this.id,
@@ -15,6 +19,10 @@ class Mission {
     required this.questions,
     this.title,
     this.csvFile,
+    this.titreMission,
+    this.sousTitre,
+    this.iconUrl,
+    this.lastStarsEarned = 0,
   });
 
   // Getters
@@ -25,6 +33,10 @@ class Mission {
   List<Map<String, dynamic>> get getQuestions => questions;
   String? get getTitle => title;
   String? get getCsvFile => csvFile;
+  String? get getTitreMission => titreMission;
+  String? get getSousTitre => sousTitre;
+  String? get getIconUrl => iconUrl;
+  int get getLastStarsEarned => lastStarsEarned;
 
   // Méthode fromJson pour créer un objet Mission à partir d'un Map
   factory Mission.fromJson(Map<String, dynamic> json) {
@@ -36,6 +48,10 @@ class Mission {
       questions: List<Map<String, dynamic>>.from(json['questions'] as List),
       title: json['title'] as String?,
       csvFile: json['csvFile'] as String?,
+      titreMission: json['titreMission'] as String?,
+      sousTitre: json['sousTitre'] as String?,
+      iconUrl: json['iconUrl'] as String?,
+      lastStarsEarned: json['lastStarsEarned'] as int? ?? 0,
     );
   }
 
@@ -49,13 +65,17 @@ class Mission {
       'questions': questions,
       if (title != null) 'title': title,
       if (csvFile != null) 'csvFile': csvFile,
+      if (titreMission != null) 'titreMission': titreMission,
+      if (sousTitre != null) 'sousTitre': sousTitre,
+      if (iconUrl != null) 'iconUrl': iconUrl,
+      'lastStarsEarned': lastStarsEarned,
     };
   }
 
   // Méthode toString pour le débogage
   @override
   String toString() {
-    return 'Mission(id: $id, milieu: $milieu, index: $index, status: $status, questions: $questions, title: $title, csvFile: $csvFile)';
+    return 'Mission(id: $id, milieu: $milieu, index: $index, status: $status, questions: $questions, title: $title, csvFile: $csvFile, titreMission: $titreMission, sousTitre: $sousTitre, iconUrl: $iconUrl, lastStarsEarned: $lastStarsEarned)';
   }
 
   // Méthode equals pour comparer deux objets Mission
@@ -69,12 +89,45 @@ class Mission {
         other.status == status &&
         other.questions == questions &&
         other.title == title &&
-        other.csvFile == csvFile;
+        other.csvFile == csvFile &&
+        other.titreMission == titreMission &&
+        other.sousTitre == sousTitre &&
+        other.iconUrl == iconUrl &&
+        other.lastStarsEarned == lastStarsEarned;
   }
 
   // Méthode hashCode pour la cohérence avec equals
   @override
   int get hashCode {
-    return Object.hash(id, milieu, index, status, questions, title, csvFile);
+    return Object.hash(id, milieu, index, status, questions, title, csvFile, titreMission, sousTitre, iconUrl, lastStarsEarned);
+  }
+
+  // Méthode copyWith pour créer une copie modifiée
+  Mission copyWith({
+    String? id,
+    String? milieu,
+    int? index,
+    String? status,
+    List<Map<String, dynamic>>? questions,
+    String? title,
+    String? csvFile,
+    String? titreMission,
+    String? sousTitre,
+    String? iconUrl,
+    int? lastStarsEarned,
+  }) {
+    return Mission(
+      id: id ?? this.id,
+      milieu: milieu ?? this.milieu,
+      index: index ?? this.index,
+      status: status ?? this.status,
+      questions: questions ?? this.questions,
+      title: title ?? this.title,
+      csvFile: csvFile ?? this.csvFile,
+      titreMission: titreMission ?? this.titreMission,
+      sousTitre: sousTitre ?? this.sousTitre,
+      iconUrl: iconUrl ?? this.iconUrl,
+      lastStarsEarned: lastStarsEarned ?? this.lastStarsEarned,
+    );
   }
 } 

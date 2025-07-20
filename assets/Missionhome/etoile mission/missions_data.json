@@ -1,0 +1,124 @@
+{
+  "documents": [
+    {
+      "document": "users/testuser1/missions/U01",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/U02",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/U03",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/U04",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/U05",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    }
+    {
+      "document": "users/testuser1/missions/F01",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/F02",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/F03",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/F04",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/F05",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    }
+        {
+      "document": "users/testuser1/missions/A01",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/A02",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/A03",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/A04",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/A05",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    }
+    {
+      "document": "users/testuser1/missions/H01",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/H02",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/H03",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/H04",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/H05",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    }
+    {
+      "document": "users/testuser1/missions/M01",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/M02",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/M03",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/M04",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/M05",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    }
+    {
+      "document": "users/testuser1/missions/L01",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/L02",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/L03",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/L04",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    },
+    {
+      "document": "users/testuser1/missions/L05",
+      "fields": { "lastStarsEarned": { "integerValue": 0 } }
+    }
+  ]
+}

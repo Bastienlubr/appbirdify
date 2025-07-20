@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/biome_carousel_enhanced.dart';
 import '../data/milieu_data.dart';
 import '../models/mission.dart';
 import '../pages/quiz_page.dart'; // Added import for QuizPage
+import '../widgets/lives_display_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -127,11 +129,58 @@ class _HomeContentState extends State<HomeContent> {
     }
   }
 
+  Future<void> _signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (!context.mounted) return;
+      
+      // Navigation vers l'écran de connexion
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login',
+        (route) => false,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la déconnexion: $e'),
+          backgroundColor: const Color(0xFFBC4749),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
         child: Stack(
           children: [
+            // Bouton de déconnexion en haut à gauche
+            Positioned(
+              top: 12,
+              left: 24,
+              child: GestureDetector(
+                onTap: _signOut,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF386641).withAlpha(20),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF386641),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.logout,
+                    color: Color(0xFF386641),
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+            
             Padding(
               padding: const EdgeInsets.only(top: 50), // Ajoute 50px d'espace en haut
               child: Column(
@@ -266,26 +315,7 @@ class _HomeContentState extends State<HomeContent> {
         Positioned(
           right: 20,  // Contrôlez la position gauche/droite des vies
           top: 65,    // Contrôlez la position haut/bas des vies
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(
-                'assets/Images/Bouton/Copie de Copie de Un bol d\'Air Frais (23).png',
-                width: 30,  // Contrôlez la taille des vies
-                height: 30,  // Contrôlez la taille des vies
-              ),
-              const SizedBox(width: 2),
-              const Text(
-                '5',
-                style: TextStyle(
-                  fontFamily: 'Quicksand',
-                  fontSize: 24,  // Contrôlez la taille du texte vies
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF473C33),
-                ),
-              ),
-            ],
-          ),
+          child: const LivesStatsWidget(),
         ),
       ],
     );
