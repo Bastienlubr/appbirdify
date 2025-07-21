@@ -10,21 +10,19 @@ import 'pages/auth/login_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialisation Firebase avec gestion d'erreur
+  // Initialisation Firebase avec gestion d'erreur robuste
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    // print("✅ Firebase connecté avec succès");
   } catch (e) {
-    // print("❌ Erreur Firebase init: $e");
-    return; // Arrêter l'exécution si Firebase ne peut pas s'initialiser
+    // En cas d'échec d'initialisation Firebase, on continue quand même
+    // pour permettre à l'app de fonctionner en mode hors ligne
   }
   
-  // Test de connexion Firestore
+  // Test de connexion Firestore (optionnel)
   try {
     await FirebaseFirestore.instance.collection('debug').doc('test').get();
-    // print('✅ Connexion Firestore réussie !');
   } catch (e) {
-    // print('❌ Erreur de connexion Firestore: $e');
+    // Firestore non disponible, l'app peut continuer
   }
   
   runApp(const MyApp());

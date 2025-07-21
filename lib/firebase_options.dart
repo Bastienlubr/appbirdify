@@ -41,47 +41,47 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'your-api-key-here',
-    appId: 'your-app-id-here',
-    messagingSenderId: 'your-sender-id-here',
-    projectId: 'your-project-id-here',
-    authDomain: 'your-project-id-here.firebaseapp.com',
-    storageBucket: 'your-project-id-here.appspot.com',
+    apiKey: 'AIzaSyBlbc3Ij3snenH34bDs12_Lfb_FFmkLvAA',
+    appId: '1:788742862967:web:your-web-app-id',
+    messagingSenderId: '788742862967',
+    projectId: 'birdify-df029',
+    authDomain: 'birdify-df029.firebaseapp.com',
+    storageBucket: 'birdify-df029.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'your-api-key-here',
-    appId: 'your-app-id-here',
-    messagingSenderId: 'your-sender-id-here',
-    projectId: 'your-project-id-here',
-    storageBucket: 'your-project-id-here.appspot.com',
+    apiKey: 'AIzaSyBlbc3Ij3snenH34bDs12_Lfb_FFmkLvAA',
+    appId: '1:788742862967:android:e696a8bdc40772aceb2e72',
+    messagingSenderId: '788742862967',
+    projectId: 'birdify-df029',
+    storageBucket: 'birdify-df029.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'your-api-key-here',
-    appId: 'your-app-id-here',
-    messagingSenderId: 'your-sender-id-here',
-    projectId: 'your-project-id-here',
-    storageBucket: 'your-project-id-here.appspot.com',
+    apiKey: 'AIzaSyBlbc3Ij3snenH34bDs12_Lfb_FFmkLvAA',
+    appId: '1:788742862967:ios:your-ios-app-id',
+    messagingSenderId: '788742862967',
+    projectId: 'birdify-df029',
+    storageBucket: 'birdify-df029.firebasestorage.app',
     iosClientId: 'your-ios-client-id-here',
     iosBundleId: 'com.example.appbirdify',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'your-api-key-here',
-    appId: 'your-app-id-here',
-    messagingSenderId: 'your-sender-id-here',
-    projectId: 'your-project-id-here',
-    storageBucket: 'your-project-id-here.appspot.com',
+    apiKey: 'AIzaSyBlbc3Ij3snenH34bDs12_Lfb_FFmkLvAA',
+    appId: '1:788742862967:macos:your-macos-app-id',
+    messagingSenderId: '788742862967',
+    projectId: 'birdify-df029',
+    storageBucket: 'birdify-df029.firebasestorage.app',
     iosClientId: 'your-ios-client-id-here',
     iosBundleId: 'com.example.appbirdify',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'your-api-key-here',
-    appId: 'your-app-id-here',
-    messagingSenderId: 'your-sender-id-here',
-    projectId: 'your-project-id-here',
-    storageBucket: 'your-project-id-here.appspot.com',
+    apiKey: 'AIzaSyBlbc3Ij3snenH34bDs12_Lfb_FFmkLvAA',
+    appId: '1:788742862967:windows:your-windows-app-id',
+    messagingSenderId: '788742862967',
+    projectId: 'birdify-df029',
+    storageBucket: 'birdify-df029.firebasestorage.app',
   );
 } 
