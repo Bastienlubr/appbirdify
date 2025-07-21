@@ -5,6 +5,7 @@ import '../data/milieu_data.dart';
 import '../models/mission.dart';
 import '../pages/quiz_page.dart'; // Added import for QuizPage
 import '../widgets/lives_display_widget.dart';
+import '../pages/auth/login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -131,17 +132,23 @@ class _HomeContentState extends State<HomeContent> {
 
   Future<void> _signOut() async {
     try {
+      print('🔄 Déconnexion en cours...');
       await FirebaseAuth.instance.signOut();
+      print('✅ Déconnexion Firebase réussie');
+      
       if (!mounted) return;
       
-      // Navigation vers l'écran de connexion
-      final navigator = Navigator.of(context);
-      navigator.pushNamedAndRemoveUntil(
-        '/login',
-        (route) => false,
+      // Navigation vers l'écran de connexion avec pushReplacement
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
+      print('✅ Navigation vers l\'écran de connexion réussie');
+      
     } catch (e) {
+      print('❌ Erreur lors de la déconnexion: $e');
       if (!mounted) return;
+      
       final messenger = ScaffoldMessenger.of(context);
       messenger.showSnackBar(
         SnackBar(
