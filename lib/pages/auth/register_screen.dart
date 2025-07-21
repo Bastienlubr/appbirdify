@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:ui';
-import '../home_screen.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -12,14 +10,9 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
   String? _errorMessage;
 
   @override
@@ -27,333 +20,230 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _signUp() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _handleRegister() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
     setState(() {
-      _isLoading = true;
       _errorMessage = null;
     });
 
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorMessage = 'Veuillez remplir tous les champs';
+      });
+      return;
+    }
+
+    final isValidEmail = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email);
+    if (!isValidEmail) {
+      setState(() {
+        _errorMessage = 'Veuillez entrer une adresse email valide';
+      });
+      return;
+    }
+
     try {
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
       );
 
-      await userCredential.user?.updateDisplayName(_nameController.text.trim());
+      if (!mounted) return;
 
-      if (!context.mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      final navigator = Navigator.of(context);
+      navigator.push(
+        MaterialPageRoute(builder: (_) => const LoginScreen()), // Ou SuccessScreen si disponible
       );
     } on FirebaseAuthException catch (e) {
-      if (!context.mounted) return;
-
-      String errorMessage = 'Une erreur est survenue';
-      
-      switch (e.code) {
-        case 'weak-password':
-          errorMessage = 'Le mot de passe est trop faible';
-          break;
-        case 'email-already-in-use':
-          errorMessage = 'Un compte existe déjà avec cet email';
-          break;
-        case 'invalid-email':
-          errorMessage = 'Email invalide';
-          break;
-        case 'operation-not-allowed':
-          errorMessage = 'L\'inscription par email/mot de passe n\'est pas activée';
-          break;
-      }
-
       setState(() {
-        _errorMessage = errorMessage;
+        _errorMessage = 'Firebase error: ${e.code}';
       });
     } catch (e) {
-      if (!context.mounted) return;
-      
       setState(() {
-        _errorMessage = 'Une erreur inattendue est survenue';
+        _errorMessage = 'Erreur inconnue. Réessayez plus tard.';
       });
-    } finally {
-      if (context.mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    
+    // Calculer les dimensions responsives
+    final contentWidth = screenWidth * 0.85; // 85% de la largeur d'écran
+    final maxContentWidth = 400.0; // Largeur maximale pour les grands écrans
+    final actualContentWidth = contentWidth > maxContentWidth ? maxContentWidth : contentWidth;
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 30.0),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom,
-            ),
-            child: IntrinsicHeight(
-              child: Form(
-                key: _formKey,
+      body: Stack(
+        children: [
+          // Contenu principal centré
+          Positioned(
+            top: screenHeight * 0.15, // Plus haut pour accommoder 3 champs
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                width: actualContentWidth,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const SizedBox(height: 60),
-                    
-                    // Mascotte flottante en haut à droite
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        width: 49,
-                        height: 49,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withAlpha(20),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24.5),
-                          child: Image.asset(
-                            'assets/Images/Bouton/bouton echap.png',
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-
                     // Titre principal
                     const Text(
-                      'Nouveau compte',
-                      style: TextStyle(
-                        color: Color(0xFF473C33),
-                        fontSize: 20,
-                        fontFamily: 'Quicksand',
-                        fontWeight: FontWeight.w700,
-                      ),
+                      'Créer un compte',
                       textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF344356),
+                        fontFamily: 'Quicksand',
+                      ),
                     ),
-                    const SizedBox(height: 27),
+                    
+                    const SizedBox(height: 12),
                     
                     // Sous-titre
-                    Opacity(
-                      opacity: 0.80,
-                      child: const Text(
-                        'Commencez par entrer votre adresse e-mail ci-dessous.',
-                        style: TextStyle(
-                          color: Color(0xC4847264),
-                          fontSize: 18,
-                          fontFamily: 'Quicksand',
-                          fontWeight: FontWeight.w500,
-                          height: 1.56,
-                        ),
-                        textAlign: TextAlign.center,
+                    const Text(
+                      'Remplissez les informations pour créer votre compte',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF606D7C),
+                        fontFamily: 'Quicksand',
+                        height: 1.56,
                       ),
                     ),
-                    const SizedBox(height: 40),
-
-                    // Champ nom complet
+                    
+                    const SizedBox(height: 50),
+                    
+                    // Champ Nom
                     Container(
+                      width: double.infinity,
                       height: 70,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: const [
                           BoxShadow(
-                            color: Colors.black.withAlpha(15),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                            color: Color.fromRGBO(60, 128, 209, 0.085),
+                            blurRadius: 19,
+                            offset: Offset(0, 12),
                           ),
                         ],
                       ),
-                      child: TextFormField(
+                      child: TextField(
                         controller: _nameController,
                         keyboardType: TextInputType.name,
-                        decoration: const InputDecoration(
-                          hintText: 'Votre nom complet',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          color: Color(0xFF334355),
+                          fontFamily: 'Quicksand',
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Nom complet',
                           hintStyle: TextStyle(
-                            color: Color(0xFF334355),
+                            color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
                             fontSize: 20,
                             fontFamily: 'Quicksand',
-                            fontWeight: FontWeight.w500,
                           ),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 23),
                           border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer votre nom';
-                          }
-                          return null;
-                        },
                       ),
                     ),
-                    const SizedBox(height: 18),
-
-                    // Champ email
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Champ Email
                     Container(
+                      width: double.infinity,
                       height: 70,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: const [
                           BoxShadow(
-                            color: Colors.black.withAlpha(15),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                            color: Color.fromRGBO(60, 128, 209, 0.085),
+                            blurRadius: 19,
+                            offset: Offset(0, 12),
                           ),
                         ],
                       ),
-                      child: TextFormField(
+                      child: TextField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          hintText: 'carletti@email.com',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          color: Color(0xFF334355),
+                          fontFamily: 'Quicksand',
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Adresse email',
                           hintStyle: TextStyle(
-                            color: Color(0xFF334355),
+                            color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
                             fontSize: 20,
                             fontFamily: 'Quicksand',
-                            fontWeight: FontWeight.w500,
                           ),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 23),
                           border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer votre email';
-                          }
-                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                            return 'Veuillez entrer un email valide';
-                          }
-                          return null;
-                        },
                       ),
                     ),
-                    const SizedBox(height: 18),
-
-                    // Champ mot de passe
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Champ Mot de passe
                     Container(
+                      width: double.infinity,
                       height: 70,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: const [
                           BoxShadow(
-                            color: Colors.black.withAlpha(15),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                            color: Color.fromRGBO(60, 128, 209, 0.085),
+                            blurRadius: 19,
+                            offset: Offset(0, 12),
                           ),
                         ],
                       ),
-                      child: TextFormField(
+                      child: TextField(
                         controller: _passwordController,
-                        obscureText: _obscurePassword,
+                        obscureText: true,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          color: Color(0xFF334355),
+                          fontFamily: 'Quicksand',
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Mot de passe',
-                          hintStyle: const TextStyle(
-                            color: Color(0xFF334355),
+                          hintStyle: TextStyle(
+                            color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
                             fontSize: 20,
                             fontFamily: 'Quicksand',
-                            fontWeight: FontWeight.w500,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 23),
                           border: InputBorder.none,
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                              color: const Color(0xFF334355),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
-                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer votre mot de passe';
-                          }
-                          if (value.length < 6) {
-                            return 'Le mot de passe doit contenir au moins 6 caractères';
-                          }
-                          return null;
-                        },
                       ),
                     ),
-                    const SizedBox(height: 18),
-
-                    // Champ confirmation mot de passe
-                    Container(
-                      height: 70,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(15),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: TextFormField(
-                        controller: _confirmPasswordController,
-                        obscureText: _obscureConfirmPassword,
-                        decoration: InputDecoration(
-                          hintText: 'Confirmer le mot de passe',
-                          hintStyle: const TextStyle(
-                            color: Color(0xFF334355),
-                            fontSize: 20,
-                            fontFamily: 'Quicksand',
-                            fontWeight: FontWeight.w500,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 23),
-                          border: InputBorder.none,
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
-                              color: const Color(0xFF334355),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscureConfirmPassword = !_obscureConfirmPassword;
-                              });
-                            },
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez confirmer votre mot de passe';
-                          }
-                          if (value != _passwordController.text) {
-                            return 'Les mots de passe ne correspondent pas';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
+                    
+                    const SizedBox(height: 10),
+                    
                     // Affichage du message d'erreur
                     if (_errorMessage != null)
                       Container(
+                        width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: const Color(0xFFBC4749).withAlpha(25),
@@ -384,157 +274,111 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ],
                         ),
                       ),
-                    const SizedBox(height: 40),
-
-                    // Bouton CONTINUER avec flèche
-                    Container(
-                      height: 58,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF386641), Color(0xFF6A994E)],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(25),
-                            blurRadius: 4,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: _isLoading ? null : _signUp,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                if (_isLoading)
-                                  const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                else
-                                  const Text(
-                                    'CONTINUER',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontFamily: 'Quicksand',
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                if (!_isLoading)
-                                  Container(
-                                    width: 30,
-                                    height: 30,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.arrow_forward,
-                                      color: Color(0xFF386641),
-                                      size: 20,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-
-                    // Lien vers la connexion
+                    
+                    const SizedBox(height: 30),
+                    
+                    // Bouton S'INSCRIRE
                     GestureDetector(
-                      onTap: () {
-                        Navigator.pushReplacement(
-                          context,
-                          PageRouteBuilder(
-                            pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
-                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                              const begin = Offset(-1.0, 0.0);
-                              const end = Offset.zero;
-                              const curve = Curves.easeInOut;
-                              
-                              var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                              var offsetAnimation = animation.drive(tween);
-                              
-                              return SlideTransition(
-                                position: offsetAnimation,
-                                child: BackdropFilter(
-                                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                                  child: child,
+                      onTap: _handleRegister,
+                      child: Container(
+                        width: double.infinity,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6A994E),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(60, 128, 209, 0.085),
+                              blurRadius: 19,
+                              offset: Offset(0, 12),
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const Center(
+                              child: Text(
+                                'S\'INSCRIRE',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  fontFamily: 'Quicksand',
                                 ),
-                              );
-                            },
-                            transitionDuration: const Duration(milliseconds: 300),
-                          ),
-                        );
-                      },
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Vous avez déjà un compte ?',
-                            style: TextStyle(
-                              color: Color(0xFF847264),
-                              fontSize: 16,
-                              fontFamily: 'Quicksand',
-                              fontWeight: FontWeight.w400,
-                              height: 1.38,
+                              ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'SE CONNECTER',
-                            style: TextStyle(
-                              color: Color(0xFF6A994E),
-                              fontSize: 16,
-                              fontFamily: 'Quicksand',
-                              fontWeight: FontWeight.w700,
-                              height: 1.38,
-                              letterSpacing: 1,
+                            Positioned(
+                              right: 16,
+                              top: 16,
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_forward,
+                                  color: Color(0xFF6A994E),
+                                  size: 20,
+                                ),
+                              ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-
-                    // Indicateur de navigation (optionnel)
-                    Center(
-                      child: Opacity(
-                        opacity: 0.20,
-                        child: Container(
-                          width: 134,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF334355),
-                            borderRadius: BorderRadius.circular(2.50),
-                          ),
+                          ],
                         ),
                       ),
+                    ),
+                    
+                    // Lien vers la connexion
+                    const SizedBox(height: 20),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      children: [
+                        const Text(
+                          "Vous avez déjà un compte ? ",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF344356),
+                            fontFamily: 'Quicksand',
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.pop(context);
+                          },
+                          child: const Text(
+                            "Connectez-vous",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF6A994E),
+                              fontFamily: 'Quicksand',
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
           ),
-        ),
+          
+          // Mascotte (oiseau) - positionnée en pourcentages pour tous les écrans
+          Positioned(
+            top: screenHeight * 0.275, // Ajusté pour les 3 champs
+            right: screenWidth * 0.19,
+            child: Image.asset(
+              'assets/Images/Bouton/mascotte.png',
+              width: 60,
+              height: 60,
+            ),
+          ),
+        ],
       ),
     );
   }
-} 
+}

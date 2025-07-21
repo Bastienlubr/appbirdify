@@ -132,17 +132,18 @@ class _HomeContentState extends State<HomeContent> {
   Future<void> _signOut() async {
     try {
       await FirebaseAuth.instance.signOut();
-      if (!context.mounted) return;
+      if (!mounted) return;
       
       // Navigation vers l'écran de connexion
-      Navigator.pushNamedAndRemoveUntil(
-        context,
+      final navigator = Navigator.of(context);
+      navigator.pushNamedAndRemoveUntil(
         '/login',
         (route) => false,
       );
     } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
         SnackBar(
           content: Text('Erreur lors de la déconnexion: $e'),
           backgroundColor: const Color(0xFFBC4749),

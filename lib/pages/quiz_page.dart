@@ -50,16 +50,18 @@ class _QuizPageState extends State<QuizPage> {
         // Vérifier si l'utilisateur peut lancer le quiz
         final canStart = await QuizLifeManager.canStartQuiz(user.uid);
         if (!canStart) {
-          if (!context.mounted) return;
+          if (!mounted) return;
           
           // Afficher un message d'erreur et retourner à l'accueil
-          ScaffoldMessenger.of(context).showSnackBar(
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.showSnackBar(
             const SnackBar(
               content: Text('Vous n\'avez plus de vies disponibles. Revenez demain !'),
               backgroundColor: Color(0xFFBC4749),
             ),
           );
-          Navigator.pop(context);
+          final navigator = Navigator.of(context);
+          navigator.pop();
           return;
         }
       }
@@ -586,9 +588,10 @@ class _QuizPageState extends State<QuizPage> {
       debugPrint('Erreur lors de la finalisation du quiz: $e');
     }
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
-    Navigator.of(context).pushReplacement(
+    final navigator = Navigator.of(context);
+    navigator.pushReplacement(
       MaterialPageRoute(
         builder: (context) => QuizEndPage(
           score: _score,
