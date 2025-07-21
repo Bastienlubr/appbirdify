@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'login_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../pages/home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -14,6 +15,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   String? _errorMessage;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -23,6 +25,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  String _getFirebaseErrorMessage(String code) {
+    switch (code) {
+      case 'weak-password':
+        return 'Le mot de passe est trop faible. Utilisez au moins 6 caractères.';
+      case 'email-already-in-use':
+        return 'Cette adresse email est déjà utilisée.';
+      case 'invalid-email':
+        return 'Adresse email invalide.';
+      case 'operation-not-allowed':
+        return 'L\'inscription par email/mot de passe n\'est pas activée.';
+      case 'network-request-failed':
+        return 'Erreur de connexion réseau. Vérifiez votre connexion internet.';
+      default:
+        return 'Erreur lors de l\'inscription: $code';
+    }
+  }
+
   Future<void> _handleRegister() async {
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
@@ -30,11 +49,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() {
       _errorMessage = null;
+      _isLoading = true;
     });
 
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
       setState(() {
         _errorMessage = 'Veuillez remplir tous les champs';
+        _isLoading = false;
       });
       return;
     }
@@ -43,29 +64,66 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!isValidEmail) {
       setState(() {
         _errorMessage = 'Veuillez entrer une adresse email valide';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      setState(() {
+        _errorMessage = 'Le mot de passe doit contenir au moins 6 caractères';
+        _isLoading = false;
       });
       return;
     }
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      // Créer l'utilisateur avec Firebase Auth
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
+      // Mettre à jour le profil utilisateur avec le nom
+      if (userCredential.user != null) {
+        await userCredential.user!.updateDisplayName(name);
+        
+        // Sauvegarder les informations utilisateur dans Firestore
+        try {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .set({
+            'name': name,
+            'email': email,
+            'createdAt': FieldValue.serverTimestamp(),
+            'lastLogin': FieldValue.serverTimestamp(),
+          });
+        } catch (firestoreError) {
+          // Log l'erreur Firestore mais ne pas bloquer l'inscription
+          print('Firestore error: $firestoreError');
+        }
+      }
+
       if (!mounted) return;
 
-      final navigator = Navigator.of(context);
-      navigator.push(
-        MaterialPageRoute(builder: (_) => const LoginScreen()), // Ou SuccessScreen si disponible
+      // Navigation vers l'écran principal avec pushReplacement
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
+      
     } on FirebaseAuthException catch (e) {
+      print('FirebaseAuthException: ${e.code} - ${e.message}');
       setState(() {
-        _errorMessage = 'Firebase error: ${e.code}';
+        _errorMessage = _getFirebaseErrorMessage(e.code);
+        _isLoading = false;
       });
     } catch (e) {
+      print('Unexpected error during registration: $e');
       setState(() {
         _errorMessage = 'Erreur inconnue. Réessayez plus tard.';
+        _isLoading = false;
       });
     }
   }
@@ -279,12 +337,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     
                     // Bouton S'INSCRIRE
                     GestureDetector(
-                      onTap: _handleRegister,
+                      onTap: _isLoading ? null : _handleRegister,
                       child: Container(
                         width: double.infinity,
                         height: 60,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6A994E),
+                          color: _isLoading 
+                              ? const Color(0xFF6A994E).withOpacity(0.7)
+                              : const Color(0xFF6A994E),
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: const [
                             BoxShadow(
@@ -297,34 +357,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
-                            const Center(
-                              child: Text(
-                                'S\'INSCRIRE',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  fontFamily: 'Quicksand',
+                            Center(
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'S\'INSCRIRE',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        fontFamily: 'Quicksand',
+                                      ),
+                                    ),
+                            ),
+                            if (!_isLoading)
+                              Positioned(
+                                right: 16,
+                                top: 16,
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.arrow_forward,
+                                    color: Color(0xFF6A994E),
+                                    size: 20,
+                                  ),
                                 ),
                               ),
-                            ),
-                            Positioned(
-                              right: 16,
-                              top: 16,
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.arrow_forward,
-                                  color: Color(0xFF6A994E),
-                                  size: 20,
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ),
