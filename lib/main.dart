@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'pages/home_screen.dart';
 import 'pages/auth/login_screen.dart';
@@ -13,16 +12,11 @@ void main() async {
   // Initialisation Firebase avec gestion d'erreur robuste
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    debugPrint('✅ Firebase initialisé avec succès');
   } catch (e) {
+    debugPrint('❌ Erreur lors de l\'initialisation Firebase: $e');
     // En cas d'échec d'initialisation Firebase, on continue quand même
     // pour permettre à l'app de fonctionner en mode hors ligne
-  }
-  
-  // Test de connexion Firestore (optionnel)
-  try {
-    await FirebaseFirestore.instance.collection('debug').doc('test').get();
-  } catch (e) {
-    // Firestore non disponible, l'app peut continuer
   }
   
   runApp(const MyApp());

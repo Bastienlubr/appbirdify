@@ -48,6 +48,8 @@ dependencies:
   
   # HTTP client for API calls
   http: ^1.2.0
+  
+
 
 dev_dependencies:
   flutter_test:

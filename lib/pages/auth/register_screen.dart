@@ -101,7 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           });
         } catch (firestoreError) {
           // Log l'erreur Firestore mais ne pas bloquer l'inscription
-          print('Firestore error: $firestoreError');
+          debugPrint('Firestore error: $firestoreError');
         }
       }
 
@@ -114,13 +114,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       
     } on FirebaseAuthException catch (e) {
-      print('FirebaseAuthException: ${e.code} - ${e.message}');
+      debugPrint('FirebaseAuthException: ${e.code} - ${e.message}');
       setState(() {
         _errorMessage = _getFirebaseErrorMessage(e.code);
         _isLoading = false;
       });
     } catch (e) {
-      print('Unexpected error during registration: $e');
+      debugPrint('Unexpected error during registration: $e');
       setState(() {
         _errorMessage = 'Erreur inconnue. Réessayez plus tard.';
         _isLoading = false;
@@ -343,7 +343,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         height: 60,
                         decoration: BoxDecoration(
                           color: _isLoading 
-                              ? const Color(0xFF6A994E).withOpacity(0.7)
+                              ? const Color(0xFF6A994E).withValues(alpha: 0.7)
                               : const Color(0xFF6A994E),
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: const [

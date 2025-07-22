@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/biome_carousel_enhanced.dart';
 import '../data/milieu_data.dart';
 import '../models/mission.dart';
 import '../pages/quiz_page.dart'; // Added import for QuizPage
-import '../widgets/lives_display_widget.dart';
 import '../pages/auth/login_screen.dart';
+import '../services/life_sync_service.dart';
+import '../services/life_system_test.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -87,13 +90,89 @@ class _HomeContentState extends State<HomeContent> {
   List<bool> _missionVisibility = [];
   List<Mission> _currentMissions = [];
   late ScrollController _missionScrollController;
+  
+  // Gestion des vies
+  int _currentLives = 5;
+
 
   @override
   void initState() {
     super.initState();
     _missionScrollController = ScrollController();
     _loadMissionsForBiome(_selectedBiome);
+    _loadCurrentLives();
   }
+
+  /// Charge les vies actuelles depuis Firestore et vérifie la réinitialisation quotidienne
+  Future<void> _loadCurrentLives() async {
+    try {
+      final uid = LifeSyncService.getCurrentUserId();
+      if (uid != null) {
+        final lives = await LifeSyncService.checkAndResetLives(uid);
+        if (mounted) {
+          setState(() {
+            _currentLives = lives;
+          });
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ Erreur lors du chargement des vies: $e');
+      // Fallback à 5 vies en cas d'erreur
+      if (mounted) {
+        setState(() {
+          _currentLives = 5;
+        });
+      }
+    }
+  }
+
+  /// Réinitialise les vies à 5 (fonction de test uniquement)
+  Future<void> _resetVies() async {
+    try {
+      final uid = LifeSystemTest.getCurrentUserId();
+      if (uid == null) {
+        if (kDebugMode) debugPrint('⚠️ Aucun utilisateur connecté');
+        return;
+      }
+
+      await LifeSystemTest.resetVies(uid);
+      
+      // Recharger les vies depuis Firestore après la réinitialisation
+      if (mounted) {
+        await _loadCurrentLives();
+        if (!mounted) return;
+        
+        // Afficher un SnackBar de confirmation
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Vies réinitialisées à 5 !',
+              style: TextStyle(fontFamily: 'Quicksand'),
+            ),
+            backgroundColor: Color(0xFF6A994E),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ Erreur lors de la réinitialisation des vies: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Erreur lors de la réinitialisation: ${e.toString()}',
+              style: const TextStyle(fontFamily: 'Quicksand'),
+            ),
+            backgroundColor: const Color(0xFFBC4749),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+
 
   @override
   void dispose() {
@@ -130,11 +209,13 @@ class _HomeContentState extends State<HomeContent> {
     }
   }
 
+
+
   Future<void> _signOut() async {
     try {
-      print('🔄 Déconnexion en cours...');
+      debugPrint('🔄 Déconnexion en cours...');
       await FirebaseAuth.instance.signOut();
-      print('✅ Déconnexion Firebase réussie');
+      debugPrint('✅ Déconnexion Firebase réussie');
       
       if (!mounted) return;
       
@@ -143,10 +224,10 @@ class _HomeContentState extends State<HomeContent> {
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
-      print('✅ Navigation vers l\'écran de connexion réussie');
+      debugPrint('✅ Navigation vers l\'écran de connexion réussie');
       
     } catch (e) {
-      print('❌ Erreur lors de la déconnexion: $e');
+      debugPrint('❌ Erreur lors de la déconnexion: $e');
       if (!mounted) return;
       
       final messenger = ScaffoldMessenger.of(context);
@@ -164,30 +245,100 @@ class _HomeContentState extends State<HomeContent> {
     return SafeArea(
         child: Stack(
           children: [
-            // Bouton de déconnexion en haut à gauche
+            // Boutons en haut à gauche
             Positioned(
               top: 12,
               left: 24,
-              child: GestureDetector(
-                onTap: _signOut,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF386641).withAlpha(20),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF386641),
-                      width: 1,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Bouton de déconnexion
+                  GestureDetector(
+                    onTap: _signOut,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF386641).withAlpha(20),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF386641),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.logout,
+                        color: Color(0xFF386641),
+                        size: 24,
+                      ),
                     ),
                   ),
-                  child: const Icon(
-                    Icons.logout,
-                    color: Color(0xFF386641),
-                    size: 24,
-                  ),
+                  
+                  // Bouton développeur pour réinitialiser les vies (debug uniquement)
+                  if (kDebugMode) ...[
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: _resetVies,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFBC4749).withAlpha(20),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFFBC4749),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.refresh,
+                          color: Color(0xFFBC4749),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            
+            // Icône de vie avec compteur en haut à droite
+            Positioned(
+              top: 4,
+              right: 4,
+              child: SizedBox(
+                width: 110,
+                height: 110,
+                child: Stack(
+                  children: [
+                    // Icône de vie en arrière-plan
+                    Image.asset(
+                      'assets/Images/Bouton/Group 15.png',
+                      width: 110,
+                      height: 110,
+                    ),
+                    // Compteur de vies centré par-dessus
+                    Positioned.fill(
+                      child: Transform.translate(
+                        offset: const Offset(15, 35), // Ajustement fin de la position verticale
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: Text(
+                            _currentLives.toString(),
+                            style: TextStyle(
+                              fontFamily: 'Quicksand',
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFF473C33),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
+            
+
             
             Padding(
               padding: const EdgeInsets.only(top: 50), // Ajoute 50px d'espace en haut
@@ -202,6 +353,7 @@ class _HomeContentState extends State<HomeContent> {
                       children: [
                         _buildTitleSection(),
                         const SizedBox(height: 4),
+
                       ],
                     ),
                   ),
@@ -235,14 +387,6 @@ class _HomeContentState extends State<HomeContent> {
                     ),
                   ),
                 ],
-              ),
-            ),
-            // Bloc de compteurs et mascotte en haut à droite
-            Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 12, right: 24), // Réduit de 16 à 12
-                child: _buildStatsBlock(),
               ),
             ),
           ],
@@ -280,54 +424,7 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  Widget _buildStatsBlock() {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        // Fond du rectangle - plus petit et à droite
-        Positioned(
-          right: -35,
-          top: -28,
-          child: Image.asset(
-            'assets/Images/Bouton/caseviestrick.png',
-            width: 150,  // Plus petit
-            height: 150,  // Plus petit
-          ),
-        ),
-        // Contenu des compteurs - Streak
-        Positioned(
-          right: 20,  // Contrôlez la position gauche/droite du streak
-          top: 36,    // Contrôlez la position haut/bas du streak
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(
-                'assets/Images/Bouton/strick.png',
-                width: 30,  // Contrôlez la taille du streak
-                height: 30,  // Contrôlez la taille du streak
-              ),
-              const SizedBox(width: 2),
-              const Text(
-                '2',
-                style: TextStyle(
-                  fontFamily: 'Quicksand',
-                  fontSize: 24,  // Contrôlez la taille du texte streak
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF473C33),
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Contenu des compteurs - Vies
-        Positioned(
-          right: 20,  // Contrôlez la position gauche/droite des vies
-          top: 65,    // Contrôlez la position haut/bas des vies
-          child: const LivesStatsWidget(),
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildQuizCards() {
     return Column(
@@ -360,17 +457,72 @@ class _HomeContentState extends State<HomeContent> {
       mission: mission,
       hasCsvFile: hasCsvFile,
       onTap: hasCsvFile
-          ? () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => QuizPage(missionId: mission.csvFile!),
-                ),
-              );
-            }
+          ? () => _handleQuizLaunch(mission.csvFile!)
           : null,
     );
   }
+
+  /// Gère le lancement d'un quiz
+  Future<void> _handleQuizLaunch(String missionId) async {
+    if (!mounted) return;
+    
+    // Vérifier si l'utilisateur a des vies disponibles
+    if (_currentLives == 0) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text(
+            "Plus de vies",
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFBC4749),
+            ),
+          ),
+          content: const Text(
+            "Vous n'avez plus de vies disponibles. Revenez demain à minuit pour les restaurer.",
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontSize: 16,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                "OK",
+                style: TextStyle(
+                  fontFamily: 'Quicksand',
+                  color: Color(0xFF6A994E),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuizPage(missionId: missionId),
+      ),
+    );
+    
+    // Recharger les vies depuis Firestore après le retour du quiz
+    if (mounted) {
+      await _loadCurrentLives();
+      if (!mounted) return;
+    }
+  }
+
+
+
+
+
+
 }
 
 class _AnimatedMissionCard extends StatefulWidget {
@@ -441,13 +593,13 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
+                    color: Colors.black.withAlpha(20),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
                 border: widget.hasCsvFile 
-                    ? Border.all(color: const Color(0xFF6A994E).withValues(alpha: 0.3), width: 1)
+                    ? Border.all(color: const Color(0xFF6A994E).withAlpha(77), width: 1)
                     : null,
       ),
       child: Row(
@@ -459,7 +611,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
             decoration: BoxDecoration(
                       color: widget.hasCsvFile 
                           ? const Color(0xFFF2E8CF)
-                          : Colors.grey.withValues(alpha: 0.3),
+                          : Colors.grey.withAlpha(77),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -497,7 +649,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                             color: widget.hasCsvFile 
-                                ? const Color(0xFF344356).withValues(alpha: 0.7)
+                                ? const Color(0xFF344356).withAlpha(179)
                                 : Colors.grey,
                           ),
                         ),
@@ -523,7 +675,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6A994E).withValues(alpha: 0.1),
+                        color: const Color(0xFF6A994E).withAlpha(26),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(

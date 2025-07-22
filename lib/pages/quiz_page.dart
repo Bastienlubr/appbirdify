@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:animations/animations.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../services/quiz_generator.dart';
-import '../services/quiz_life_manager.dart';
-import '../widgets/lives_display_widget.dart';
+import '../services/life_sync_service.dart';
 import 'quiz_end_page.dart';
 
 class QuizPage extends StatefulWidget {
@@ -28,6 +27,9 @@ class _QuizPageState extends State<QuizPage> {
   int _currentQuestionIndex = 0;
   int _score = 0;
   
+  // Gestion des vies
+  int _visibleLives = 5;
+  
   // Gestion de l'audio
   late AudioPlayer _audioPlayer;
   String _currentAudioUrl = '';
@@ -35,6 +37,8 @@ class _QuizPageState extends State<QuizPage> {
   // Gestion des animations et feedback
   bool _showFeedbackMessage = false;
   String _feedbackMessage = '';
+  
+
 
   @override
   void initState() {
@@ -44,41 +48,67 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   Future<void> _initializeQuiz() async {
+    // Charger les vies restantes depuis Firestore et vérifier la réinitialisation quotidienne
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        // Vérifier si l'utilisateur peut lancer le quiz
-        final canStart = await QuizLifeManager.canStartQuiz(user.uid);
-        if (!canStart) {
-          if (!mounted) return;
-          
-          // Afficher un message d'erreur et retourner à l'accueil
-          final messenger = ScaffoldMessenger.of(context);
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text('Vous n\'avez plus de vies disponibles. Revenez demain !'),
-              backgroundColor: Color(0xFFBC4749),
-            ),
-          );
-          final navigator = Navigator.of(context);
-          navigator.pop();
-          return;
+      final uid = LifeSyncService.getCurrentUserId();
+      if (uid != null) {
+        final lives = await LifeSyncService.checkAndResetLives(uid);
+        if (mounted) {
+          setState(() {
+            _visibleLives = lives;
+          });
         }
       }
-      
-      // Charger le quiz si les vies sont suffisantes
-      _loadQuiz();
     } catch (e) {
-      // En cas d'erreur, charger le quiz quand même
-      _loadQuiz();
+      if (kDebugMode) debugPrint('❌ Erreur lors du chargement des vies: $e');
+      // Fallback à 5 vies en cas d'erreur
+      if (mounted) {
+        setState(() {
+          _visibleLives = 5;
+        });
+      }
     }
+    
+    _loadQuiz();
   }
 
   @override
   void dispose() {
+    // Synchroniser les vies perdues avec Firestore
+    _syncLivesWithFirestore();
+    
     _audioPlayer.dispose();
     super.dispose();
   }
+
+  /// Synchronise les vies perdues avec Firestore
+  Future<void> _syncLivesWithFirestore() async {
+    try {
+      await LifeSyncService.syncLivesAfterQuiz(LifeSyncService.getCurrentUserId()!, _visibleLives);
+      
+      if (!mounted) return;
+      
+      if (kDebugMode) debugPrint('✅ Vies synchronisées: $_visibleLives vies restantes');
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ Erreur lors de la synchronisation des vies: $e');
+      
+      // Afficher un SnackBar pour informer l'utilisateur
+      if (mounted && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Erreur lors de la synchronisation des vies: ${e.toString()}',
+              style: const TextStyle(fontFamily: 'Quicksand'),
+            ),
+            backgroundColor: const Color(0xFFBC4749),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+
 
   Widget _buildQuestionPage(QuizQuestion question, int index) {
     return Container(
@@ -92,57 +122,84 @@ class _QuizPageState extends State<QuizPage> {
       child: SafeArea(
         child: Stack(
           children: [
-            // Zone supérieure avec bouton échappe et compteur de vies
+            // Zone supérieure avec bouton échappe
             Positioned(
-              top: 20,
-              left: 20,
-              right: 20,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Bouton "échappe" personnalisé à gauche
-                  GestureDetector(
-                    onTap: () {
-                      // Annuler le quiz sans consommer de vies
-                      QuizLifeManager.cancelQuiz();
-                      Navigator.pop(context);
-                    },
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD2DBB2),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
+              top: 30, // Exactement la même hauteur que le compteur
+              left: 35,
+              child: GestureDetector(
+                onTap: () {
+                  // Quitter le quiz
+                  _exitQuiz();
+                },
+                child: Image.asset(
+                  "assets/Images/Bouton/Boutonechap2.png",
+                  width: 30, // Beaucoup plus gros
+                  height: 30, // Beaucoup plus gros
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(
+                      Icons.arrow_back,
+                      color: Color(0xFF473C33),
+                      size: 80,
+                    );
+                  },
+                ),
+              ),
+            ),
+            
+            // Icône de vie avec compteur en haut à droite
+            Positioned(
+              top: 5,
+              right: 30,
+                              child: SizedBox(
+                  width: 80,
+                  height: 80,
+                child: Stack(
+                  children: [
+                    // Icône de vie en arrière-plan
+                    Image.asset(
+                      'assets/Images/Bouton/barvie.png',
+                      width: 100,
+                      height: 100,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBC4749).withAlpha(51),
+                            borderRadius: BorderRadius.circular(40),
                           ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Image.asset(
-                          "assets/Images/Bouton/bouton echap.png",
-                          width: 24,
-                          height: 24,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(
-                              Icons.arrow_back,
-                              color: Color(0xFF473C33),
-                              size: 35,
-                            );
-                          },
+                          child: const Icon(
+                            Icons.favorite,
+                            color: Color(0xFFBC4749),
+                            size: 40,
+                          ),
+                        );
+                      },
+                    ),
+                    // Compteur de vies centré par-dessus
+                    Positioned.fill(
+                      child: Transform.translate(
+                        offset: const Offset(18, -0.5), // Ajustement fin de la position verticale
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: Text(
+                            _visibleLives.toString(),
+                            style: TextStyle(
+                              fontFamily: 'Quicksand',
+                              fontSize: 34,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFF473C33),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  
-                  // Compteur de vies à droite
-                  const LivesQuizWidget(),
-                ],
+                  ],
+                ),
               ),
             ),
+            
+
             
             // Compteur de questions centré horizontalement en haut
             Align(
@@ -287,7 +344,7 @@ class _QuizPageState extends State<QuizPage> {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
+                                  color: Colors.black.withAlpha(26),
                                   blurRadius: 8,
                                   offset: const Offset(0, 4),
                                 ),
@@ -443,6 +500,7 @@ class _QuizPageState extends State<QuizPage> {
   Future<void> _loadQuiz() async {
     try {
       final questions = await QuizGenerator.generateQuizFromCsv(widget.missionId);
+      if (!mounted) return;
       setState(() {
         _questions = questions;
         _isLoading = false;
@@ -479,6 +537,7 @@ class _QuizPageState extends State<QuizPage> {
       // Lancer la lecture automatiquement
       await _audioPlayer.play();
       
+      if (!mounted) return;
       setState(() {
         _currentAudioUrl = audioUrl;
       });
@@ -524,10 +583,7 @@ class _QuizPageState extends State<QuizPage> {
     // Arrêter l'audio immédiatement quand une réponse est sélectionnée
     await _stopAudio();
     
-    // Consommer une vie si la réponse est incorrecte
-    if (!isCorrect) {
-      QuizLifeManager.loseLife();
-    }
+    if (!mounted) return;
     
     setState(() {
       _selectedAnswer = selectedAnswer;
@@ -537,6 +593,9 @@ class _QuizPageState extends State<QuizPage> {
       // Incrémenter le score si la réponse est correcte
       if (isCorrect) {
         _score++;
+      } else {
+        // Décrémenter les vies si la réponse est incorrecte
+        _visibleLives--;
       }
     });
 
@@ -553,7 +612,13 @@ class _QuizPageState extends State<QuizPage> {
     // Afficher le feedback pendant le délai configuré puis passer à la question suivante
     await Future.delayed(const Duration(milliseconds: 2000));
     if (!context.mounted) return;
-    _goToNextQuestion();
+    
+    // Vérifier si le joueur a encore des vies
+    if (_visibleLives <= 0) {
+      _onQuizFailed();
+    } else {
+      _goToNextQuestion();
+    }
   }
 
   void _goToNextQuestion() async {
@@ -576,20 +641,27 @@ class _QuizPageState extends State<QuizPage> {
     _loadAndPlayAudio(nextQuestion.audioUrl);
   }
 
-  void _onQuizCompleted() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        // Finaliser le quiz et synchroniser les vies
-        await QuizLifeManager.finishQuiz(user.uid);
-      }
-    } catch (e) {
-      // En cas d'erreur, continuer quand même
-      debugPrint('Erreur lors de la finalisation du quiz: $e');
-    }
+  /// Quitte le quiz
+  /// Appelé quand l'utilisateur quitte manuellement la mission
+  void _exitQuiz() async {
+    if (!mounted) return;
+    
+    // Synchroniser les vies avant de quitter
+    await _syncLivesWithFirestore();
+    
+    if (!mounted) return;
+    Navigator.pop(context);
+  }
 
+
+
+  void _onQuizCompleted() async {
     if (!mounted) return;
 
+    // Synchroniser les vies avant de quitter
+    await _syncLivesWithFirestore();
+
+    if (!mounted) return;
     final navigator = Navigator.of(context);
     navigator.pushReplacement(
       MaterialPageRoute(
@@ -597,6 +669,53 @@ class _QuizPageState extends State<QuizPage> {
           score: _score,
           totalQuestions: _questions.length,
         ),
+      ),
+    );
+  }
+
+  void _onQuizFailed() async {
+    if (!mounted) return;
+
+    // Synchroniser les vies avant d'afficher le dialogue
+    await _syncLivesWithFirestore();
+
+    if (!mounted) return;
+    
+    // Afficher un dialogue d'échec
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Quiz échoué !',
+          style: TextStyle(
+            fontFamily: 'Quicksand',
+            fontWeight: FontWeight.bold,
+            color: Color(0xFFBC4749),
+          ),
+        ),
+        content: Text(
+          'Vous avez perdu toutes vos vies !\nScore final : $_score/${_questions.length}',
+          style: const TextStyle(
+            fontFamily: 'Quicksand',
+            fontSize: 16,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Fermer le dialogue
+              Navigator.of(context).pop(); // Retourner à l'écran précédent
+            },
+            child: const Text(
+              'Retour',
+              style: TextStyle(
+                fontFamily: 'Quicksand',
+                color: Color(0xFF6A994E),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -609,9 +728,14 @@ class _QuizPageState extends State<QuizPage> {
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
+            onPressed: () async {
+              Navigator.of(context).pop(); // Fermer le dialogue
+              
+              // Synchroniser les vies avant de quitter
+              await _syncLivesWithFirestore();
+              
+              if (!mounted) return;
+              Navigator.of(context).pop(); // Retourner à l'écran précédent
             },
             child: const Text('Retour'),
           ),
@@ -628,7 +752,13 @@ class _QuizPageState extends State<QuizPage> {
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () async {
+              // Synchroniser les vies avant de quitter
+              await _syncLivesWithFirestore();
+              
+              if (!mounted) return;
+              Navigator.of(context).pop();
+            },
             child: const Text('OK'),
           ),
         ],
@@ -639,52 +769,52 @@ class _QuizPageState extends State<QuizPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F9),
-      body: _isLoading
-          ? const Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                  CircularProgressIndicator(color: Color(0xFF6A994E)),
-                  SizedBox(height: 16),
-                                      Text(
-                    'Chargement du quiz...',
-                                        style: TextStyle(
-                                          fontFamily: 'Quicksand',
-                      fontSize: 16,
-                      color: Color(0xFF386641),
+        backgroundColor: const Color(0xFFF3F5F9),
+        body: _isLoading
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(color: Color(0xFF6A994E)),
+                    SizedBox(height: 16),
+                    Text(
+                      'Chargement du quiz...',
+                      style: TextStyle(
+                        fontFamily: 'Quicksand',
+                        fontSize: 16,
+                        color: Color(0xFF386641),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : _questions.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Aucune question disponible',
+                      style: TextStyle(
+                        fontFamily: 'Quicksand',
+                        fontSize: 18,
+                        color: Color(0xFF386641),
+                      ),
+                    ),
+                  )
+                : PageTransitionSwitcher(
+                    transitionBuilder: (child, primaryAnimation, secondaryAnimation) {
+                      return FadeThroughTransition(
+                        animation: primaryAnimation,
+                        secondaryAnimation: secondaryAnimation,
+                        child: child,
+                      );
+                    },
+                    child: KeyedSubtree(
+                      key: ValueKey(_currentQuestionIndex),
+                      child: _buildQuestionPage(
+                        _questions[_currentQuestionIndex],
+                        _currentQuestionIndex,
+                      ),
                     ),
                   ),
-                ],
-              ),
-            )
-          : _questions.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Aucune question disponible',
-                    style: TextStyle(
-                      fontFamily: 'Quicksand',
-                      fontSize: 18,
-                      color: Color(0xFF386641),
-                    ),
-                  ),
-                )
-              : PageTransitionSwitcher(
-                  transitionBuilder: (child, primaryAnimation, secondaryAnimation) {
-                    return FadeThroughTransition(
-                      animation: primaryAnimation,
-                      secondaryAnimation: secondaryAnimation,
-                      child: child,
-                    );
-                  },
-                  child: KeyedSubtree(
-                    key: ValueKey(_currentQuestionIndex),
-                    child: _buildQuestionPage(
-                      _questions[_currentQuestionIndex],
-                      _currentQuestionIndex,
-          ),
-        ),
-      ),
     );
   }
 }
