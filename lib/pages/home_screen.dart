@@ -830,6 +830,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                   ),
               ],
             ),
+          ),
         );
       },
     );

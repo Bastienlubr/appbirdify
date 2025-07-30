@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:flutter/foundation.dart';
 
 class SimpleAudioPlayer extends StatefulWidget {
   final String audioPath;
