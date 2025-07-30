@@ -9,6 +9,7 @@ import '../pages/auth/login_screen.dart';
 import '../services/life_sync_service.dart';
 import '../services/life_system_test.dart';
 import '../services/mission_loader_service.dart';
+import '../services/mission_view_service.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -592,6 +593,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
   
   // État local pour tracker si la mission a été vue
   bool _hasBeenSeen = false;
+  bool _isLoadingViewedState = true;
 
   @override
   void initState() {
@@ -607,6 +609,9 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
+    
+    // Charger l'état "vu" depuis SharedPreferences
+    _loadViewedState();
   }
 
   @override
@@ -615,10 +620,33 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
     super.dispose();
   }
 
-  void _handleTap() {
+  /// Charge l'état "vu" depuis SharedPreferences
+  Future<void> _loadViewedState() async {
+    try {
+      final isViewed = await MissionViewService.isMissionViewed(widget.mission.id);
+      if (mounted) {
+        setState(() {
+          _hasBeenSeen = isViewed;
+          _isLoadingViewedState = false;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Erreur lors du chargement de l\'état vu pour ${widget.mission.id}: $e');
+      }
+      if (mounted) {
+        setState(() {
+          _isLoadingViewedState = false;
+        });
+      }
+    }
+  }
+
+  void _handleTap() async {
     if (widget.onTap != null) {
       // Marquer la mission comme vue lors du premier clic
       if (widget.isUnlocked && !_hasBeenSeen) {
+        await MissionViewService.markMissionAsViewed(widget.mission.id);
         setState(() {
           _hasBeenSeen = true;
         });
@@ -633,6 +661,11 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
 
   /// Détermine le texte à afficher selon l'état de la mission
   String? _getAvailabilityText() {
+    // Si on est encore en train de charger l'état, ne rien afficher
+    if (_isLoadingViewedState) {
+      return null;
+    }
+    
     // Si la mission a déjà été vue, ne rien afficher
     if (_hasBeenSeen) {
       return null;
@@ -656,23 +689,25 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
           scale: _scaleAnimation.value,
           child: GestureDetector(
             onTap: _handleTap,
-            child: Container(
-      margin: const EdgeInsets.only(bottom: 12), // Réduit de 16 à 12
-      padding: const EdgeInsets.all(12), // Réduit de 16 à 12
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-                    color: Colors.black.withAlpha(20),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-                border: widget.isUnlocked 
-                    ? Border.all(color: const Color(0xFF6A994E).withAlpha(77), width: 1)
-                    : null,
-      ),
+            child: Stack(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12), // Réduit de 16 à 12
+                  padding: const EdgeInsets.all(12), // Réduit de 16 à 12
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(20),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                    border: widget.isUnlocked 
+                        ? Border.all(color: const Color(0xFF6A994E).withAlpha(77), width: 1)
+                        : null,
+                  ),
       child: Row(
         children: [
           // Image de la mission
@@ -760,29 +795,40 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
               ],
             ),
           ),
-          
-                  // Indicateur de disponibilité
-                  if (_getAvailabilityText() != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6A994E).withAlpha(26),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _getAvailabilityText()!,
-                        style: TextStyle(
-                          fontFamily: 'Quicksand',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF6A994E),
-                        ),
-                      ),
-                    ),
         ],
       ),
+      
+      // Nouvel indicateur "NOUVEAU" positionné en haut à droite
+      if (_getAvailabilityText() != null)
+        Positioned(
+          top: -4,
+          right: -4,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6A994E),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(30),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Text(
+              _getAvailabilityText()!,
+              style: const TextStyle(
+                fontFamily: 'Quicksand',
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
           ),
+        ),
+    ],
+  ),
         );
       },
     );
