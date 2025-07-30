@@ -10,6 +10,7 @@ class Mission {
   final String? sousTitre;
   final String? iconUrl;
   final int lastStarsEarned;
+  final bool hasBeenSeen;
 
   Mission({
     required this.id,
@@ -23,6 +24,7 @@ class Mission {
     this.sousTitre,
     this.iconUrl,
     this.lastStarsEarned = 0,
+    this.hasBeenSeen = false,
   });
 
   // Getters
@@ -52,6 +54,7 @@ class Mission {
       sousTitre: json['sousTitre'] as String?,
       iconUrl: json['iconUrl'] as String?,
       lastStarsEarned: json['lastStarsEarned'] as int? ?? 0,
+      hasBeenSeen: json['hasBeenSeen'] as bool? ?? false,
     );
   }
 
@@ -69,6 +72,7 @@ class Mission {
       if (sousTitre != null) 'sousTitre': sousTitre,
       if (iconUrl != null) 'iconUrl': iconUrl,
       'lastStarsEarned': lastStarsEarned,
+      'hasBeenSeen': hasBeenSeen,
     };
   }
 
@@ -115,6 +119,7 @@ class Mission {
     String? sousTitre,
     String? iconUrl,
     int? lastStarsEarned,
+    bool? hasBeenSeen,
   }) {
     return Mission(
       id: id ?? this.id,
@@ -128,6 +133,7 @@ class Mission {
       sousTitre: sousTitre ?? this.sousTitre,
       iconUrl: iconUrl ?? this.iconUrl,
       lastStarsEarned: lastStarsEarned ?? this.lastStarsEarned,
+      hasBeenSeen: hasBeenSeen ?? this.hasBeenSeen,
     );
   }
 } 

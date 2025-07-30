@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:csv/csv.dart';
 import '../models/mission.dart';
 import 'package:flutter/foundation.dart';
+import 'mission_persistence_service.dart';
 
 class MissionLoaderService {
   static const String _csvPath = 'assets/Missionhome/missions_structure.csv';
@@ -130,9 +131,28 @@ class MissionLoaderService {
     return lowerValue == 'true' || lowerValue == '1' || lowerValue == 'yes';
   }
   
-  /// Méthode utilitaire pour obtenir les missions d'un biome spécifique
+  /// Méthode utilitaire pour obtenir les missions d'un biome spécifique avec persistance
   static Future<List<Mission>> loadMissionsForBiome(String biomeName) async {
-    final Map<String, List<Mission>> allMissions = await loadMissionsFromCsv();
-    return allMissions[biomeName] ?? [];
+    try {
+      final Map<String, List<Mission>> allMissions = await loadMissionsFromCsv();
+      final List<Mission> biomeMissions = allMissions[biomeName] ?? [];
+      
+      // Récupérer les missions consultées
+      final List<String> consultedMissions = await MissionPersistenceService.getConsultedMissions();
+      
+      // Mettre à jour le statut hasBeenSeen pour chaque mission
+      final List<Mission> updatedMissions = biomeMissions.map((mission) {
+        final bool hasBeenConsulted = consultedMissions.contains(mission.id);
+        return mission.copyWith(hasBeenSeen: hasBeenConsulted);
+      }).toList();
+      
+      // Trier les missions par niveau
+      updatedMissions.sort((a, b) => a.index.compareTo(b.index));
+      
+      return updatedMissions;
+    } catch (e) {
+      debugPrint('❌ Erreur lors du chargement des missions pour le biome $biomeName: $e');
+      return [];
+    }
   }
 } 

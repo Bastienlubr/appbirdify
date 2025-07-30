@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/biome_carousel_enhanced.dart';
 import '../data/milieu_data.dart';
@@ -9,7 +10,7 @@ import '../pages/auth/login_screen.dart';
 import '../services/life_sync_service.dart';
 import '../services/life_system_test.dart';
 import '../services/mission_loader_service.dart';
-import '../services/mission_view_service.dart';
+import '../services/mission_persistence_service.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -503,6 +504,7 @@ class _HomeContentState extends State<HomeContent> {
       onTap: (hasCsvFile && isUnlocked)
           ? () => _handleQuizLaunch(mission.id)
           : null,
+      onMissionConsulted: () => _loadMissionsForBiome(_selectedBiome),
     );
   }
 
@@ -574,12 +576,14 @@ class _AnimatedMissionCard extends StatefulWidget {
   final bool hasCsvFile;
   final bool isUnlocked;
   final VoidCallback? onTap;
+  final VoidCallback? onMissionConsulted;
 
   const _AnimatedMissionCard({
     required this.mission,
     required this.hasCsvFile,
     required this.isUnlocked,
     this.onTap,
+    this.onMissionConsulted,
   });
 
   @override
@@ -587,19 +591,19 @@ class _AnimatedMissionCard extends StatefulWidget {
 }
 
 class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
-  
-  // État local pour tracker si la mission a été vue
-  bool _hasBeenSeen = false;
-  bool _isLoadingViewedState = true;
+  late AnimationController _badgeAnimationController;
+  late Animation<double> _badgeOpacityAnimation;
+  late Animation<double> _badgeScaleAnimation;
+  late AnimationController _badgeFloatController;
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
     _scaleAnimation = Tween<double>(
@@ -610,46 +614,58 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
       curve: Curves.easeInOut,
     ));
     
-    // Charger l'état "vu" depuis SharedPreferences
-    _loadViewedState();
+    // Animation pour le badge "NOUVEAU"
+    _badgeAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
+    _badgeOpacityAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _badgeAnimationController,
+      curve: Curves.easeOut,
+    ));
+    _badgeScaleAnimation = Tween<double>(
+      begin: 0.9,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _badgeAnimationController,
+      curve: Curves.easeOut,
+    ));
+    
+    // Animation de flottement pour le badge
+    _badgeFloatController = AnimationController(
+      duration: const Duration(milliseconds: 4000),
+      vsync: this,
+    );
+    
+    // Déclencher l'animation du badge si nécessaire
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_getAvailabilityText() != null) {
+        _badgeAnimationController.forward().then((_) {
+          // Démarrer l'animation de flottement seulement après l'apparition
+          _badgeFloatController.repeat();
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _badgeAnimationController.dispose();
+    _badgeFloatController.dispose();
     super.dispose();
   }
 
-  /// Charge l'état "vu" depuis SharedPreferences
-  Future<void> _loadViewedState() async {
-    try {
-      final isViewed = await MissionViewService.isMissionViewed(widget.mission.id);
-      if (mounted) {
-        setState(() {
-          _hasBeenSeen = isViewed;
-          _isLoadingViewedState = false;
-        });
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Erreur lors du chargement de l\'état vu pour ${widget.mission.id}: $e');
-      }
-      if (mounted) {
-        setState(() {
-          _isLoadingViewedState = false;
-        });
-      }
-    }
-  }
-
-  void _handleTap() async {
+  void _handleTap() {
     if (widget.onTap != null) {
-      // Marquer la mission comme vue lors du premier clic
-      if (widget.isUnlocked && !_hasBeenSeen) {
-        await MissionViewService.markMissionAsViewed(widget.mission.id);
-        setState(() {
-          _hasBeenSeen = true;
-        });
+      // Marquer la mission comme consultée de manière persistante
+      if (widget.isUnlocked && !widget.mission.hasBeenSeen) {
+        MissionPersistenceService.markMissionAsConsulted(widget.mission.id);
+        // Notifier le parent pour recharger les missions
+        widget.onMissionConsulted?.call();
       }
       
       _animationController.forward().then((_) {
@@ -659,15 +675,32 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
     }
   }
 
-  /// Détermine le texte à afficher selon l'état de la mission
-  String? _getAvailabilityText() {
-    // Si on est encore en train de charger l'état, ne rien afficher
-    if (_isLoadingViewedState) {
-      return null;
+  /// Calcule la taille de police adaptative pour le sous-titre
+  double _calculateSubtitleFontSize() {
+    final String subtitle = widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}';
+    
+    // Taille de base uniforme pour toutes les missions
+    double baseSize = 14.0;
+    
+    // Réduire la taille si le texte est long
+    if (subtitle.length > 50) {
+      baseSize -= 1.0;
+    }
+    if (subtitle.length > 70) {
+      baseSize -= 1.0;
+    }
+    if (subtitle.length > 90) {
+      baseSize -= 1.0;
     }
     
-    // Si la mission a déjà été vue, ne rien afficher
-    if (_hasBeenSeen) {
+    // Taille minimum pour la lisibilité
+    return baseSize.clamp(11.0, 14.0);
+  }
+
+  /// Détermine le texte à afficher selon l'état de la mission
+  String? _getAvailabilityText() {
+    // Si la mission a déjà été consultée (persistant), ne rien afficher
+    if (widget.mission.hasBeenSeen) {
       return null;
     }
     
@@ -690,10 +723,13 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
           child: GestureDetector(
             onTap: _handleTap,
             child: Stack(
+              clipBehavior: Clip.none,
               children: [
+                // Carte principale de la mission
                 Container(
+                  height: 88.0, // Hauteur fixe uniforme pour toutes les missions
                   margin: const EdgeInsets.only(bottom: 12), // Réduit de 16 à 12
-                  padding: const EdgeInsets.all(12), // Réduit de 16 à 12
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8), // Padding réduit pour plus d'espace à l'icône
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -710,41 +746,51 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                   ),
                   child: Row(
                     children: [
+                      // Espacement pour déplacer l'icône vers la droite
+                      const SizedBox(width: 4),
                       // Image de la mission
                       Container(
-                        width: 44,
-                        height: 44,
+                        width: 64,
+                        height: 64,
                         decoration: BoxDecoration(
                           color: widget.isUnlocked 
-                              ? const Color(0xFFF2E8CF)
+                              ? Colors.grey.shade300
                               : Colors.grey.withAlpha(77),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(18),
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(18),
                           child: widget.mission.iconUrl != null
                               ? Image.asset(
                                   widget.mission.iconUrl!,
-                                  width: 44,
-                                  height: 44,
-                                  fit: BoxFit.cover,
+                                  width: 64,
+                                  height: 64,
+                                  fit: BoxFit.contain,
                                   errorBuilder: (context, error, stackTrace) {
                                     // Fallback vers l'icône si l'image ne charge pas
-                                    return Icon(
-                                      widget.isUnlocked ? Icons.quiz : Icons.lock,
-                                      color: widget.isUnlocked 
-                                          ? const Color(0xFF6A994E)
-                                          : Colors.grey,
-                                      size: 22,
+                                    return Container(
+                                      width: 64,
+                                      height: 64,
+                                      child: Icon(
+                                        widget.isUnlocked ? Icons.quiz : Icons.lock,
+                                        color: widget.isUnlocked 
+                                            ? const Color(0xFF6A994E)
+                                            : Colors.grey,
+                                        size: 32,
+                                      ),
                                     );
                                   },
                                 )
-                              : Icon(
-                                  widget.isUnlocked ? Icons.quiz : Icons.lock,
-                                  color: widget.isUnlocked 
-                                      ? const Color(0xFF6A994E)
-                                      : Colors.grey,
-                                  size: 22,
+                              : Container(
+                                  width: 64,
+                                  height: 64,
+                                  child: Icon(
+                                    widget.isUnlocked ? Icons.quiz : Icons.lock,
+                                    color: widget.isUnlocked 
+                                        ? const Color(0xFF6A994E)
+                                        : Colors.grey,
+                                    size: 32,
+                                  ),
                                 ),
                         ),
                       ),
@@ -755,6 +801,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               widget.mission.titreMission ?? widget.mission.title ?? 'Mission ${widget.mission.index}',
@@ -766,32 +813,27 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                                     ? const Color(0xFF344356)
                                     : Colors.grey,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
-                              style: TextStyle(
-                                fontFamily: 'Quicksand',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: widget.isUnlocked 
-                                    ? const Color(0xFF344356).withAlpha(179)
-                                    : Colors.grey,
-                              ),
-                            ),
-                            if (!widget.isUnlocked) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                'Mission verrouillée',
+                            const SizedBox(height: 2),
+                            Expanded(
+                              child: Text(
+                                widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
                                 style: TextStyle(
                                   fontFamily: 'Quicksand',
-                                  fontSize: 12,
+                                  fontSize: _calculateSubtitleFontSize(),
                                   fontWeight: FontWeight.w500,
-                                  color: Colors.grey,
-                                  fontStyle: FontStyle.italic,
+                                  color: widget.isUnlocked 
+                                      ? const Color(0xFF344356).withAlpha(179)
+                                      : Colors.grey,
                                 ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ],
+                            ),
+                            // Espace supplémentaire pour le sous-titre
+                            const SizedBox(height: 4),
                           ],
                         ),
                       ),
@@ -799,33 +841,49 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                   ),
                 ),
                 
-                // Nouvel indicateur "NOUVEAU" positionné en haut à droite
+                // Étiquette "NOUVEAU" positionnée au-dessus de la carte, en haut à droite
                 if (_getAvailabilityText() != null)
                   Positioned(
-                    top: -4,
-                    right: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6A994E),
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(30),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
+                    top: -6, // Déborde légèrement au-dessus de la carte
+                    right: 23, // Déplacé vers la gauche par rapport au bord droit
+                    child: AnimatedBuilder(
+                      animation: Listenable.merge([_badgeAnimationController, _badgeFloatController]),
+                      builder: (context, child) {
+                        // Calcul du mouvement de flottement fluide
+                        final floatValue = _badgeFloatController.value;
+                        final floatOffset = math.sin(floatValue * 2 * math.pi) * 2; // Déplacement de ±2 pixels
+                        // Zoom fluide sans paliers - utilise une fonction sinusoïdale lissée
+                        final zoomScale = 1.0 - 0.015 * (math.sin(floatValue * 2 * math.pi) + 1) / 2;
+                        // Séparer l'animation d'apparition du zoom de flottement
+                        final appearanceScale = _badgeScaleAnimation.value;
+                        final combinedScale = appearanceScale * zoomScale;
+                        
+                        return Opacity(
+                          opacity: _badgeOpacityAnimation.value,
+                          child: Transform.scale(
+                            scale: combinedScale,
+                            child: Transform.translate(
+                              offset: Offset(0, floatOffset),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6A994E),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  _getAvailabilityText()!,
+                                  style: TextStyle(
+                                    fontFamily: 'Quicksand',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                    color: const Color(0xFFFEC868),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
-                      child: Text(
-                        _getAvailabilityText()!,
-                        style: const TextStyle(
-                          fontFamily: 'Quicksand',
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
               ],

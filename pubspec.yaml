@@ -52,7 +52,7 @@ dependencies:
   # CSV parsing
   csv: ^5.1.1
   
-  # Local storage
+  # Shared preferences for persistent storage
   shared_preferences: ^2.2.2
   
 
