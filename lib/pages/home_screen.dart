@@ -708,127 +708,128 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                         ? Border.all(color: const Color(0xFF6A994E).withAlpha(77), width: 1)
                         : null,
                   ),
-      child: Row(
-        children: [
-          // Image de la mission
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: widget.isUnlocked 
-                  ? const Color(0xFFF2E8CF)
-                  : Colors.grey.withAlpha(77),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: widget.mission.iconUrl != null
-                  ? Image.asset(
-                      widget.mission.iconUrl!,
-                      width: 44,
-                      height: 44,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        // Fallback vers l'icône si l'image ne charge pas
-                        return Icon(
-                          widget.isUnlocked ? Icons.quiz : Icons.lock,
+                  child: Row(
+                    children: [
+                      // Image de la mission
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
                           color: widget.isUnlocked 
-                              ? const Color(0xFF6A994E)
-                              : Colors.grey,
-                          size: 22,
-                        );
-                      },
-                    )
-                  : Icon(
-                      widget.isUnlocked ? Icons.quiz : Icons.lock,
-                      color: widget.isUnlocked 
-                          ? const Color(0xFF6A994E)
-                          : Colors.grey,
-                      size: 22,
-                    ),
-            ),
-          ),
-          
-          const SizedBox(width: 16),
-          
-          // Contenu texte
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.mission.titreMission ?? widget.mission.title ?? 'Mission ${widget.mission.index}',
-                  style: TextStyle(
-                    fontFamily: 'Quicksand',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: widget.isUnlocked 
-                        ? const Color(0xFF344356)
-                        : Colors.grey,
+                              ? const Color(0xFFF2E8CF)
+                              : Colors.grey.withAlpha(77),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: widget.mission.iconUrl != null
+                              ? Image.asset(
+                                  widget.mission.iconUrl!,
+                                  width: 44,
+                                  height: 44,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    // Fallback vers l'icône si l'image ne charge pas
+                                    return Icon(
+                                      widget.isUnlocked ? Icons.quiz : Icons.lock,
+                                      color: widget.isUnlocked 
+                                          ? const Color(0xFF6A994E)
+                                          : Colors.grey,
+                                      size: 22,
+                                    );
+                                  },
+                                )
+                              : Icon(
+                                  widget.isUnlocked ? Icons.quiz : Icons.lock,
+                                  color: widget.isUnlocked 
+                                      ? const Color(0xFF6A994E)
+                                      : Colors.grey,
+                                  size: 22,
+                                ),
+                        ),
+                      ),
+                      
+                      const SizedBox(width: 16),
+                      
+                      // Contenu texte
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.mission.titreMission ?? widget.mission.title ?? 'Mission ${widget.mission.index}',
+                              style: TextStyle(
+                                fontFamily: 'Quicksand',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: widget.isUnlocked 
+                                    ? const Color(0xFF344356)
+                                    : Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
+                              style: TextStyle(
+                                fontFamily: 'Quicksand',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: widget.isUnlocked 
+                                    ? const Color(0xFF344356).withAlpha(179)
+                                    : Colors.grey,
+                              ),
+                            ),
+                            if (!widget.isUnlocked) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Mission verrouillée',
+                                style: TextStyle(
+                                  fontFamily: 'Quicksand',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
-                  style: TextStyle(
-                    fontFamily: 'Quicksand',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: widget.isUnlocked 
-                        ? const Color(0xFF344356).withAlpha(179)
-                        : Colors.grey,
-                  ),
-                ),
-                if (!widget.isUnlocked) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Mission verrouillée',
-                    style: TextStyle(
-                      fontFamily: 'Quicksand',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey,
-                      fontStyle: FontStyle.italic,
+                
+                // Nouvel indicateur "NOUVEAU" positionné en haut à droite
+                if (_getAvailabilityText() != null)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6A994E),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(30),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        _getAvailabilityText()!,
+                        style: const TextStyle(
+                          fontFamily: 'Quicksand',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
-                ],
               ],
             ),
-          ),
-        ],
-      ),
-      
-      // Nouvel indicateur "NOUVEAU" positionné en haut à droite
-      if (_getAvailabilityText() != null)
-        Positioned(
-          top: -4,
-          right: -4,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFF6A994E),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(30),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Text(
-              _getAvailabilityText()!,
-              style: const TextStyle(
-                fontFamily: 'Quicksand',
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-    ],
-  ),
         );
       },
     );
