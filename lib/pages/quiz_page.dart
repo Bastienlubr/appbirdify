@@ -516,6 +516,7 @@ class _QuizPageState extends State<QuizPage> {
       setState(() {
         _isLoading = false;
       });
+      debugPrint('❌ Erreur détaillée: $e');
       _showErrorDialog('Erreur lors du chargement du quiz: $e');
     }
   }
@@ -617,7 +618,7 @@ class _QuizPageState extends State<QuizPage> {
     if (_visibleLives <= 0) {
       _onQuizFailed();
     } else {
-      _goToNextQuestion();
+    _goToNextQuestion();
     }
   }
 
@@ -650,7 +651,7 @@ class _QuizPageState extends State<QuizPage> {
     await _syncLivesWithFirestore();
     
     if (!mounted) return;
-    Navigator.pop(context);
+      Navigator.pop(context);
   }
 
 
@@ -723,19 +724,39 @@ class _QuizPageState extends State<QuizPage> {
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Erreur'),
-        content: Text(message),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(message),
+              const SizedBox(height: 16),
+              const Text(
+                'Détails techniques:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Mission ID: ${widget.missionId}\n'
+                'Chemin attendu: assets/Missionhome/questionMission/${widget.missionId}.csv',
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              ),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () async {
-              Navigator.of(context).pop(); // Fermer le dialogue
+              Navigator.of(dialogContext).pop(); // Fermer le dialogue
               
               // Synchroniser les vies avant de quitter
               await _syncLivesWithFirestore();
               
               if (!mounted) return;
-              Navigator.of(context).pop(); // Retourner à l'écran précédent
+              // Utiliser rootNavigator pour éviter les problèmes de contexte
+              Navigator.of(context, rootNavigator: true).pop();
             },
             child: const Text('Retour'),
           ),
@@ -747,7 +768,7 @@ class _QuizPageState extends State<QuizPage> {
   void _showAudioErrorDialog(String message) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Erreur Audio'),
         content: Text(message),
         actions: [
@@ -757,7 +778,8 @@ class _QuizPageState extends State<QuizPage> {
               await _syncLivesWithFirestore();
               
               if (!mounted) return;
-              Navigator.of(context).pop();
+              // Utiliser rootNavigator pour éviter les problèmes de contexte
+              Navigator.of(context, rootNavigator: true).pop();
             },
             child: const Text('OK'),
           ),

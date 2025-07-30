@@ -1,0 +1,31 @@
+id_mission,biome,num_question,bonne_reponse,URL_bonne_reponse,mauvaise_reponse
+L04,Milieu littoral,1,Goéland argenté,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGo%C3%A9land%20argent%C3%A9.wav?alt=media&token=c803f7a1-cc3f-4c32-b3ff-00a251825f92,Goéland brun
+L04,Milieu littoral,2,Goéland marin,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGo%C3%A9land%20marin.wav?alt=media&token=5fed6e49-3196-45fd-8edf-45248055dd2e,Goéland cendré
+L04,Milieu littoral,3,Goéland pontique,lien manquant,Goéland argenté
+L04,Milieu littoral,4,Goéland leucophée,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGo%C3%A9land%20cendr%C3%A9.wav?alt=media&token=98d3fe81-5f3d-4d0f-a6cf-44f303752627,Goéland pontique
+L04,Milieu littoral,5,Mouette mélanocéphale,lien manquant,Goéland leucophée
+L04,Milieu littoral,6,Sterne pierregarin,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FSterne%20pierregarin.wav?alt=media&token=658a262c-c075-4908-aa59-4e350e4f824b,Goéland marin
+L04,Milieu littoral,7,Sterne caugek,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FSterne%20caugek.wav?alt=media&token=9e6a2be5-1b96-4f99-8f37-668aa60f21bd,Mouette rieuse
+L04,Milieu littoral,8,Sterne caspienne,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FSterne%20caspienne.mp3?alt=media&token=19a3515b-ba9b-42c3-918c-3d9209f8e641,Mouette pygmée
+L04,Milieu littoral,9,Sterne hansel,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FSterne%20naine.wav?alt=media&token=f7e3aca6-776d-4100-b82b-65b40e8dac30,Mouette mélanocéphale
+L04,Milieu littoral,10,Labbe parasite,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FLabbe%20pomarin.wav?alt=media&token=7ad605aa-b62e-43dd-8525-f14cb1e5a634,Sterne arctique
+,,,Labbe pomarin,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FLabbe%20pomarin.wav?alt=media&token=7ad605aa-b62e-43dd-8525-f14cb1e5a634,Sterne pierregarin
+,,,Océanite tempête,lien manquant,Sterne caspienne
+,,,Tournepierre à collier,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTournepierre%20%C3%A0%20collier.wav?alt=media&token=91297d59-e88b-433d-9633-ad988b9fa660,Sterne caugek
+,,,Chevalier gambette,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FChevalier%20gambette.wav?alt=media&token=e179d479-b714-4f83-86ff-8fe6006e79dd,Sterne hansel
+,,,Pluvier doré,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPluvier%20dor%C3%A9.wav?alt=media&token=4d12e985-3488-45a0-be61-3f8b8ad07292,Sterne naine
+,,,,,Sterne royale
+,,,,,Labbe parasite
+,,,,,Labbe pomarin
+,,,,,Labbe à longue queue
+,,,,,Océanite tempête
+,,,,,Océanite culblanc
+,,,,,Tournepierre à collier
+,,,,,Chevalier gambette
+,,,,,Chevalier aboyeur
+,,,,,Pluvier argenté
+,,,,,Pluvier doré
+,,,,,Bécasseau variable
+,,,,,Grand gravelot
+,,,,,Tadorne de Belon
+,,,,,Bécasseau maubèche

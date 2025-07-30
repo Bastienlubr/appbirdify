@@ -1,0 +1,31 @@
+id_mission,biome,num_question,bonne_reponse,URL_bonne_reponse,mauvaise_reponse
+U01,Milieu urbain,1,Choucas des tours,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FChoucas%20des%20tours.mp3?alt=media&token=21bf9088-4055-437c-9eaa-71cc59d3486a,Pigeon ramier
+U01,Milieu urbain,2,Pigeon biset,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPigeon%20biset.wav?alt=media&token=f6663742-5e80-4cda-a455-c3e1c6088fea,Tourterelle turque
+U01,Milieu urbain,3,Rougequeue noir,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FRougequeue%20noir.wav?alt=media&token=ad02d176-0679-41e7-99ae-d494918fa55a,Tourterelle des bois
+U01,Milieu urbain,4,Tourterelle des bois,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTourterelle%20des%20bois.mp3?alt=media&token=0cd4f95b-d7fd-4706-81f9-1fbd68369bb2,Moineau friquet
+U01,Milieu urbain,5,Bergeronnette grise,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBergeronnette%20grise.mp3?alt=media&token=a3a4a529-fcc4-4b46-aab2-5ccb19a62ac6,Rougegorge familier
+U01,Milieu urbain,6,Hirondelle de fenêtre,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FHirondelle%20de%20fen%C3%AAtre.wav?alt=media&token=9466c640-f47d-4d62-aa93-1d13c2347753,Merle noir
+U01,Milieu urbain,7,Martinet noir,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMartinet%20noir.wav?alt=media&token=a4bfcaf3-13f2-4712-b015-e6d1fa497fc1,Corneille noire
+U01,Milieu urbain,8,Cochevis huppé,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCochevis%20hupp%C3%A9.wav?alt=media&token=5ee6a108-a418-497d-b27f-d8596fa97b55,Goéland argenté
+U01,Milieu urbain,9,Rougegorge familier,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FRouge-gorge%20familier%20song.mp3?alt=media&token=95b1b870-f68d-44eb-a04b-903609eadf8c,Faucon crécerelle
+U01,Milieu urbain,10,Faucon crécerelle,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FFaucon%20cr%C3%A9cerelle.wav?alt=media&token=63046804-e4d9-40c6-ae17-d26fed5d35a4,Choucas des tours
+,,,Perruche à collier,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPerruche%20%C3%A0%20collier.wav?alt=media&token=30281270-5945-4c3a-b63b-1f422ca1d252,Huppe fasciée
+,,,Corneille noire,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCorneille%20noire.wav?alt=media&token=698ae7c8-9bad-41de-a369-08052462597d,Martinet noir
+,,,Etourneau sansonnet,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2F%C3%89tourneau%20sansonnet.wav?alt=media&token=45395db7-fb5b-461a-bcab-51acb24255b1,Bergeronnette grise
+,,,Goéland argenté,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGo%C3%A9land%20argent%C3%A9.wav?alt=media&token=c803f7a1-cc3f-4c32-b3ff-00a251825f92,Perruche à collier
+,,,Tourterelle turque,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTourterelle%20turque.wav?alt=media&token=93c80b78-5501-4c5d-9b42-31d3b0894ec4,Rougequeue noir
+,,,,,Etourneau sansonnet
+,,,,,Pigeon biset
+,,,,,Grive draine
+,,,,,Verdier d’Europe
+,,,,,Chardonneret élégant
+,,,,,Linotte mélodieuse
+,,,,,Serin cini
+,,,,,Pinson des arbres
+,,,,,Fauvette à tête noire
+,,,,,Accenteur mouchet
+,,,,,Gobemouche gris
+,,,,,Pouillot véloce
+,,,,,Grive musicienne
+,,,,,Hirondelle de fenêtre
+,,,,,Cochevis huppé

@@ -8,6 +8,7 @@ import '../pages/quiz_page.dart'; // Added import for QuizPage
 import '../pages/auth/login_screen.dart';
 import '../services/life_sync_service.dart';
 import '../services/life_system_test.dart';
+import '../services/mission_loader_service.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -180,33 +181,73 @@ class _HomeContentState extends State<HomeContent> {
     super.dispose();
   }
 
-  void _loadMissionsForBiome(String biomeName) {
-    final missions = missionsParBiome[biomeName] ?? [];
-    setState(() {
-      _currentMissions = missions;
-      _missionVisibility = List.generate(missions.length, (index) => false);
-    });
-    
-    // Réinitialiser la position du scroll vers le haut
-    _missionScrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
-    
-    // Animer l'apparition des missions une par une
-    // Délai initial de 100ms avant la première mission, puis 150ms entre chaque mission
-    for (int i = 0; i < missions.length; i++) {
-      Future.delayed(Duration(milliseconds: 100 + (i * 150)), () {
-        if (mounted && _selectedBiome == biomeName) {
-          setState(() {
-            if (i < _missionVisibility.length) {
-              _missionVisibility[i] = true;
+  Future<void> _loadMissionsForBiome(String biomeName) async {
+    try {
+      // Charger les missions depuis le CSV
+      final List<Mission> allMissions = await MissionLoaderService.loadMissionsForBiome(biomeName.toLowerCase());
+      
+      // Filtrer et organiser les missions selon les critères
+      final List<Mission> filteredMissions = _filterAndOrganizeMissions(allMissions);
+      
+      if (mounted) {
+        setState(() {
+          _currentMissions = filteredMissions;
+          _missionVisibility = List.generate(filteredMissions.length, (index) => false);
+        });
+        
+        // Réinitialiser la position du scroll vers le haut
+        _missionScrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+        
+        // Animer l'apparition des missions une par une
+        // Délai initial de 100ms avant la première mission, puis 150ms entre chaque mission
+        for (int i = 0; i < filteredMissions.length; i++) {
+          Future.delayed(Duration(milliseconds: 100 + (i * 150)), () {
+            if (mounted && _selectedBiome == biomeName) {
+              setState(() {
+                if (i < _missionVisibility.length) {
+                  _missionVisibility[i] = true;
+                }
+              });
             }
           });
         }
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ Erreur lors du chargement des missions: $e');
+      // En cas d'erreur, utiliser les missions statiques comme fallback
+      final missions = missionsParBiome[biomeName] ?? [];
+      setState(() {
+        _currentMissions = missions;
+        _missionVisibility = List.generate(missions.length, (index) => false);
       });
     }
+  }
+
+  /// Filtre et organise les missions selon les critères de déverrouillage
+  List<Mission> _filterAndOrganizeMissions(List<Mission> allMissions) {
+    final List<Mission> filteredMissions = [];
+    
+    // Trier les missions par niveau
+    allMissions.sort((a, b) => a.index.compareTo(b.index));
+    
+    for (final mission in allMissions) {
+      // Cacher les missions de niveau > 2 si la précédente n'est pas déverrouillée
+      if (mission.index > 2) {
+        final previousMission = allMissions.where((m) => m.index == mission.index - 1).firstOrNull;
+        if (previousMission != null && previousMission.status == 'locked') {
+          continue;
+        }
+      }
+      
+      // Ajouter toutes les missions visibles (déverrouillées ET verrouillées visibles)
+      filteredMissions.add(mission);
+    }
+    
+    return filteredMissions;
   }
 
 
@@ -254,22 +295,22 @@ class _HomeContentState extends State<HomeContent> {
                 children: [
                   // Bouton de déconnexion
                   GestureDetector(
-                    onTap: _signOut,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF386641).withAlpha(20),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF386641),
-                          width: 1,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.logout,
-                        color: Color(0xFF386641),
-                        size: 24,
-                      ),
+                onTap: _signOut,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF386641).withAlpha(20),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF386641),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.logout,
+                    color: Color(0xFF386641),
+                    size: 24,
+                  ),
                     ),
                   ),
                   
@@ -452,12 +493,14 @@ class _HomeContentState extends State<HomeContent> {
 
   Widget _buildQuizCardMission(Mission mission) {
     final hasCsvFile = mission.csvFile != null;
+    final isUnlocked = mission.status == 'available';
     
     return _AnimatedMissionCard(
       mission: mission,
       hasCsvFile: hasCsvFile,
-      onTap: hasCsvFile
-          ? () => _handleQuizLaunch(mission.csvFile!)
+      isUnlocked: isUnlocked,
+      onTap: (hasCsvFile && isUnlocked)
+          ? () => _handleQuizLaunch(mission.id)
           : null,
     );
   }
@@ -528,11 +571,13 @@ class _HomeContentState extends State<HomeContent> {
 class _AnimatedMissionCard extends StatefulWidget {
   final Mission mission;
   final bool hasCsvFile;
+  final bool isUnlocked;
   final VoidCallback? onTap;
 
   const _AnimatedMissionCard({
     required this.mission,
     required this.hasCsvFile,
+    required this.isUnlocked,
     this.onTap,
   });
 
@@ -544,6 +589,9 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+  
+  // État local pour tracker si la mission a été vue
+  bool _hasBeenSeen = false;
 
   @override
   void initState() {
@@ -569,11 +617,34 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
 
   void _handleTap() {
     if (widget.onTap != null) {
+      // Marquer la mission comme vue lors du premier clic
+      if (widget.isUnlocked && !_hasBeenSeen) {
+        setState(() {
+          _hasBeenSeen = true;
+        });
+      }
+      
       _animationController.forward().then((_) {
         _animationController.reverse();
         widget.onTap!();
       });
     }
+  }
+
+  /// Détermine le texte à afficher selon l'état de la mission
+  String? _getAvailabilityText() {
+    // Si la mission a déjà été vue, ne rien afficher
+    if (_hasBeenSeen) {
+      return null;
+    }
+    
+    // Si la mission est déverrouillée et n'a pas encore d'étoiles, afficher "NOUVEAU"
+    if (widget.isUnlocked && widget.mission.lastStarsEarned == 0) {
+      return 'NOUVEAU';
+    }
+    
+    // Sinon ne rien afficher
+    return null;
   }
 
   @override
@@ -598,28 +669,48 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
             offset: const Offset(0, 2),
           ),
         ],
-                border: widget.hasCsvFile 
+                border: widget.isUnlocked 
                     ? Border.all(color: const Color(0xFF6A994E).withAlpha(77), width: 1)
                     : null,
       ),
       child: Row(
         children: [
-                  // Icône de mission
+          // Image de la mission
           Container(
-            width: 44, // Réduit de 48 à 44
-            height: 44, // Réduit de 48 à 44
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-                      color: widget.hasCsvFile 
-                          ? const Color(0xFFF2E8CF)
-                          : Colors.grey.withAlpha(77),
+              color: widget.isUnlocked 
+                  ? const Color(0xFFF2E8CF)
+                  : Colors.grey.withAlpha(77),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-                      widget.hasCsvFile ? Icons.quiz : Icons.lock,
-                      color: widget.hasCsvFile 
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: widget.mission.iconUrl != null
+                  ? Image.asset(
+                      widget.mission.iconUrl!,
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        // Fallback vers l'icône si l'image ne charge pas
+                        return Icon(
+                          widget.isUnlocked ? Icons.quiz : Icons.lock,
+                          color: widget.isUnlocked 
+                              ? const Color(0xFF6A994E)
+                              : Colors.grey,
+                          size: 22,
+                        );
+                      },
+                    )
+                  : Icon(
+                      widget.isUnlocked ? Icons.quiz : Icons.lock,
+                      color: widget.isUnlocked 
                           ? const Color(0xFF6A994E)
                           : Colors.grey,
-              size: 22, // Réduit de 24 à 22
+                      size: 22,
+                    ),
             ),
           ),
           
@@ -631,47 +722,47 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                          widget.mission.title ?? 'Mission ${widget.mission.index}',
-                          style: TextStyle(
+                  widget.mission.titreMission ?? widget.mission.title ?? 'Mission ${widget.mission.index}',
+                  style: TextStyle(
                     fontFamily: 'Quicksand',
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                            color: widget.hasCsvFile 
-                                ? const Color(0xFF344356)
-                                : Colors.grey,
+                    color: widget.isUnlocked 
+                        ? const Color(0xFF344356)
+                        : Colors.grey,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                          'Mission ${widget.mission.index} - ${widget.mission.milieu}',
-                          style: TextStyle(
+                  widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
+                  style: TextStyle(
                     fontFamily: 'Quicksand',
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                            color: widget.hasCsvFile 
-                                ? const Color(0xFF344356).withAlpha(179)
-                                : Colors.grey,
-                          ),
-                        ),
-                        if (!widget.hasCsvFile) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            'Bientôt disponible',
-                            style: TextStyle(
-                              fontFamily: 'Quicksand',
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey,
-                              fontStyle: FontStyle.italic,
+                    color: widget.isUnlocked 
+                        ? const Color(0xFF344356).withAlpha(179)
+                        : Colors.grey,
                   ),
                 ),
-                        ],
+                if (!widget.isUnlocked) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Mission verrouillée',
+                    style: TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           
                   // Indicateur de disponibilité
-                  if (widget.hasCsvFile)
+                  if (_getAvailabilityText() != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
@@ -679,15 +770,15 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        'Disponible',
+                        _getAvailabilityText()!,
                         style: TextStyle(
                           fontFamily: 'Quicksand',
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF6A994E),
-              ),
-            ),
-          ),
+                        ),
+                      ),
+                    ),
         ],
       ),
             ),

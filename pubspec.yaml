@@ -49,6 +49,9 @@ dependencies:
   # HTTP client for API calls
   http: ^1.2.0
   
+  # CSV parsing
+  csv: ^5.1.1
+  
 
 
 dev_dependencies:
@@ -78,6 +81,8 @@ flutter:
     - assets/data/
     - assets/fonts/
     - assets/Missionhome/
+    - assets/Missionhome/questionMission/
+    - assets/Missionhome/Images/
     - assets/Images/
     - assets/Images/Milieu/
     - assets/Images/Bouton/

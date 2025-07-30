@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:csv/csv.dart';
 
 class QuizQuestion {
   final String correctAnswer;
@@ -25,27 +25,49 @@ class QuizGenerator {
   static Future<List<QuizQuestion>> generateQuizFromCsv(String missionId) async {
     try {
       // Charger le fichier CSV
-      final csvString = await rootBundle.loadString('assets/Missionhome/$missionId');
-      final lines = const LineSplitter().convert(csvString);
-      if (lines.isEmpty) {
+      final csvPath = 'assets/Missionhome/questionMission/$missionId.csv';
+      debugPrint('🔄 Tentative de chargement du fichier CSV: $csvPath');
+      final csvString = await rootBundle.loadString(csvPath);
+      debugPrint('✅ Fichier CSV chargé avec succès: ${csvString.length} caractères');
+      
+      // Parser le CSV avec le package csv
+      final List<List<dynamic>> csvTable = const CsvToListConverter().convert(csvString);
+      if (csvTable.isEmpty) {
         throw Exception('Fichier CSV vide');
       }
-      final headers = _parseCsvLine(lines[0]);
+      
+      debugPrint('📊 CSV parsé: ${csvTable.length} lignes');
+      
+      // Extraire les en-têtes
+      final headers = csvTable[0].map((e) => e.toString()).toList();
+      debugPrint('📋 En-têtes: $headers');
+      
       // Séparer bonnes et mauvaises réponses
       final goodAnswers = <Map<String, String>>[];
       final wrongAnswers = <String>[];
-      for (int i = 1; i < lines.length; i++) {
-        final line = lines[i].trim();
-        if (line.isEmpty) continue;
-        final values = _parseCsvLine(line);
-        final csvRow = _createCsvRow(headers, values);
+      
+      for (int i = 1; i < csvTable.length; i++) {
+        final row = csvTable[i];
+        if (row.isEmpty || row.every((cell) => cell.toString().trim().isEmpty)) continue;
+        
+        // Créer un Map pour cette ligne
+        final Map<String, String> csvRow = {};
+        for (int j = 0; j < headers.length && j < row.length; j++) {
+          csvRow[headers[j]] = row[j]?.toString() ?? '';
+        }
+        
+        debugPrint('📝 Ligne $i: $csvRow');
+        
         if (csvRow['num_question']?.isNotEmpty == true) {
           goodAnswers.add(csvRow);
+          debugPrint('✅ Question ajoutée: ${csvRow['bonne_reponse']}');
         } else if (csvRow['mauvaise_reponse']?.isNotEmpty == true) {
           wrongAnswers.add(csvRow['mauvaise_reponse']!);
+          debugPrint('❌ Mauvaise réponse ajoutée: ${csvRow['mauvaise_reponse']}');
         } else if (csvRow['bonne_reponse']?.isNotEmpty == true && csvRow['num_question']?.isEmpty != false) {
           // fallback pour anciennes structures
           wrongAnswers.add(csvRow['bonne_reponse']!);
+          debugPrint('🔄 Réponse de fallback ajoutée: ${csvRow['bonne_reponse']}');
         }
       }
       if (goodAnswers.length < _questionsPerQuiz) {
@@ -107,32 +129,7 @@ class QuizGenerator {
     return questions;
   }
 
-  static List<String> _parseCsvLine(String line) {
-    final result = <String>[];
-    final buffer = StringBuffer();
-    bool inQuotes = false;
-    for (int i = 0; i < line.length; i++) {
-      final char = line[i];
-      if (char == '"') {
-        inQuotes = !inQuotes;
-      } else if (char == ',' && !inQuotes) {
-        result.add(buffer.toString().trim());
-        buffer.clear();
-      } else {
-        buffer.write(char);
-      }
-    }
-    result.add(buffer.toString().trim());
-    return result;
-  }
 
-  static Map<String, String> _createCsvRow(List<String> headers, List<String> values) {
-    final row = <String, String>{};
-    for (int i = 0; i < headers.length && i < values.length; i++) {
-      row[headers[i]] = values[i];
-    }
-    return row;
-  }
 
   static String generateMissionId(String milieuType, int missionNumber) {
     final prefix = milieuType.substring(0, 1).toUpperCase();

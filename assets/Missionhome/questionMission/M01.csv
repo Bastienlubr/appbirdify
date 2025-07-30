@@ -1,0 +1,31 @@
+id_mission,biome,num_question,bonne_reponse,URL_bonne_reponse,mauvaise_reponse
+M01,Milieu montagnard,1,Niverolle alpine,lien manquant,Alouette lulu
+M01,Milieu montagnard,2,Accenteur alpin,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAccenteur%20alpin.mp3?alt=media&token=db731ed8-4ebe-499f-8f29-5fbc2809a060,Bruant des neiges
+M01,Milieu montagnard,3,Merle à plastron,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMerle%20%C3%A0%20plastron.wav?alt=media&token=b0694b02-c619-4328-aa93-1fd342aad7d4,Bruant lapon
+M01,Milieu montagnard,4,Monticole de roche,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMonticole%20bleu.mp3?alt=media&token=50271d85-90c4-46cc-a5f2-56435c247520,Chouette de Tengmalm
+M01,Milieu montagnard,5,Chocard à bec jaune,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FChocard%20%C3%A0%20bec%20jaune.mp3?alt=media&token=3c41de32-0ae4-4be6-b2e1-a40fc8b757f3,Chevêchette d’Europe
+M01,Milieu montagnard,6,Crave à bec rouge,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCrave%20%C3%A0%20bec%20rouge.mp3?alt=media&token=999b58e4-c13a-4404-abf5-c32d64e6461c,Épervier d’Europe
+M01,Milieu montagnard,7,Tichodrome échelette,lien manquant,Faucon crécerelle
+M01,Milieu montagnard,8,Traquet motteux,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTraquet%20motteux.mp3?alt=media&token=de7549d4-c2e7-4cc4-a2ef-5f28f8eaf050,Faucon hobereau
+M01,Milieu montagnard,9,Rougequeue noir,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FRougequeue%20noir.wav?alt=media&token=ad02d176-0679-41e7-99ae-d494918fa55a,Goéland brun
+M01,Milieu montagnard,10,Grive litorne,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGrive%20litorne.wav?alt=media&token=1fc5688e-3e12-4916-b8ba-c1a3ff4d3e67,Grive draine
+,,,Tarier des prés,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTarier%20des%20pr%C3%A9s.wav?alt=media&token=33ed71e3-6bc8-4287-bb54-21804b781638,Grive musicienne
+,,,Pipit spioncelle,lien manquant,Hirondelle de rochers
+,,,Venturon montagnard,lien manquant,Hirondelle rustique
+,,,Bec-croisé des sapins,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBec-crois%C3%A9%20des%20sapins.wav?alt=media&token=17d6e710-cb51-4492-8b03-4f3feb3a12b6,Milan noir
+,,,Mésange boréale,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FM%C3%A9sange%20bor%C3%A9ale.wav?alt=media&token=63777e66-4060-42bb-b264-e647dfc61449,Milan royal
+,,,,,Merle noir
+,,,,,Moineau friquet
+,,,,,Mésange huppée
+,,,,,Pic noir
+,,,,,Pic tridactyle
+,,,,,Rougegorge familier
+,,,,,Sizerin cabaret
+,,,,,Tarin des aulnes
+,,,,,Traquet oreillard
+,,,,,Venturon corse
+,,,,,Vautour fauve
+,,,,,Vautour moine
+,,,,,Circaète Jean‑le‑Blanc
+,,,,,Buse variable
+,,,,,Bouvreuil pivoine

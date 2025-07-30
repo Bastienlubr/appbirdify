@@ -1,0 +1,31 @@
+id_mission,biome,num_question,bonne_reponse,URL_bonne_reponse,mauvaise_reponse
+L03,Milieu littoral,1,Bécasseau sanderling,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FB%C3%A9casseau%20sanderling.wav?alt=media&token=c509c510-6d29-4e80-b6d9-46f76d09d136,Goéland brun
+L03,Milieu littoral,2,Grand gravelot,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGrande%20Aigrette.wav?alt=media&token=a847277b-5ac1-4259-af80-079c0fc82523,Sterne pierregarin
+L03,Milieu littoral,3,Bécasseau variable,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FB%C3%A9casseau%20variable.wav?alt=media&token=880d8d15-642a-4123-bbbc-a0c5473a2871,Chevalier gambette
+L03,Milieu littoral,4,Bernache cravant,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBernache%20cravant.mp3?alt=media&token=49f7a476-93f0-4984-bcc2-37fb23feeee9,Bécassine des marais
+L03,Milieu littoral,5,Goéland cendré,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGo%C3%A9land%20cendr%C3%A9.wav?alt=media&token=98d3fe81-5f3d-4d0f-a6cf-44f303752627,Canard siffleur
+L03,Milieu littoral,6,Huîtrier pie,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FHu%C3%AEtrier%20pie.wav?alt=media&token=d87c60a3-db8a-4e44-a8cc-4a9277bdb143,Pluvier doré
+L03,Milieu littoral,7,Courlis corlieu,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCourlis%20corlieu.wav?alt=media&token=dcd792a0-5c46-4f18-832f-e3d7d728041c,Aigrette garzette
+L03,Milieu littoral,8,Courlis cendré,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCourlis%20cendr%C3%A9.wav?alt=media&token=a5966cdc-3127-4de4-b2c0-07e4f7c9910a,Courlis corlieu
+L03,Milieu littoral,9,Pluvier argenté,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPluvier%20argent%C3%A9.wav?alt=media&token=bf075508-af2a-4d18-9c33-41aeb0e53d64,Bécasseau sanderling
+L03,Milieu littoral,10,Avocette élégante,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAvocette%20%C3%A9l%C3%A9gante.mp3?alt=media&token=6dda0278-0ada-4cef-8b5f-4454cecea8da,Tournepierre à vollier
+,,,Petit gravelot,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPluvier%20petit-gravelot.wav?alt=media&token=858b9e4f-e954-4408-b066-b77cf91ff9e2,Avocette élégante
+,,,Tournepierre à vollier,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTournepierre%20%C3%A0%20collier.wav?alt=media&token=91297d59-e88b-433d-9633-ad988b9fa660,Spatule blanche
+,,,Aigrette garzette,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAigrette%20garzette.wav?alt=media&token=db1b1f6e-e796-48e1-abd2-d443ce076676,Sarcelle d’hiver
+,,,Spatule blanche,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FSpatule%20blanche.wav?alt=media&token=484c9747-4c28-4539-8755-a95819fb43ec,Barge rousse
+,,,Barge à queue noire,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBarge%20%C3%A0%20queue%20noire.mp3?alt=media&token=10daf4ad-b317-4e7d-bfe1-e2014fbbf5cf,Barge à queue noire
+,,,,,Petit gravelot
+,,,,,Goéland cendré
+,,,,,Bernache cravant
+,,,,,Grèbe castagneux
+,,,,,Huîtrier pie
+,,,,,Grand gravelot
+,,,,,Bécasseau variable
+,,,,,Courlis cendré
+,,,,,Tadorne de Belon
+,,,,,Chevalier aboyeur
+,,,,,Bécasseau minute
+,,,,,Échasse blanche
+,,,,,Gravelot de Leschenault
+,,,,,Vanneau huppé
+,,,,,Combattant varié
