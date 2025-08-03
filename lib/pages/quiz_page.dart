@@ -354,21 +354,62 @@ class _QuizPageState extends State<QuizPage> {
                         ? Builder(
                             builder: (context) {
                               if (kDebugMode) debugPrint('🖼️ Rendu de l\'image: $_correctAnswerImageUrl');
+                              
+                              // Déterminer la couleur du contour selon la réponse
+                              final isCorrectAnswer = _selectedAnswer == question.correctAnswer;
+                              final borderColor = isCorrectAnswer 
+                                  ? const Color(0xFF6A994E) // Vert pour bonne réponse
+                                  : const Color(0xFFBC4749); // Rouge pour mauvaise réponse
+                              
                               return Container(
-                                width: 300,
-                                height: 180,
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: borderColor.withAlpha(60), // Bordure légère sur l'image
+                                    width: 2,
+                                  ),
                                   boxShadow: [
+                                    // Effet glowy intensifié avec plusieurs couches pour un fondu progressif
                                     BoxShadow(
-                                      color: Colors.black.withAlpha(50),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
+                                      color: borderColor.withAlpha(120), // Plus intense
+                                      blurRadius: 12,
+                                      spreadRadius: 4,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                    BoxShadow(
+                                      color: borderColor.withAlpha(100), // Plus intense
+                                      blurRadius: 20,
+                                      spreadRadius: 6,
+                                      offset: const Offset(0, 5),
+                                    ),
+                                    BoxShadow(
+                                      color: borderColor.withAlpha(80), // Plus intense
+                                      blurRadius: 28,
+                                      spreadRadius: 8,
+                                      offset: const Offset(0, 7),
+                                    ),
+                                    BoxShadow(
+                                      color: borderColor.withAlpha(60), // Plus intense
+                                      blurRadius: 36,
+                                      spreadRadius: 10,
+                                      offset: const Offset(0, 9),
+                                    ),
+                                    BoxShadow(
+                                      color: borderColor.withAlpha(40), // Couche supplémentaire
+                                      blurRadius: 44,
+                                      spreadRadius: 12,
+                                      offset: const Offset(0, 11),
+                                    ),
+                                    BoxShadow(
+                                      color: borderColor.withAlpha(20), // Couche finale
+                                      blurRadius: 52,
+                                      spreadRadius: 14,
+                                      offset: const Offset(0, 13),
                                     ),
                                   ],
                                 ),
                                 child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(10), // Légèrement plus petit pour laisser place à la bordure
                                   child: _buildCachedImage(),
                                 ),
                               );
@@ -729,6 +770,8 @@ class _QuizPageState extends State<QuizPage> {
   Widget _buildCachedImage() {
     if (_correctAnswerImageUrl.isEmpty) {
       return Container(
+        width: 300,
+        height: 180,
         color: Colors.grey[200],
         child: const Center(
           child: Icon(
@@ -746,62 +789,50 @@ class _QuizPageState extends State<QuizPage> {
     if (cachedImage != null) {
       // Image en cache - affichage instantané
       if (kDebugMode) debugPrint('🚀 Image affichée instantanément depuis le cache: $_correctAnswerImageUrl');
-      return Container(
-        width: double.infinity,
-        height: double.infinity,
-        child: Image(
-          image: cachedImage,
-          fit: BoxFit.contain,
-          width: double.infinity,
-          height: double.infinity,
-        ),
+      return Image(
+        image: cachedImage,
+        fit: BoxFit.contain, // Utilise contain pour garder les proportions naturelles
       );
     } else {
       // Image pas en cache - fallback vers Image.network
       if (kDebugMode) debugPrint('⚠️ Image non trouvée en cache, chargement réseau: $_correctAnswerImageUrl');
-      return Container(
-        width: double.infinity,
-        height: double.infinity,
-        child: Image.network(
-          _correctAnswerImageUrl,
-          fit: BoxFit.contain,
-          width: double.infinity,
-          height: double.infinity,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              color: Colors.grey[200],
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Colors.grey[200],
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.image_not_supported,
-                      size: 48,
+      return Image.network(
+        _correctAnswerImageUrl,
+        fit: BoxFit.contain, // Utilise contain pour garder les proportions naturelles
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: Colors.grey[200],
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey[200],
+            child: const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.image_not_supported,
+                    size: 48,
+                    color: Colors.grey,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Image non disponible',
+                    style: TextStyle(
+                      fontFamily: 'Quicksand',
                       color: Colors.grey,
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Image non disponible',
-                      style: TextStyle(
-                        fontFamily: 'Quicksand',
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       );
     }
   }
