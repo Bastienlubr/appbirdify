@@ -114,9 +114,12 @@ class _HomeContentState extends State<HomeContent> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Recharger les missions quand on revient d'un quiz
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadMissionsForBiome(_selectedBiome);
+    // Recharger les missions et les vies quand on revient d'un quiz
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadMissionsForBiome(_selectedBiome);
+      // Attendre un peu avant de recharger les vies pour s'assurer que la synchronisation est terminée
+      await Future.delayed(const Duration(milliseconds: 300));
+      await _loadCurrentLives(); // Recharger les vies mises à jour
     });
   }
 
@@ -124,16 +127,29 @@ class _HomeContentState extends State<HomeContent> {
   Future<void> _loadCurrentLives() async {
     try {
       final uid = LifeSyncService.getCurrentUserId();
+      if (kDebugMode) debugPrint('🔍 Vérification utilisateur (HomeScreen): UID=$uid, Connecté=${LifeSyncService.isUserLoggedIn}');
+      
       if (uid != null) {
+        if (kDebugMode) debugPrint('🔄 Chargement des vies depuis Firestore pour utilisateur $uid');
+        
+        // Vérifier les vies avant checkAndResetLives
+        final livesBefore = await LifeSyncService.getCurrentLives(uid);
+        if (kDebugMode) debugPrint('📊 Vies dans Firestore avant checkAndResetLives: $livesBefore');
+        
         final lives = await LifeSyncService.checkAndResetLives(uid);
+        
         if (mounted) {
           setState(() {
             _currentLives = lives;
           });
+          if (kDebugMode) debugPrint('✅ Vies chargées depuis Firestore: $_currentLives vies (était $livesBefore)');
         }
+      } else {
+        if (kDebugMode) debugPrint('⚠️ Aucun utilisateur connecté, vies non chargées');
       }
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur lors du chargement des vies: $e');
+      if (kDebugMode) debugPrint('   Stack trace: ${e.toString()}');
       // Fallback à 5 vies en cas d'erreur
       if (mounted) {
         setState(() {

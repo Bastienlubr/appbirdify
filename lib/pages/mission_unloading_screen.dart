@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import '../theme/colors.dart';
 import '../services/life_sync_service.dart';
 import '../services/mission_preloader.dart';
 import 'home_screen.dart';
@@ -79,11 +78,14 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
 
   Future<void> _startUnloading() async {
     try {
-      if (kDebugMode) debugPrint('🔄 Début du déchargement de la mission');
+      if (kDebugMode) debugPrint('🔄 Début du déchargement de la mission avec ${widget.livesRemaining} vies restantes');
 
       // Étape 1: Synchronisation des vies avec Firestore
       await _updateProgress('Synchronisation des vies...', 0.2);
       await _syncLivesWithFirestore();
+      
+      // Attendre un peu pour s'assurer que la synchronisation est terminée
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // Étape 2: Nettoyage du cache audio
       await _updateProgress('Nettoyage du cache audio...', 0.4);
@@ -145,14 +147,26 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
   Future<void> _syncLivesWithFirestore() async {
     try {
       final uid = LifeSyncService.getCurrentUserId();
+      if (kDebugMode) debugPrint('🔍 Vérification utilisateur: UID=$uid, Connecté=${LifeSyncService.isUserLoggedIn}');
+      
       if (uid != null) {
+        if (kDebugMode) debugPrint('🔄 Début synchronisation vies: ${widget.livesRemaining} vies pour utilisateur $uid');
+        
+        // Vérifier les vies actuelles avant synchronisation
+        final currentLives = await LifeSyncService.getCurrentLives(uid);
+        if (kDebugMode) debugPrint('📊 Vies actuelles dans Firestore: $currentLives');
+        
         await LifeSyncService.syncLivesAfterQuiz(uid, widget.livesRemaining);
-        if (kDebugMode) debugPrint('✅ Vies synchronisées: ${widget.livesRemaining} vies restantes');
+        
+        // Vérifier les vies après synchronisation
+        final updatedLives = await LifeSyncService.getCurrentLives(uid);
+        if (kDebugMode) debugPrint('✅ Vies synchronisées: ${widget.livesRemaining} → Firestore: $updatedLives');
       } else {
         if (kDebugMode) debugPrint('⚠️ Aucun utilisateur connecté, synchronisation ignorée');
       }
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur lors de la synchronisation des vies: $e');
+      if (kDebugMode) debugPrint('   Stack trace: ${e.toString()}');
       // Ne pas faire échouer le déchargement pour une erreur de synchronisation
     }
   }

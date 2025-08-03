@@ -17,6 +17,8 @@ class LifeSyncService {
       
       if (kDebugMode) {
         debugPrint('🔄 Synchronisation des vies restantes: $clampedLives pour l\'utilisateur $uid');
+        debugPrint('   - Vies reçues: $livesRemaining');
+        debugPrint('   - Vies après clamp: $clampedLives');
       }
 
       // Écrire directement la valeur des vies restantes dans Firestore
@@ -32,6 +34,7 @@ class LifeSyncService {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Erreur lors de la synchronisation des vies restantes: $e');
+        debugPrint('   - Stack trace: ${e.toString()}');
       }
       rethrow;
     }
@@ -105,6 +108,10 @@ class LifeSyncService {
       DocumentSnapshot userDoc = await _firestore.collection('users').doc(uid).get();
       
       if (!userDoc.exists) {
+        if (kDebugMode) {
+          debugPrint('⚠️ Document utilisateur inexistant, création avec 5 vies');
+        }
+        
         // Si le document n'existe pas, créer avec 5 vies
         await _firestore.collection('users').doc(uid).set({
           'livesRemaining': 5,
@@ -121,12 +128,25 @@ class LifeSyncService {
       final data = userDoc.data() as Map<String, dynamic>?;
       final currentLives = (data?['livesRemaining'] ?? 5) as int;
       
+      if (kDebugMode) {
+        debugPrint('📊 Données utilisateur récupérées:');
+        debugPrint('   - Vies actuelles dans Firestore: $currentLives');
+        debugPrint('   - Données complètes: $data');
+      }
+      
       // Récupérer la date de dernière réinitialisation
       final dailyResetDate = data?['dailyResetDate'] as Timestamp?;
       final lastResetDate = dailyResetDate?.toDate().toLocal() ?? DateTime.now().toLocal();
       
       // Date d'aujourd'hui à minuit
       final todayMidnight = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      
+      if (kDebugMode) {
+        debugPrint('📅 Dates de réinitialisation:');
+        debugPrint('   - Dernière réinitialisation: $lastResetDate');
+        debugPrint('   - Aujourd\'hui minuit: $todayMidnight');
+        debugPrint('   - Nouveau jour détecté: ${lastResetDate.isBefore(todayMidnight)}');
+      }
       
       // Vérifier si on est passé à un nouveau jour
       if (lastResetDate.isBefore(todayMidnight)) {
@@ -154,6 +174,7 @@ class LifeSyncService {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Erreur lors de la vérification/réinitialisation des vies: $e');
+        debugPrint('   - Stack trace: ${e.toString()}');
       }
       // En cas d'erreur, retourner 5 vies par défaut
       return 5;

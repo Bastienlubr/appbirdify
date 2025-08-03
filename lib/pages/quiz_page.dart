@@ -132,32 +132,7 @@ class _QuizPageState extends State<QuizPage> {
     super.dispose();
   }
 
-  /// Synchronise les vies perdues avec Firestore
-  Future<void> _syncLivesWithFirestore() async {
-    try {
-      await LifeSyncService.syncLivesAfterQuiz(LifeSyncService.getCurrentUserId()!, _visibleLives);
-      
-      if (!mounted) return;
-      
-      if (kDebugMode) debugPrint('✅ Vies synchronisées: $_visibleLives vies restantes');
-    } catch (e) {
-      if (kDebugMode) debugPrint('❌ Erreur lors de la synchronisation des vies: $e');
-      
-      // Afficher un SnackBar pour informer l'utilisateur
-      if (mounted && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Erreur lors de la synchronisation des vies: ${e.toString()}',
-              style: const TextStyle(fontFamily: 'Quicksand'),
-            ),
-            backgroundColor: const Color(0xFFBC4749),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
+
 
 
 
@@ -529,9 +504,6 @@ class _QuizPageState extends State<QuizPage> {
 
   Future<void> _loadAndPlayAudio(String audioUrl) async {
     try {
-      // Arrêter l'audio en cours s'il y en a un
-      await _audioPlayer.stop();
-      
       // Vérifier que l'URL audio n'est pas vide
       if (audioUrl.isEmpty) {
         _showAudioErrorDialog('Aucun fichier audio disponible pour cette question.');
@@ -546,13 +518,14 @@ class _QuizPageState extends State<QuizPage> {
       if (preloadedAudio != null) {
         if (kDebugMode) debugPrint('🎵 Utilisation de l\'audio préchargé pour: $birdName');
         
-        // Utiliser l'audio préchargé
+        // Arrêter l'audio en cours et utiliser l'audio préchargé simultanément
+        await _audioPlayer.stop();
         await _audioPlayer.setAudioSource(preloadedAudio.audioSource!);
         
         // Activer la boucle pour cette question
         _isAudioLooping = true;
         
-        // Lancer la lecture à une position aléatoire
+        // Lancer la lecture à une position aléatoire immédiatement
         await _playAudioAtRandomPosition();
         
         if (!mounted) return;
@@ -563,6 +536,7 @@ class _QuizPageState extends State<QuizPage> {
         if (kDebugMode) debugPrint('⚠️ Audio non trouvé en cache pour: $birdName, chargement normal');
         
         // Fallback : charger l'audio normalement
+        await _audioPlayer.stop();
         await _audioPlayer.setUrl(audioUrl);
         
         // Activer la boucle pour cette question
@@ -593,6 +567,9 @@ class _QuizPageState extends State<QuizPage> {
         return;
       }
       
+      // Lancer la lecture immédiatement (position 0 pour plus de rapidité)
+      await _audioPlayer.play();
+      
       // Obtenir la durée totale de l'audio
       final duration = _audioPlayer.duration;
       if (duration != null && duration.inSeconds > 0) {
@@ -605,7 +582,7 @@ class _QuizPageState extends State<QuizPage> {
         
         // Vérifier que la position n'est pas au-delà de la durée
         if (randomPosition < duration) {
-          // Positionner l'audio à la position aléatoire
+          // Positionner l'audio à la position aléatoire après le démarrage
           await _audioPlayer.seek(randomPosition);
           
           if (kDebugMode) {
@@ -617,9 +594,6 @@ class _QuizPageState extends State<QuizPage> {
           }
         }
       }
-      
-      // Lancer la lecture
-      await _audioPlayer.play();
     } catch (e) {
       debugPrint('Erreur lors du lancement aléatoire: $e');
       // Fallback : lancer normalement depuis le début
@@ -640,7 +614,7 @@ class _QuizPageState extends State<QuizPage> {
     
     try {
       // Attendre un court délai pour une transition plus naturelle
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 50)); // Réduit pour plus de rapidité
       
       // Vérifier que la boucle est toujours active
       if (_isAudioLooping && mounted) {
@@ -842,6 +816,13 @@ class _QuizPageState extends State<QuizPage> {
     // Désactiver la boucle avant de changer de question
     _isAudioLooping = false;
     
+    // Préparer la nouvelle question
+    final nextQuestion = _questions[_currentQuestionIndex + 1];
+    
+    // Charger l'audio en arrière-plan pendant la transition
+    _loadAndPlayAudio(nextQuestion.audioUrl);
+    
+    // Mettre à jour l'interface et lancer l'audio simultanément
     setState(() {
       _currentQuestionIndex++;
       _selectedAnswer = null;
@@ -849,10 +830,6 @@ class _QuizPageState extends State<QuizPage> {
       _showCorrectAnswerImage = false;
       _correctAnswerImageUrl = '';
     });
-    
-    // Charger et lancer l'audio de la nouvelle question (utilise maintenant le cache)
-    final nextQuestion = _questions[_currentQuestionIndex];
-    _loadAndPlayAudio(nextQuestion.audioUrl);
   }
 
   /// Quitte le quiz
@@ -1035,7 +1012,16 @@ class _QuizPageState extends State<QuizPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          // Intercepter le bouton retour du téléphone
+          if (kDebugMode) debugPrint('🔄 Bouton retour intercepté, redirection vers l\'écran de déchargement');
+          _exitQuiz();
+        }
+      },
+      child: Scaffold(
         backgroundColor: const Color(0xFFF3F5F9),
         body: _isLoading
             ? const Center(
@@ -1082,6 +1068,7 @@ class _QuizPageState extends State<QuizPage> {
                       ),
                     ),
                   ),
+      ),
     );
   }
 }
