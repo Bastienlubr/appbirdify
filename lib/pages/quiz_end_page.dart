@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'home_page.dart';
 import 'quiz_page.dart';
+import 'mission_unloading_screen.dart';
 import '../services/firestore_service.dart';
 import '../models/mission.dart';
 import '../utils/star_utils.dart';
@@ -184,10 +185,13 @@ class _QuizEndPageState extends State<QuizEndPage> {
                   _buildActionButton(
                     text: "Retour à l'accueil",
                     onPressed: () {
+                      // Naviguer vers l'écran de déchargement avec 5 vies (quiz terminé)
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const HomePage(),
+                          builder: (context) => const MissionUnloadingScreen(
+                            livesRemaining: 5, // Quiz terminé, vies intactes
+                          ),
                         ),
                       );
                     },

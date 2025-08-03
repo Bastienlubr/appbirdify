@@ -5,8 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/biome_carousel_enhanced.dart';
 import '../data/milieu_data.dart';
 import '../models/mission.dart';
-import '../pages/quiz_page.dart'; // Added import for QuizPage
+
 import '../pages/auth/login_screen.dart';
+import '../pages/mission_loading_screen.dart';
 import '../services/life_sync_service.dart';
 import '../services/life_system_test.dart';
 import '../services/mission_loader_service.dart';
@@ -94,6 +95,10 @@ class _HomeContentState extends State<HomeContent> {
   List<Mission> _currentMissions = [];
   late ScrollController _missionScrollController;
   
+  // Cache pour les missions déjà chargées
+  final Map<String, List<Mission>> _missionsCache = {};
+  bool _isLoadingMissions = false;
+  
   // Gestion des vies
   int _currentLives = 5;
 
@@ -104,6 +109,15 @@ class _HomeContentState extends State<HomeContent> {
     _missionScrollController = ScrollController();
     _loadMissionsForBiome(_selectedBiome);
     _loadCurrentLives();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recharger les missions quand on revient d'un quiz
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMissionsForBiome(_selectedBiome);
+    });
   }
 
   /// Charge les vies actuelles depuis Firestore et vérifie la réinitialisation quotidienne
@@ -184,9 +198,38 @@ class _HomeContentState extends State<HomeContent> {
   }
 
   Future<void> _loadMissionsForBiome(String biomeName) async {
+    if (_isLoadingMissions) return; // Éviter les chargements multiples
+    
+    setState(() {
+      _isLoadingMissions = true;
+    });
+    
     try {
+      // Vérifier si les missions sont déjà en cache
+      if (_missionsCache.containsKey(biomeName)) {
+        final cachedMissions = _missionsCache[biomeName]!;
+        final filteredMissions = _filterAndOrganizeMissions(cachedMissions);
+        
+        if (mounted) {
+          setState(() {
+            _currentMissions = filteredMissions;
+            _missionVisibility = List.generate(filteredMissions.length, (index) => false);
+            _isLoadingMissions = false;
+          });
+          
+          _animateMissionsAppearance();
+        }
+        return;
+      }
+      
       // Charger les missions depuis le CSV
       final List<Mission> allMissions = await MissionLoaderService.loadMissionsForBiome(biomeName.toLowerCase());
+      
+      // Mettre en cache
+      _missionsCache[biomeName] = allMissions;
+      
+      // Synchroniser en arrière-plan pour les autres biomes
+      _syncOtherBiomesInBackground(biomeName);
       
       // Filtrer et organiser les missions selon les critères
       final List<Mission> filteredMissions = _filterAndOrganizeMissions(allMissions);
@@ -195,28 +238,10 @@ class _HomeContentState extends State<HomeContent> {
         setState(() {
           _currentMissions = filteredMissions;
           _missionVisibility = List.generate(filteredMissions.length, (index) => false);
+          _isLoadingMissions = false;
         });
         
-        // Réinitialiser la position du scroll vers le haut
-        _missionScrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-        
-        // Animer l'apparition des missions une par une
-        // Délai initial de 100ms avant la première mission, puis 150ms entre chaque mission
-        for (int i = 0; i < filteredMissions.length; i++) {
-          Future.delayed(Duration(milliseconds: 100 + (i * 150)), () {
-            if (mounted && _selectedBiome == biomeName) {
-              setState(() {
-                if (i < _missionVisibility.length) {
-                  _missionVisibility[i] = true;
-                }
-              });
-            }
-          });
-        }
+        _animateMissionsAppearance();
       }
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur lors du chargement des missions: $e');
@@ -225,28 +250,133 @@ class _HomeContentState extends State<HomeContent> {
       setState(() {
         _currentMissions = missions;
         _missionVisibility = List.generate(missions.length, (index) => false);
+        _isLoadingMissions = false;
       });
     }
   }
 
-  /// Filtre et organise les missions selon les critères de déverrouillage
+  /// Anime l'apparition des missions avec des délais optimisés
+  void _animateMissionsAppearance() {
+    // Réinitialiser la position du scroll vers le haut
+    _missionScrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 200), // Réduit de 300 à 200
+      curve: Curves.easeOut,
+    );
+    
+    // Animer l'apparition des missions une par une avec des délais réduits
+    for (int i = 0; i < _currentMissions.length; i++) {
+      Future.delayed(Duration(milliseconds: 50 + (i * 100)), () { // Réduit de 100+150 à 50+100
+        if (mounted && _selectedBiome == _selectedBiome) {
+          setState(() {
+            if (i < _missionVisibility.length) {
+              _missionVisibility[i] = true;
+            }
+          });
+        }
+      });
+    }
+  }
+
+  /// Synchronise les autres biomes en arrière-plan pour vérifier le déblocage
+  void _syncOtherBiomesInBackground(String currentBiome) {
+    // Charger en arrière-plan pour ne pas bloquer l'interface
+    Future.microtask(() async {
+      try {
+        for (final biomeName in _biomeUnlockOrder) {
+          if (biomeName != currentBiome && !_missionsCache.containsKey(biomeName)) {
+            try {
+              final missions = await MissionLoaderService.loadMissionsForBiome(biomeName.toLowerCase());
+              _missionsCache[biomeName] = missions;
+              
+              // Mettre à jour la map statique pour la compatibilité
+              missionsParBiome[biomeName] = missions;
+            } catch (e) {
+              if (kDebugMode) debugPrint('⚠️ Erreur lors du chargement en arrière-plan du biome $biomeName: $e');
+            }
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) debugPrint('❌ Erreur lors de la synchronisation en arrière-plan: $e');
+      }
+    });
+  }
+
+  /// Définit l'ordre de déblocage des biomes
+  List<String> get _biomeUnlockOrder => [
+    'Urbain',
+    'Forestier', 
+    'Agricole',
+    'Humide',
+    'Montagnard',
+    'Littoral',
+  ];
+
+  /// Vérifie si un biome peut être débloqué
+  bool _isBiomeUnlocked(String biomeName) {
+    // Le premier biome (Urbain) est toujours débloqué
+    if (biomeName == 'Urbain') return true;
+    
+    final biomeIndex = _biomeUnlockOrder.indexOf(biomeName);
+    if (biomeIndex <= 0) return true; // Premier biome ou biome non trouvé
+    
+    // Vérifier si le biome précédent est complété
+    final previousBiome = _biomeUnlockOrder[biomeIndex - 1];
+    return _isBiomeCompleted(previousBiome);
+  }
+
+  /// Vérifie si un biome est complété (dernière mission avec 2+ étoiles)
+  bool _isBiomeCompleted(String biomeName) {
+    try {
+      // Utiliser le cache en priorité, sinon la map statique
+      final biomeMissions = _missionsCache[biomeName] ?? missionsParBiome[biomeName] ?? [];
+      if (biomeMissions.isEmpty) return false;
+      
+      // Trouver la dernière mission du biome
+      final lastMission = biomeMissions.reduce((a, b) => a.index > b.index ? a : b);
+      
+      // Vérifier si la dernière mission a au moins 2 étoiles
+      return lastMission.lastStarsEarned >= 2;
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ Erreur lors de la vérification du biome $biomeName: $e');
+      return false;
+    }
+  }
+
+  /// Filtre et organise les missions selon les critères de déverrouillage basés sur les étoiles
   List<Mission> _filterAndOrganizeMissions(List<Mission> allMissions) {
     final List<Mission> filteredMissions = [];
+    
+    // Vérifier si le biome actuel est débloqué
+    final isCurrentBiomeUnlocked = _isBiomeUnlocked(_selectedBiome);
     
     // Trier les missions par niveau
     allMissions.sort((a, b) => a.index.compareTo(b.index));
     
-    for (final mission in allMissions) {
-      // Cacher les missions de niveau > 2 si la précédente n'est pas déverrouillée
-      if (mission.index > 2) {
-        final previousMission = allMissions.where((m) => m.index == mission.index - 1).firstOrNull;
-        if (previousMission != null && previousMission.status == 'locked') {
-          continue;
-        }
+    for (int i = 0; i < allMissions.length; i++) {
+      final mission = allMissions[i];
+      
+      // Si le biome n'est pas débloqué, toutes les missions sont verrouillées
+      if (!isCurrentBiomeUnlocked) {
+        filteredMissions.add(mission.copyWith(status: 'locked'));
+        continue;
       }
       
-      // Ajouter toutes les missions visibles (déverrouillées ET verrouillées visibles)
-      filteredMissions.add(mission);
+      // La première mission (index 1) est accessible si le biome est débloqué
+      if (mission.index == 1) {
+        filteredMissions.add(mission.copyWith(status: 'available'));
+        continue;
+      }
+      
+      // Pour les missions suivantes, vérifier si la mission précédente a au moins 2 étoiles
+      final previousMission = allMissions.where((m) => m.index == mission.index - 1).firstOrNull;
+      if (previousMission != null && previousMission.lastStarsEarned >= 2) {
+        // Mission débloquée - ajouter avec statut 'available'
+        filteredMissions.add(mission.copyWith(status: 'available'));
+      } else {
+        // Mission verrouillée - ajouter avec statut 'locked'
+        filteredMissions.add(mission.copyWith(status: 'locked'));
+      }
     }
     
     return filteredMissions;
@@ -416,12 +546,58 @@ class _HomeContentState extends State<HomeContent> {
                         children: [
                           const SizedBox(height: 12),
                           Expanded(
-                            child: ListView(
-                              controller: _missionScrollController,
-                              padding: const EdgeInsets.only(bottom: 20),
+                            child: Stack(
                               children: [
-                                _buildQuizCards(),
-                                const SizedBox(height: 60),
+                                ListView(
+                                  controller: _missionScrollController,
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  children: [
+                                    _buildQuizCards(),
+                                    const SizedBox(height: 60),
+                                  ],
+                                ),
+                                // Effet de fondu au bas de la liste
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    height: 30,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          const Color(0xFFF3F5F9).withValues(alpha: 0.0),
+                                          const Color(0xFFF3F5F9).withValues(alpha: 0.4),
+                                          const Color(0xFFF3F5F9).withValues(alpha: 0.7),
+                                        ],
+                                        stops: const [0.0, 0.6, 1.0],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Effet de fondu en haut de la liste
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    height: 25,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                        colors: [
+                                          const Color(0xFFF3F5F9).withValues(alpha: 0.0),
+                                          const Color(0xFFF3F5F9).withValues(alpha: 0.3),
+                                          const Color(0xFFF3F5F9).withValues(alpha: 0.6),
+                                        ],
+                                        stops: const [0.0, 0.7, 1.0],
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -550,10 +726,14 @@ class _HomeContentState extends State<HomeContent> {
       return;
     }
     
+    // Navigation vers l'écran de chargement qui préchargera les images
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => QuizPage(missionId: missionId),
+        builder: (context) => MissionLoadingScreen(
+          missionId: missionId,
+          missionName: 'Mission $missionId',
+        ),
       ),
     );
     
@@ -662,7 +842,8 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
   void _handleTap() {
     if (widget.onTap != null) {
       // Marquer la mission comme consultée de manière persistante
-      if (widget.isUnlocked && !widget.mission.hasBeenSeen) {
+      // Dès qu'on clique sur une mission débloquée nouvellement (sans étoiles)
+      if (widget.isUnlocked && widget.mission.lastStarsEarned == 0) {
         MissionPersistenceService.markMissionAsConsulted(widget.mission.id);
         // Notifier le parent pour recharger les missions
         widget.onMissionConsulted?.call();
@@ -675,31 +856,16 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
     }
   }
 
-  /// Calcule la taille de police adaptative pour le sous-titre
-  double _calculateSubtitleFontSize() {
-    final String subtitle = widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}';
-    
-    // Taille de base uniforme pour toutes les missions
-    double baseSize = 14.0;
-    
-    // Réduire la taille si le texte est long
-    if (subtitle.length > 50) {
-      baseSize -= 1.0;
-    }
-    if (subtitle.length > 70) {
-      baseSize -= 1.0;
-    }
-    if (subtitle.length > 90) {
-      baseSize -= 1.0;
-    }
-    
-    // Taille minimum pour la lisibilité
-    return baseSize.clamp(11.0, 14.0);
-  }
+
 
   /// Détermine le texte à afficher selon l'état de la mission
   String? _getAvailabilityText() {
-    // Si la mission a déjà été consultée (persistant), ne rien afficher
+    // Si c'est la première mission du biome (niveau 1), ne jamais afficher "NOUVEAU"
+    if (widget.mission.index == 1) {
+      return null;
+    }
+    
+    // Si la mission a déjà été consultée, ne pas afficher "NOUVEAU"
     if (widget.mission.hasBeenSeen) {
       return null;
     }
@@ -754,51 +920,67 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                         height: 64,
                         decoration: BoxDecoration(
                           color: widget.isUnlocked 
-                              ? Colors.grey.shade300
-                              : Colors.grey.withAlpha(77),
+                              ? const Color(0xFFD2DBB2)
+                              : Colors.grey[300],
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(18),
-                          child: widget.mission.iconUrl != null
+                          child: !widget.isUnlocked
                               ? Image.asset(
-                                  widget.mission.iconUrl!,
+                                  'assets/Missionhome/Images/logolock.png',
                                   width: 64,
                                   height: 64,
                                   fit: BoxFit.contain,
                                   errorBuilder: (context, error, stackTrace) {
-                                    // Fallback vers l'icône si l'image ne charge pas
-                                    return Container(
+                                    // Fallback vers l'icône de cadenas si l'image ne charge pas
+                                    return SizedBox(
                                       width: 64,
                                       height: 64,
                                       child: Icon(
-                                        widget.isUnlocked ? Icons.quiz : Icons.lock,
-                                        color: widget.isUnlocked 
-                                            ? const Color(0xFF6A994E)
-                                            : Colors.grey,
+                                        Icons.lock,
+                                        color: Colors.grey,
                                         size: 32,
                                       ),
                                     );
                                   },
                                 )
-                              : Container(
-                                  width: 64,
-                                  height: 64,
-                                  child: Icon(
-                                    widget.isUnlocked ? Icons.quiz : Icons.lock,
-                                    color: widget.isUnlocked 
-                                        ? const Color(0xFF6A994E)
-                                        : Colors.grey,
-                                    size: 32,
-                                  ),
-                                ),
+                              : widget.mission.iconUrl != null
+                                  ? Image.asset(
+                                      widget.mission.iconUrl!,
+                                      width: 64,
+                                      height: 64,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        // Fallback vers l'icône si l'image ne charge pas
+                                        return SizedBox(
+                                          width: 64,
+                                          height: 64,
+                                          child: Icon(
+                                            Icons.quiz,
+                                            color: const Color(0xFF6A994E),
+                                            size: 32,
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : SizedBox(
+                                      width: 64,
+                                      height: 64,
+                                      child: Icon(
+                                        Icons.quiz,
+                                        color: const Color(0xFF6A994E),
+                                        size: 32,
+                                      ),
+                                    ),
                         ),
                       ),
                       
                       const SizedBox(width: 16),
                       
-                      // Contenu texte
-                      Expanded(
+                      // Contenu texte (largeur augmentée pour s'approcher des étoiles)
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.52, // Largeur augmentée pour s'approcher des étoiles
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -822,13 +1004,13 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                                 widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
                                 style: TextStyle(
                                   fontFamily: 'Quicksand',
-                                  fontSize: _calculateSubtitleFontSize(),
+                                  fontSize: 14.0, // Taille fixe
                                   fontWeight: FontWeight.w500,
                                   color: widget.isUnlocked 
                                       ? const Color(0xFF344356).withAlpha(179)
                                       : Colors.grey,
                                 ),
-                                maxLines: 3,
+                                maxLines: 4, // Plus de lignes pour compenser la largeur réduite
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -837,15 +1019,79 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                           ],
                         ),
                       ),
+                      
+
                     ],
                   ),
                 ),
+                
+                // Système d'étoiles positionné à droite de la case mission (seulement pour les missions débloquées)
+                if (widget.isUnlocked)
+                  Positioned(
+                    top: 5, // Espace en haut similaire au padding de la case mission
+                    bottom: 17, // Espace en bas similaire au padding de la case mission
+                    right: 7, // Décalé vers la gauche pour plus d'espace avec le texte
+                    child: Container(
+                      width: 28,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD2DBB2),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(7.2),
+                          bottomLeft: Radius.circular(7.2),
+                          topRight: Radius.circular(16), // Même courbure que la case mission
+                          bottomRight: Radius.circular(16), // Même courbure que la case mission
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Première étoile
+                          Transform.translate(
+                            offset: const Offset(-0.8, 0),
+                            child: Image.asset(
+                              widget.mission.lastStarsEarned >= 1 
+                                  ? 'assets/Images/Bouton/etoile_check.png'
+                                  : 'assets/Images/Bouton/etoile-nocheck.png',
+                              width: 24,
+                              height: 24,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                          // Deuxième étoile
+                          Transform.translate(
+                            offset: const Offset(-0.8, 0),
+                            child: Image.asset(
+                              widget.mission.lastStarsEarned >= 2 
+                                  ? 'assets/Images/Bouton/etoile_check.png'
+                                  : 'assets/Images/Bouton/etoile-nocheck.png',
+                              width: 24,
+                              height: 24,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                          // Troisième étoile
+                          Transform.translate(
+                            offset: const Offset(-0.8, 0),
+                            child: Image.asset(
+                              widget.mission.lastStarsEarned >= 3 
+                                  ? 'assets/Images/Bouton/etoile_check.png'
+                                  : 'assets/Images/Bouton/etoile-nocheck.png',
+                              width: 24,
+                              height: 24,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 
                 // Étiquette "NOUVEAU" positionnée au-dessus de la carte, en haut à droite
                 if (_getAvailabilityText() != null)
                   Positioned(
                     top: -6, // Déborde légèrement au-dessus de la carte
-                    right: 23, // Déplacé vers la gauche par rapport au bord droit
+                    right: 35, // Déplacé vers la gauche par rapport au bord droit
                     child: AnimatedBuilder(
                       animation: Listenable.merge([_badgeAnimationController, _badgeFloatController]),
                       builder: (context, child) {

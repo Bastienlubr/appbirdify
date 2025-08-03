@@ -4,6 +4,7 @@ class Bird {
   final String species;
   final String nomFr;
   final String urlMp3;
+  final String urlImage;
   final Set<String> milieux;
 
   // Constructeur complet
@@ -13,6 +14,7 @@ class Bird {
     required this.species,
     required this.nomFr,
     required this.urlMp3,
+    required this.urlImage,
     required this.milieux,
   });
 
@@ -24,6 +26,7 @@ class Bird {
       species: json['species'] as String,
       nomFr: json['nomFr'] as String,
       urlMp3: json['urlMp3'] as String,
+      urlImage: json['urlImage'] as String,
       milieux: Set<String>.from(json['milieux'] as List),
     );
   }
@@ -36,6 +39,7 @@ class Bird {
       'species': species,
       'nomFr': nomFr,
       'urlMp3': urlMp3,
+      'urlImage': urlImage,
       'milieux': milieux.toList(),
     };
   }
@@ -43,7 +47,7 @@ class Bird {
   // Méthode fromCsvRow pour créer un objet Bird à partir d'une ligne CSV
   factory Bird.fromCsvRow(Map<String, String> csvRow) {
     // Extraire le genre et l'espèce du nom scientifique
-    final scientificName = csvRow['Nom scientifique'] ?? '';
+    final scientificName = csvRow['Nom_scientifique'] ?? '';
     final parts = scientificName.split(' ');
     final genus = parts.isNotEmpty ? parts[0] : '';
     final species = parts.length > 1 ? parts[1] : '';
@@ -65,8 +69,9 @@ class Bird {
       id: id,
       genus: genus,
       species: species,
-      nomFr: csvRow['Nom français'] ?? '',
-      urlMp3: csvRow['Audio_URL'] ?? '',
+      nomFr: csvRow['Nom_français'] ?? '',
+      urlMp3: csvRow['LienURL'] ?? '',
+      urlImage: csvRow['photo'] ?? '',
       milieux: milieux,
     );
   }
@@ -74,7 +79,7 @@ class Bird {
   // Méthode toString pour le débogage
   @override
   String toString() {
-    return 'Bird(id: $id, genus: $genus, species: $species, nomFr: $nomFr, urlMp3: $urlMp3, milieux: $milieux)';
+    return 'Bird(id: $id, genus: $genus, species: $species, nomFr: $nomFr, urlMp3: $urlMp3, urlImage: $urlImage, milieux: $milieux)';
   }
 
   // Méthode equals pour comparer deux objets Bird
@@ -87,12 +92,13 @@ class Bird {
         other.species == species &&
         other.nomFr == nomFr &&
         other.urlMp3 == urlMp3 &&
+        other.urlImage == urlImage &&
         other.milieux == milieux;
   }
 
   // Méthode hashCode pour la cohérence avec equals
   @override
   int get hashCode {
-    return Object.hash(id, genus, species, nomFr, urlMp3, milieux);
+    return Object.hash(id, genus, species, nomFr, urlMp3, urlImage, milieux);
   }
 } 

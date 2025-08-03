@@ -1,0 +1,10 @@
+[33m334763e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdev[m[33m)[m style: uniformiser le fond des icônes de missions déverrouillées en gris
+[33m0b44b30[m fix: remove redundant imports and fix missing parenthesis - Remove flutter/foundation.dart imports from register_screen.dart and audio_player_widget.dart - Fix missing closing parenthesis in home_screen.dart Transform.scale
+[33m22a8451[m fix: correct Stack structure and syntax errors in home_screen.dart
+[33mee7f07e[m feat: implement persistent NEW badge and repositioned UI - NEW badge only shows once per mission and disappears after first click - Badge repositioned to top-right corner with smaller size - Added SharedPreferences for mission view tracking
+[33m23fa450[m fix(log): ensure all debugPrint and kDebugMode are properly imported and safe for dev
+[33m5084c49[m feat: Implémentation complète du système de vies avec réinitialisation quotidienne
+[33md760cca[m fix: correction déconnexion Firebase Auth - remplacement pushNamedAndRemoveUntil par pushReplacement, ajout debug prints, import LoginScreen
+[33mb928533[m feat: amélioration Firebase Auth register - gestion d'erreur robuste, debug prints, navigation pushReplacement, sauvegarde Firestore, indicateur de chargement
+[33mef29877[m feat: configuration Firebase complète et optimisée - initialisation robuste, options mises à jour, gestion d'erreur améliorée
+[33m9de9fd6[m feat: sauvegarde complète du projet Birdify - application Flutter avec authentification et interface utilisateur

@@ -8,6 +8,11 @@ class AppColors {
   static const antiflashWhite = Color(0xFFF3F5F9);
   static const bittersweetShimmer = Color(0xFFBC4749);
 
-  static const accent = bittersweetShimmer;
+  // Couleurs principales pour l'interface
+  static const primary = fernGreen; // #386641 - vert foncé
+  static const secondary = asparagus; // #6A994E - vert moyen
+  static const lightGreen = yellowGreen; // #A7C957 - vert clair
+  static const accent = bittersweetShimmer; // #BC4749 - rouge accent
+  static const background = antiflashWhite; // #F3F5F9 - fond de page
   static const textDark = Color(0xFF2D3648); // pour les textes
 } 

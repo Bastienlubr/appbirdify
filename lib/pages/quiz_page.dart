@@ -9,6 +9,7 @@ import '../services/image_cache_service.dart';
 import '../models/mission.dart';
 import '../models/bird.dart';
 import 'quiz_end_page.dart';
+import 'mission_unloading_screen.dart';
 
 class QuizPage extends StatefulWidget {
   final String missionId;
@@ -120,13 +121,13 @@ class _QuizPageState extends State<QuizPage> {
 
   @override
   void dispose() {
-    // Synchroniser les vies perdues avec Firestore
-    _syncLivesWithFirestore();
+    // Ne plus synchroniser automatiquement les vies ici
+    // Cela sera fait par l'écran de déchargement
     
     _audioPlayer.dispose();
     
-    // Nettoyer le cache audio après le quiz
-    MissionPreloader.clearAudioCache();
+    // Ne plus nettoyer automatiquement le cache audio ici
+    // Cela sera fait par l'écran de déchargement
     
     super.dispose();
   }
@@ -859,11 +860,21 @@ class _QuizPageState extends State<QuizPage> {
   void _exitQuiz() async {
     if (!mounted) return;
     
-    // Synchroniser les vies avant de quitter
-    await _syncLivesWithFirestore();
+    // Arrêter l'audio en cours
+    await _stopAudio();
     
-    if (!mounted) return;
-      Navigator.pop(context);
+    // Naviguer vers l'écran de déchargement
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MissionUnloadingScreen(
+            livesRemaining: _visibleLives,
+            missionId: widget.missionId,
+          ),
+        ),
+      );
+    }
   }
 
 
@@ -871,8 +882,8 @@ class _QuizPageState extends State<QuizPage> {
   void _onQuizCompleted() async {
     if (!mounted) return;
 
-    // Synchroniser les vies avant de quitter
-    await _syncLivesWithFirestore();
+    // Arrêter l'audio en cours
+    await _stopAudio();
 
     if (!mounted) return;
     final navigator = Navigator.of(context);
@@ -890,8 +901,8 @@ class _QuizPageState extends State<QuizPage> {
   void _onQuizFailed() async {
     if (!mounted) return;
 
-    // Synchroniser les vies avant d'afficher le dialogue
-    await _syncLivesWithFirestore();
+    // Arrêter l'audio en cours
+    await _stopAudio();
 
     if (!mounted) return;
     
@@ -919,7 +930,16 @@ class _QuizPageState extends State<QuizPage> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(); // Fermer le dialogue
-              Navigator.of(context).pop(); // Retourner à l'écran précédent
+              // Naviguer vers l'écran de déchargement
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MissionUnloadingScreen(
+                    livesRemaining: _visibleLives,
+                    missionId: widget.missionId,
+                  ),
+                ),
+              );
             },
             child: const Text(
               'Retour',
@@ -964,12 +984,18 @@ class _QuizPageState extends State<QuizPage> {
             onPressed: () async {
               Navigator.of(dialogContext).pop(); // Fermer le dialogue
               
-              // Synchroniser les vies avant de quitter
-              await _syncLivesWithFirestore();
-              
-              if (!mounted) return;
-              // Utiliser rootNavigator pour éviter les problèmes de contexte
-              Navigator.of(context, rootNavigator: true).pop();
+              // Naviguer vers l'écran de déchargement
+              if (mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MissionUnloadingScreen(
+                      livesRemaining: _visibleLives,
+                      missionId: widget.missionId,
+                    ),
+                  ),
+                );
+              }
             },
             child: const Text('Retour'),
           ),
@@ -987,12 +1013,18 @@ class _QuizPageState extends State<QuizPage> {
         actions: [
           TextButton(
             onPressed: () async {
-              // Synchroniser les vies avant de quitter
-              await _syncLivesWithFirestore();
-              
-              if (!mounted) return;
-              // Utiliser rootNavigator pour éviter les problèmes de contexte
-              Navigator.of(context, rootNavigator: true).pop();
+              // Naviguer vers l'écran de déchargement
+              if (mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MissionUnloadingScreen(
+                      livesRemaining: _visibleLives,
+                      missionId: widget.missionId,
+                    ),
+                  ),
+                );
+              }
             },
             child: const Text('OK'),
           ),
