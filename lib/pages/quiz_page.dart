@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:animations/animations.dart';
+import 'package:rive/rive.dart' as rive;
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/quiz_generator.dart';
 import '../services/life_sync_service.dart';
 import '../services/mission_preloader.dart';
@@ -13,8 +15,8 @@ import 'mission_unloading_screen.dart';
 
 class QuizPage extends StatefulWidget {
   final String missionId;
-  final Mission? mission; // Mission associée au quiz
-  final Map<String, Bird>? preloadedBirds; // Oiseaux préchargés depuis l'écran de chargement
+  final Mission? mission;
+  final Map<String, Bird>? preloadedBirds;
   
   const QuizPage({
     super.key,
@@ -35,16 +37,14 @@ class _QuizPageState extends State<QuizPage> {
   int _currentQuestionIndex = 0;
   int _score = 0;
   
-  // Gestion des vies
   int _visibleLives = 5;
+  bool _isLivesSyncing = false;
   
-    // Gestion de l'audio
   late AudioPlayer _audioPlayer;
   String _currentAudioUrl = '';
   bool _isAudioLooping = false;
-  bool _isRestartingAudio = false; // Protection contre les relancements multiples
+  bool _audioAnimationOn = true;
   
-  // Gestion de l'affichage de l'image de la bonne réponse
   bool _showCorrectAnswerImage = false;
   String _correctAnswerImageUrl = '';
   
@@ -58,59 +58,27 @@ class _QuizPageState extends State<QuizPage> {
     _initializeQuiz();
   }
 
-  /// Configure la boucle audio avec transition fluide
   void _setupAudioLooping() {
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed && _isAudioLooping && mounted) {
-        // L'audio est terminé, relancer avec une position aléatoire
-        // Utiliser un microtask pour éviter les appels multiples
         Future.microtask(() => _restartAudioAtRandomPosition());
       }
     });
   }
 
   Future<void> _initializeQuiz() async {
-    // Charger les vies restantes depuis Firestore et vérifier la réinitialisation quotidienne
-    try {
-      final uid = LifeSyncService.getCurrentUserId();
-      if (uid != null) {
-        final lives = await LifeSyncService.checkAndResetLives(uid);
-        if (mounted) {
-          setState(() {
-            _visibleLives = lives;
-          });
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('❌ Erreur lors du chargement des vies: $e');
-      // Fallback à 5 vies en cas d'erreur
-      if (mounted) {
-        setState(() {
-          _visibleLives = 5;
-        });
-      }
-    }
+    await _loadLivesWithRetry();
     
-    // Si les oiseaux sont déjà préchargés, les utiliser directement
     if (widget.preloadedBirds != null && widget.preloadedBirds!.isNotEmpty) {
       if (kDebugMode) debugPrint('✅ Utilisation des oiseaux préchargés (${widget.preloadedBirds!.length} oiseaux)');
       
-      // Ajouter les oiseaux préchargés au cache du MissionPreloader
       for (final entry in widget.preloadedBirds!.entries) {
         MissionPreloader.addBirdToCache(entry.key, entry.value);
       }
     } else {
-      // Précharger tous les éléments de la mission (fallback)
       try {
         if (kDebugMode) debugPrint('🔄 Préchargement complet de la mission ${widget.missionId}...');
-        final preloadResults = await MissionPreloader.preloadMission(widget.missionId);
-        
-        if (kDebugMode) {
-          debugPrint('✅ Préchargement terminé:');
-          debugPrint('   - Audios: ${preloadResults['successfulAudioPreloads']}/${preloadResults['totalBirds']}');
-          debugPrint('   - Images: ${preloadResults['successfulImagePreloads']}/${preloadResults['totalBirds']}');
-          debugPrint('   - Oiseaux: ${preloadResults['birdNames']}');
-        }
+        await MissionPreloader.preloadMission(widget.missionId);
       } catch (e) {
         if (kDebugMode) debugPrint('❌ Erreur lors du préchargement: $e');
       }
@@ -119,16 +87,51 @@ class _QuizPageState extends State<QuizPage> {
     _loadQuiz();
   }
 
+  Future<void> _loadLivesWithRetry() async {
+    const maxRetries = 3;
+    int retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        final uid = LifeSyncService.getCurrentUserId();
+        if (uid != null) {
+          if (kDebugMode) debugPrint('🔄 Tentative ${retryCount + 1}/$maxRetries de chargement des vies pour $uid');
+          
+          final lives = await LifeSyncService.checkAndResetLives(uid);
+          if (mounted) {
+            setState(() {
+              _visibleLives = lives;
+            });
+          }
+          return;
+        } else {
+          if (mounted) {
+            setState(() {
+              _visibleLives = 5;
+            });
+          }
+          return;
+        }
+      } catch (e) {
+        retryCount++;
+        if (kDebugMode) debugPrint('❌ Erreur lors du chargement des vies (tentative $retryCount/$maxRetries): $e');
+        
+        if (retryCount >= maxRetries) {
+          if (mounted) {
+            setState(() {
+              _visibleLives = 5;
+            });
+          }
+        } else {
+          await Future.delayed(Duration(milliseconds: 500 * retryCount));
+        }
+      }
+    }
+  }
+
   @override
   void dispose() {
-    // Ne plus synchroniser automatiquement les vies ici
-    // Cela sera fait par l'écran de déchargement
-    
     _audioPlayer.dispose();
-    
-    // Ne plus nettoyer automatiquement le cache audio ici
-    // Cela sera fait par l'écran de déchargement
-    
     super.dispose();
   }
 
@@ -138,8 +141,8 @@ class _QuizPageState extends State<QuizPage> {
 
   Widget _buildQuestionPage(QuizQuestion question, int index) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [Color(0xFFF8FAFC), Color(0xFFF1F5F9)],
@@ -148,27 +151,63 @@ class _QuizPageState extends State<QuizPage> {
       child: SafeArea(
         child: Stack(
           children: [
+            // Effet d'auréole en arrière-plan (feedback visuel subtil)
+            if (_showFeedback)
+              Positioned.fill(
+                child: AnimatedOpacity(
+                  opacity: _showFeedback ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 800),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment.bottomCenter,
+                        radius: 1.8, // Rayon encore plus grand pour couvrir plus de zone
+                        colors: [
+                          // Déterminer la couleur selon la réponse
+                          (_selectedAnswer == question.correctAnswer 
+                              ? const Color(0xFF6A994E) // Vert pour bonne réponse
+                              : const Color(0xFFBC4749) // Rouge pour mauvaise réponse
+                          ).withValues(alpha: 0.25), // Opacité significativement augmentée
+                          (_selectedAnswer == question.correctAnswer 
+                              ? const Color(0xFF6A994E) // Vert pour bonne réponse
+                              : const Color(0xFFBC4749) // Rouge pour mauvaise réponse
+                          ).withValues(alpha: 0.15), // Couche intermédiaire plus visible
+                          (_selectedAnswer == question.correctAnswer 
+                              ? const Color(0xFF6A994E) // Vert pour bonne réponse
+                              : const Color(0xFFBC4749) // Rouge pour mauvaise réponse
+                          ).withValues(alpha: 0.08), // Couche externe subtile
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.3, 0.6, 0.9], // Dégradé plus étendu et progressif
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            
             // Zone supérieure avec bouton échappe
             Positioned(
               top: 30, // Exactement la même hauteur que le compteur
               left: 35,
-              child: GestureDetector(
-                onTap: () {
-                  // Quitter le quiz
-                  _exitQuiz();
-                },
-                child: Image.asset(
-                  "assets/Images/Bouton/Boutonechap2.png",
-                  width: 30, // Beaucoup plus gros
-                  height: 30, // Beaucoup plus gros
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(
-                      Icons.arrow_back,
-                      color: Color(0xFF473C33),
-                      size: 80,
-                    );
-                  },
-                ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      // Quitter le quiz
+                      _exitQuiz();
+                    },
+                    child: SvgPicture.asset(
+                      "assets/Images/cross.svg",
+                      width: 30,
+                      height: 30,
+                      colorFilter: const ColorFilter.mode(
+                        Color(0xFF473C33),
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ),
+
+                ],
               ),
             ),
             
@@ -176,52 +215,9 @@ class _QuizPageState extends State<QuizPage> {
             Positioned(
               top: 5,
               right: 30,
-                              child: SizedBox(
-                  width: 80,
-                  height: 80,
-                child: Stack(
-                  children: [
-                    // Icône de vie en arrière-plan
-                    Image.asset(
-                      'assets/Images/Bouton/barvie.png',
-                      width: 100,
-                      height: 100,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFBC4749).withAlpha(51),
-                            borderRadius: BorderRadius.circular(40),
-                          ),
-                          child: const Icon(
-                            Icons.favorite,
-                            color: Color(0xFFBC4749),
-                            size: 40,
-                          ),
-                        );
-                      },
-                    ),
-                    // Compteur de vies centré par-dessus
-                    Positioned.fill(
-                      child: Transform.translate(
-                        offset: const Offset(18, -0.5), // Ajustement fin de la position verticale
-                        child: Align(
-                          alignment: Alignment.center,
-                          child: Text(
-                            _visibleLives.toString(),
-                            style: TextStyle(
-                              fontFamily: 'Quicksand',
-                              fontSize: 34,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF473C33),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              child: _LivesDisplayWidget(
+                lives: _visibleLives,
+                isSyncing: _isLivesSyncing,
               ),
             ),
             
@@ -235,7 +231,7 @@ class _QuizPageState extends State<QuizPage> {
                 child: Opacity(
                   opacity: 0.6,
                   child: Text(
-                    '${index + 1} sur ${_questions.length}',
+                    '${_currentQuestionIndex + 1} sur ${_questions.length}',
                 style: const TextStyle(
                   fontFamily: 'Quicksand',
                   fontSize: 20,
@@ -296,6 +292,57 @@ class _QuizPageState extends State<QuizPage> {
               ),
             ),
             
+            // Bouton audio en overlay (position fixe)
+            Positioned(
+              top: 200, // Position fixe pour le bouton audio
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: _toggleAudio,
+                  child: _AudioAnimationWidget(
+                    isOn: _audioAnimationOn,
+                  ),
+                ),
+              ),
+            ),
+            
+            // Image de la bonne réponse en overlay (par-dessus le bouton audio)
+            Positioned(
+              top: 200, // Position plus basse pour éviter le titre et être plus proche des réponses
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Builder(
+                  builder: (context) {
+                    return IgnorePointer(
+                      ignoring: !_showCorrectAnswerImage, // Ignorer les interactions quand l'image n'est pas visible
+                      child: _showCorrectAnswerImage && _correctAnswerImageUrl.isNotEmpty
+                          ? TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              duration: const Duration(milliseconds: 500),
+                              curve: Curves.easeOutBack,
+                              builder: (context, scale, child) {
+                                return Transform.scale(
+                                  scale: scale,
+                                  child: SizedBox(
+                                    height: 280, // Plus haut pour un format vertical
+                                    width: 210, // Plus étroit pour un ratio 4:3
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(15), // Coins moins arrondis
+                                      child: _buildCachedImage(),
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                          : const SizedBox.shrink(),
+                    );
+                  },
+                ),
+              ),
+            ),
+            
                         // Contenu principal du quiz
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 0.0),
@@ -307,120 +354,32 @@ class _QuizPageState extends State<QuizPage> {
                   const SizedBox(height: 16),
               
               // Titre principal
-              const Text(
+              Text(
                 'Quel oiseau se cache derrière ce son ?',
-                style: TextStyle(
-                  fontFamily: 'Quicksand',
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
+                                  style: const TextStyle(
+                    fontFamily: 'Quicksand',
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900, // Plus gras que bold
+                    color: Color(0xFF344356),
+                    letterSpacing: 0.5, // Espacement entre les lettres
+                    shadows: [
+                      Shadow(
+                        offset: Offset(0, 1),
+                        blurRadius: 2,
+                        color: Color.fromRGBO(0, 0, 0, 0.1),
+                      ),
+                    ],
+                  ),
                 textAlign: TextAlign.center,
                 softWrap: true,
                 maxLines: 2,
               ),
               
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 0),
               
-              // Contrôles audio simplifiés
-              Center(
-                child: IconButton(
-                  onPressed: _toggleAudio,
-                  icon: StreamBuilder<bool>(
-                    stream: _audioPlayer.playingStream,
-                    builder: (context, snapshot) {
-                      final isPlaying = snapshot.data ?? false;
-                      return Icon(
-                        isPlaying ? Icons.pause_circle : Icons.play_circle,
-                        size: 80,
-                        color: const Color(0xFF6A994E),
-                      );
-                    },
-                  ),
-                ),
-              ),
+              const SizedBox(height: 0),
               
-              const SizedBox(height: 16),
-              
-              // Affichage de l'image de la bonne réponse
-              SizedBox(
-                height: 200,
-                child: Center(
-                  child: AnimatedScale(
-                    scale: _showCorrectAnswerImage ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutBack,
-                    child: _showCorrectAnswerImage && _correctAnswerImageUrl.isNotEmpty
-                        ? Builder(
-                            builder: (context) {
-                              if (kDebugMode) debugPrint('🖼️ Rendu de l\'image: $_correctAnswerImageUrl');
-                              
-                              // Déterminer la couleur du contour selon la réponse
-                              final isCorrectAnswer = _selectedAnswer == question.correctAnswer;
-                              final borderColor = isCorrectAnswer 
-                                  ? const Color(0xFF6A994E) // Vert pour bonne réponse
-                                  : const Color(0xFFBC4749); // Rouge pour mauvaise réponse
-                              
-                              return Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: borderColor.withAlpha(60), // Bordure légère sur l'image
-                                    width: 2,
-                                  ),
-                                  boxShadow: [
-                                    // Effet glowy intensifié avec plusieurs couches pour un fondu progressif
-                                    BoxShadow(
-                                      color: borderColor.withAlpha(120), // Plus intense
-                                      blurRadius: 12,
-                                      spreadRadius: 4,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                    BoxShadow(
-                                      color: borderColor.withAlpha(100), // Plus intense
-                                      blurRadius: 20,
-                                      spreadRadius: 6,
-                                      offset: const Offset(0, 5),
-                                    ),
-                                    BoxShadow(
-                                      color: borderColor.withAlpha(80), // Plus intense
-                                      blurRadius: 28,
-                                      spreadRadius: 8,
-                                      offset: const Offset(0, 7),
-                                    ),
-                                    BoxShadow(
-                                      color: borderColor.withAlpha(60), // Plus intense
-                                      blurRadius: 36,
-                                      spreadRadius: 10,
-                                      offset: const Offset(0, 9),
-                                    ),
-                                    BoxShadow(
-                                      color: borderColor.withAlpha(40), // Couche supplémentaire
-                                      blurRadius: 44,
-                                      spreadRadius: 12,
-                                      offset: const Offset(0, 11),
-                                    ),
-                                    BoxShadow(
-                                      color: borderColor.withAlpha(20), // Couche finale
-                                      blurRadius: 52,
-                                      spreadRadius: 14,
-                                      offset: const Offset(0, 13),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(10), // Légèrement plus petit pour laisser place à la bordure
-                                  child: _buildCachedImage(),
-                                ),
-                              );
-                            },
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-              
-              const Spacer(),
+              const SizedBox(height: 320), // Questions plus basses
               
               // Options de réponse positionnées vers le centre de l'écran
               Column(
@@ -451,7 +410,7 @@ class _QuizPageState extends State<QuizPage> {
                           textColor = Colors.white;
                         }
                       } else if (isCorrectAnswer) {
-                        backgroundColor = const Color(0xFF6A994E).withAlpha(50);
+                        backgroundColor = const Color.fromRGBO(106, 153, 78, 0.2);
                         borderColor = const Color(0xFF6A994E);
                       }
                     }
@@ -483,7 +442,7 @@ class _QuizPageState extends State<QuizPage> {
                               border: Border.all(color: borderColor, width: 2),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withAlpha(10),
+                                  color: const Color.fromRGBO(0, 0, 0, 0.04),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -528,9 +487,10 @@ class _QuizPageState extends State<QuizPage> {
         _isLoading = false;
         _currentQuestionIndex = 0;
         _score = 0;
+        _audioAnimationOn = true; // Animation "on" au démarrage
       });
       
-      // Charger et lancer l'audio de la première question (utilise maintenant le cache)
+      // Charger et lancer l'audio de la première question
       if (questions.isNotEmpty) {
         _loadAndPlayAudio(questions[0].audioUrl);
       }
@@ -538,35 +498,27 @@ class _QuizPageState extends State<QuizPage> {
       setState(() {
         _isLoading = false;
       });
-      debugPrint('❌ Erreur détaillée: $e');
+      
       _showErrorDialog('Erreur lors du chargement du quiz: $e');
     }
   }
 
   Future<void> _loadAndPlayAudio(String audioUrl) async {
     try {
-      // Vérifier que l'URL audio n'est pas vide
       if (audioUrl.isEmpty) {
         _showAudioErrorDialog('Aucun fichier audio disponible pour cette question.');
         return;
       }
       
-      // Essayer d'utiliser l'audio préchargé depuis le cache
       final currentQuestion = _questions[_currentQuestionIndex];
       final birdName = currentQuestion.correctAnswer;
       final preloadedAudio = MissionPreloader.getPreloadedAudio(birdName);
       
       if (preloadedAudio != null) {
-        if (kDebugMode) debugPrint('🎵 Utilisation de l\'audio préchargé pour: $birdName');
-        
-        // Arrêter l'audio en cours et utiliser l'audio préchargé simultanément
         await _audioPlayer.stop();
         await _audioPlayer.setAudioSource(preloadedAudio.audioSource!);
         
-        // Activer la boucle pour cette question
         _isAudioLooping = true;
-        
-        // Lancer la lecture à une position aléatoire immédiatement
         await _playAudioAtRandomPosition();
         
         if (!mounted) return;
@@ -574,16 +526,10 @@ class _QuizPageState extends State<QuizPage> {
           _currentAudioUrl = audioUrl;
         });
       } else {
-        if (kDebugMode) debugPrint('⚠️ Audio non trouvé en cache pour: $birdName, chargement normal');
-        
-        // Fallback : charger l'audio normalement
         await _audioPlayer.stop();
         await _audioPlayer.setUrl(audioUrl);
         
-        // Activer la boucle pour cette question
         _isAudioLooping = true;
-        
-        // Lancer la lecture à une position aléatoire
         await _playAudioAtRandomPosition();
         
         if (!mounted) return;
@@ -592,88 +538,53 @@ class _QuizPageState extends State<QuizPage> {
         });
       }
     } catch (e) {
-      debugPrint('Erreur lors du chargement audio: $e');
       _showAudioErrorDialog('Impossible de charger l\'audio. Vérifiez votre connexion internet.');
     }
   }
   
 
 
-  /// Lance l'audio à une position aléatoire
   Future<void> _playAudioAtRandomPosition() async {
     try {
-      // Vérifier que l'audio est bien chargé
       if (_audioPlayer.audioSource == null) {
-        debugPrint('❌ Aucune source audio chargée');
         return;
       }
       
-      // Lancer la lecture immédiatement (position 0 pour plus de rapidité)
       await _audioPlayer.play();
       
-      // Obtenir la durée totale de l'audio
       final duration = _audioPlayer.duration;
       if (duration != null && duration.inSeconds > 0) {
-        // Calculer une position aléatoire dans le premier tiers de l'audio
-        // pour s'assurer qu'il y a assez de temps pour entendre le chant
-        final maxStartPosition = (duration.inSeconds * 0.7).round(); // 70% de la durée
+        final maxStartPosition = (duration.inSeconds * 0.7).round();
         final randomPosition = maxStartPosition > 0 
             ? Duration(seconds: _getRandomInt(0, maxStartPosition))
             : Duration.zero;
         
-        // Vérifier que la position n'est pas au-delà de la durée
         if (randomPosition < duration) {
-          // Positionner l'audio à la position aléatoire après le démarrage
           await _audioPlayer.seek(randomPosition);
-          
-          if (kDebugMode) {
-            debugPrint('🎵 Audio lancé à la position: ${randomPosition.inSeconds}s / ${duration.inSeconds}s');
-          }
-        } else {
-          if (kDebugMode) {
-            debugPrint('⚠️ Position aléatoire invalide, démarrage depuis le début');
-          }
         }
       }
     } catch (e) {
-      debugPrint('Erreur lors du lancement aléatoire: $e');
-      // Fallback : lancer normalement depuis le début
       try {
         await _audioPlayer.seek(Duration.zero);
         await _audioPlayer.play();
       } catch (fallbackError) {
-        debugPrint('❌ Erreur lors du fallback audio: $fallbackError');
+        // Erreur fallback ignorée
       }
     }
   }
 
-  /// Relance l'audio à une position aléatoire (pour la boucle)
   Future<void> _restartAudioAtRandomPosition() async {
-    if (!_isAudioLooping || _isRestartingAudio || !mounted) return;
-    
-    _isRestartingAudio = true;
+    if (!_isAudioLooping || !mounted) {
+      return;
+    }
     
     try {
-      // Attendre un court délai pour une transition plus naturelle
-      await Future.delayed(const Duration(milliseconds: 50)); // Réduit pour plus de rapidité
-      
-      // Vérifier que la boucle est toujours active
-      if (_isAudioLooping && mounted) {
-        // Relancer à une position aléatoire
-        await _playAudioAtRandomPosition();
-        
-        if (kDebugMode) {
-          debugPrint('🔄 Audio relancé en boucle');
-        }
-      }
+      await _playAudioAtRandomPosition();
     } catch (e) {
-      debugPrint('Erreur lors du relancement: $e');
-    } finally {
-      _isRestartingAudio = false;
+      // Erreur ignorée
     }
   }
 
-  /// Génère un nombre aléatoire entre min et max
   int _getRandomInt(int min, int max) {
     return min + (DateTime.now().millisecondsSinceEpoch % (max - min + 1));
   }
@@ -681,33 +592,42 @@ class _QuizPageState extends State<QuizPage> {
   Future<void> _toggleAudio() async {
     try {
       final playingState = _audioPlayer.playing;
+      
+      setState(() {
+        _audioAnimationOn = !_audioAnimationOn;
+      });
+      
       if (playingState) {
-        await _audioPlayer.pause();
+        _isAudioLooping = false;
+        
+        _audioPlayer.pause().catchError((e) {
+          // Erreur ignorée
+        });
       } else {
-        // Vérifier qu'il y a un audio chargé avant de jouer
         if (_currentAudioUrl.isNotEmpty) {
-          await _audioPlayer.play();
+          _isAudioLooping = true;
+          
+          _playAudioAtRandomPosition().catchError((e) {
+            // Erreur ignorée
+          });
         } else {
           _showAudioErrorDialog('Aucun audio disponible pour cette question.');
         }
       }
     } catch (e) {
-      debugPrint('Erreur lors du toggle audio: $e');
       _showAudioErrorDialog('Erreur lors de la lecture audio. Veuillez réessayer.');
     }
   }
 
   Future<void> _stopAudio() async {
     try {
-      _isAudioLooping = false; // Désactiver la boucle
-      _isRestartingAudio = false; // Réinitialiser le flag de protection
+      _isAudioLooping = false;
       
-      // Arrêter l'audio seulement s'il est en cours de lecture
       if (_audioPlayer.playing) {
         await _audioPlayer.stop();
       }
     } catch (e) {
-      debugPrint('Erreur lors de l\'arrêt audio: $e');
+      // Erreur ignorée
     }
   }
 
@@ -717,24 +637,28 @@ class _QuizPageState extends State<QuizPage> {
     final currentQuestion = _questions[_currentQuestionIndex];
     final isCorrect = selectedAnswer == currentQuestion.correctAnswer;
     
-    // Arrêter l'audio immédiatement quand une réponse est sélectionnée
     await _stopAudio();
     
     if (!mounted) return;
     
-    // Récupérer l'URL de l'image de la bonne réponse
     String imageUrl = '';
     try {
-      if (kDebugMode) debugPrint('🔍 Recherche de l\'oiseau: ${currentQuestion.correctAnswer}');
       final birdData = MissionPreloader.getBirdData(currentQuestion.correctAnswer);
       if (birdData != null) {
         imageUrl = birdData.urlImage;
-        if (kDebugMode) debugPrint('✅ Image trouvée: $imageUrl');
       } else {
-        if (kDebugMode) debugPrint('❌ Aucune donnée trouvée pour: ${currentQuestion.correctAnswer}');
+        try {
+          await MissionPreloader.loadBirdifyData();
+          final retryBirdData = MissionPreloader.getBirdData(currentQuestion.correctAnswer);
+          if (retryBirdData != null) {
+            imageUrl = retryBirdData.urlImage;
+          }
+        } catch (retryError) {
+          // Erreur ignorée
+        }
       }
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ Erreur lors de la récupération de l\'image: $e');
+      // Erreur ignorée
     }
     
     setState(() {
@@ -743,22 +667,17 @@ class _QuizPageState extends State<QuizPage> {
       _showCorrectAnswerImage = true;
       _correctAnswerImageUrl = imageUrl;
       
-      if (kDebugMode) debugPrint('🖼️ État mis à jour - showImage: $_showCorrectAnswerImage, url: $_correctAnswerImageUrl');
-      
-      // Incrémenter le score si la réponse est correcte
       if (isCorrect) {
         _score++;
       } else {
-        // Décrémenter les vies si la réponse est incorrecte
         _visibleLives--;
+        _syncLivesImmediately();
       }
     });
 
-    // Afficher l'image pendant un délai plus long
     await Future.delayed(const Duration(milliseconds: 2000));
     if (!context.mounted) return;
     
-    // Vérifier si le joueur a encore des vies
     if (_visibleLives <= 0) {
       _onQuizFailed();
     } else {
@@ -766,18 +685,56 @@ class _QuizPageState extends State<QuizPage> {
     }
   }
 
-  /// Construit l'image en utilisant le cache pour un affichage instantané
+  Future<void> _syncLivesImmediately() async {
+    if (_isLivesSyncing) {
+      return;
+    }
+    
+    _isLivesSyncing = true;
+    
+    try {
+      final uid = LifeSyncService.getCurrentUserId();
+      if (uid != null) {
+        await LifeSyncService.syncLivesAfterQuiz(uid, _visibleLives);
+      }
+    } catch (e) {
+      // Ne pas faire échouer le quiz pour une erreur de synchronisation
+    } finally {
+      _isLivesSyncing = false;
+    }
+  }
+
+
+
   Widget _buildCachedImage() {
     if (_correctAnswerImageUrl.isEmpty) {
       return Container(
         width: 300,
         height: 180,
-        color: Colors.grey[200],
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(15),
+        ),
         child: const Center(
-          child: Icon(
-            Icons.image_not_supported,
-            size: 48,
-            color: Colors.grey,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.image_not_supported,
+                size: 48,
+                color: Colors.grey,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Image non disponible',
+                style: TextStyle(
+                  fontFamily: 'Quicksand',
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       );
@@ -788,29 +745,49 @@ class _QuizPageState extends State<QuizPage> {
 
     if (cachedImage != null) {
       // Image en cache - affichage instantané
-      if (kDebugMode) debugPrint('🚀 Image affichée instantanément depuis le cache: $_correctAnswerImageUrl');
       return Image(
         image: cachedImage,
-        fit: BoxFit.contain, // Utilise contain pour garder les proportions naturelles
+        fit: BoxFit.cover, // Utilise cover pour remplir le conteneur
       );
     } else {
       // Image pas en cache - fallback vers Image.network
-      if (kDebugMode) debugPrint('⚠️ Image non trouvée en cache, chargement réseau: $_correctAnswerImageUrl');
       return Image.network(
         _correctAnswerImageUrl,
-        fit: BoxFit.contain, // Utilise contain pour garder les proportions naturelles
+        fit: BoxFit.cover, // Utilise cover pour remplir le conteneur
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return Container(
-            color: Colors.grey[200],
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(15),
+            ),
             child: const Center(
-              child: CircularProgressIndicator(),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    color: Color(0xFF6A994E),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Chargement...',
+                    style: TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
         errorBuilder: (context, error, stackTrace) {
           return Container(
-            color: Colors.grey[200],
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(15),
+            ),
             child: const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -825,8 +802,10 @@ class _QuizPageState extends State<QuizPage> {
                     'Image non disponible',
                     style: TextStyle(
                       fontFamily: 'Quicksand',
+                      fontSize: 16,
                       color: Colors.grey,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -838,40 +817,43 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   void _goToNextQuestion() async {
-    // Vérifier si on a atteint la dernière question
     if (_currentQuestionIndex >= _questions.length - 1) {
       _onQuizCompleted();
       return;
     }
     
-    // Désactiver la boucle avant de changer de question
     _isAudioLooping = false;
     
-    // Préparer la nouvelle question
     final nextQuestion = _questions[_currentQuestionIndex + 1];
     
-    // Charger l'audio en arrière-plan pendant la transition
     _loadAndPlayAudio(nextQuestion.audioUrl);
     
-    // Mettre à jour l'interface et lancer l'audio simultanément
     setState(() {
       _currentQuestionIndex++;
       _selectedAnswer = null;
       _showFeedback = false;
       _showCorrectAnswerImage = false;
       _correctAnswerImageUrl = '';
+      _audioAnimationOn = true;
     });
   }
 
-  /// Quitte le quiz
-  /// Appelé quand l'utilisateur quitte manuellement la mission
   void _exitQuiz() async {
     if (!mounted) return;
     
-    // Arrêter l'audio en cours
     await _stopAudio();
     
-    // Naviguer vers l'écran de déchargement
+    if (!_isLivesSyncing) {
+      try {
+        final uid = LifeSyncService.getCurrentUserId();
+        if (uid != null) {
+          await LifeSyncService.syncLivesAfterQuiz(uid, _visibleLives);
+        }
+      } catch (e) {
+        // Continuer même en cas d'erreur
+      }
+    }
+    
     if (mounted) {
       Navigator.pushReplacement(
         context,
@@ -890,7 +872,6 @@ class _QuizPageState extends State<QuizPage> {
   void _onQuizCompleted() async {
     if (!mounted) return;
 
-    // Arrêter l'audio en cours
     await _stopAudio();
 
     if (!mounted) return;
@@ -909,12 +890,10 @@ class _QuizPageState extends State<QuizPage> {
   void _onQuizFailed() async {
     if (!mounted) return;
 
-    // Arrêter l'audio en cours
     await _stopAudio();
 
     if (!mounted) return;
     
-    // Afficher un dialogue d'échec
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -937,8 +916,7 @@ class _QuizPageState extends State<QuizPage> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // Fermer le dialogue
-              // Naviguer vers l'écran de déchargement
+              Navigator.of(context).pop();
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
@@ -990,9 +968,8 @@ class _QuizPageState extends State<QuizPage> {
         actions: [
           TextButton(
             onPressed: () async {
-              Navigator.of(dialogContext).pop(); // Fermer le dialogue
+              Navigator.of(dialogContext).pop();
               
-              // Naviguer vers l'écran de déchargement
               if (mounted) {
                 Navigator.pushReplacement(
                   context,
@@ -1021,7 +998,6 @@ class _QuizPageState extends State<QuizPage> {
         actions: [
           TextButton(
             onPressed: () async {
-              // Naviguer vers l'écran de déchargement
               if (mounted) {
                 Navigator.pushReplacement(
                   context,
@@ -1045,10 +1021,10 @@ class _QuizPageState extends State<QuizPage> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
           // Intercepter le bouton retour du téléphone
-          if (kDebugMode) debugPrint('🔄 Bouton retour intercepté, redirection vers l\'écran de déchargement');
+  
           _exitQuiz();
         }
       },
@@ -1100,6 +1076,158 @@ class _QuizPageState extends State<QuizPage> {
                     ),
                   ),
       ),
+    );
+  }
+}
+
+class _AudioAnimationWidget extends StatefulWidget {
+  final bool isOn;
+  
+  const _AudioAnimationWidget({
+    required this.isOn,
+  });
+
+  @override
+  State<_AudioAnimationWidget> createState() => _AudioAnimationWidgetState();
+}
+
+class _AudioAnimationWidgetState extends State<_AudioAnimationWidget> {
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 50), // Transition ultra-rapide
+      switchInCurve: Curves.easeInOut,
+      switchOutCurve: Curves.easeInOut,
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+      child: SizedBox(
+        key: ValueKey('audio_${widget.isOn ? 'on' : 'off'}'),
+        width: 160,
+        height: 160,
+        child: rive.RiveAnimation.asset(
+          widget.isOn 
+              ? 'assets/animations/audio_on.riv'
+              : 'assets/animations/audio_off.riv',
+          fit: BoxFit.contain,
+        ),
+      ),
+    );
+  }
+}
+
+class _LivesDisplayWidget extends StatefulWidget {
+  final int lives;
+  final bool isSyncing;
+  
+  const _LivesDisplayWidget({
+    required this.lives,
+    required this.isSyncing,
+  });
+
+  @override
+  State<_LivesDisplayWidget> createState() => _LivesDisplayWidgetState();
+}
+
+class _LivesDisplayWidgetState extends State<_LivesDisplayWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+  
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.1,
+    ).animate(CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    ));
+  }
+  
+  @override
+  void didUpdateWidget(_LivesDisplayWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    if (widget.lives != oldWidget.lives) {
+      _pulseController.forward().then((_) {
+        _pulseController.reverse();
+      });
+    }
+  }
+  
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _pulseAnimation.value,
+          child: SizedBox(
+            width: 80,
+            height: 80,
+            child: Stack(
+              children: [
+                Image.asset(
+                  'assets/Images/Bouton/barvie.png',
+                  width: 100,
+                  height: 100,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: const Color.fromRGBO(188, 71, 73, 0.2),
+                        borderRadius: BorderRadius.circular(40),
+                      ),
+                      child: const Icon(
+                        Icons.favorite,
+                        color: Color(0xFFBC4749),
+                        size: 40,
+                      ),
+                    );
+                  },
+                ),
+                Positioned.fill(
+                  child: Transform.translate(
+                    offset: const Offset(18, -0.5),
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Text(
+                        widget.lives.toString(),
+                        style: TextStyle(
+                          fontFamily: 'Quicksand',
+                          fontSize: 34,
+                          fontWeight: FontWeight.w900,
+                          color: widget.lives <= 1 
+                              ? const Color(0xFFBC4749)
+                              : const Color(0xFF473C33),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

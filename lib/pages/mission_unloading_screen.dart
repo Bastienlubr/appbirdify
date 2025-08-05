@@ -152,21 +152,47 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
       if (uid != null) {
         if (kDebugMode) debugPrint('🔄 Début synchronisation vies: ${widget.livesRemaining} vies pour utilisateur $uid');
         
-        // Vérifier les vies actuelles avant synchronisation
+        // Étape 1: Vérifier la cohérence des vies actuelles
+        await _updateProgress('Vérification de la cohérence des vies...', 0.25);
+        final verifiedLives = await LifeSyncService.verifyAndFixLives(uid);
+        if (kDebugMode) debugPrint('📊 Vies vérifiées dans Firestore: $verifiedLives');
+        
+        // Étape 2: Vérifier les vies actuelles avant synchronisation
         final currentLives = await LifeSyncService.getCurrentLives(uid);
         if (kDebugMode) debugPrint('📊 Vies actuelles dans Firestore: $currentLives');
         
+        // Étape 3: Synchroniser avec les vies restantes du quiz
+        await _updateProgress('Synchronisation des vies restantes...', 0.3);
         await LifeSyncService.syncLivesAfterQuiz(uid, widget.livesRemaining);
         
-        // Vérifier les vies après synchronisation
+        // Étape 4: Vérifier les vies après synchronisation
         final updatedLives = await LifeSyncService.getCurrentLives(uid);
         if (kDebugMode) debugPrint('✅ Vies synchronisées: ${widget.livesRemaining} → Firestore: $updatedLives');
+        
+        // Étape 5: Vérification finale de cohérence
+        await _updateProgress('Vérification finale...', 0.35);
+        final finalLives = await LifeSyncService.verifyAndFixLives(uid);
+        if (kDebugMode) debugPrint('✅ Vérification finale: $finalLives vies');
+        
       } else {
         if (kDebugMode) debugPrint('⚠️ Aucun utilisateur connecté, synchronisation ignorée');
       }
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur lors de la synchronisation des vies: $e');
       if (kDebugMode) debugPrint('   Stack trace: ${e.toString()}');
+      
+      // En cas d'erreur, essayer une réinitialisation forcée
+      try {
+        final uid = LifeSyncService.getCurrentUserId();
+        if (uid != null) {
+          if (kDebugMode) debugPrint('🔄 Tentative de réinitialisation forcée des vies');
+          await LifeSyncService.forceResetLives(uid);
+          if (kDebugMode) debugPrint('✅ Réinitialisation forcée réussie');
+        }
+      } catch (resetError) {
+        if (kDebugMode) debugPrint('❌ Échec de la réinitialisation forcée: $resetError');
+      }
+      
       // Ne pas faire échouer le déchargement pour une erreur de synchronisation
     }
   }

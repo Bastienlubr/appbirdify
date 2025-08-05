@@ -40,6 +40,8 @@ dependencies:
   path: ^1.9.0
   google_fonts: ^6.2.1
   animations: ^2.0.11
+  rive: ^0.12.4
+  flutter_svg: ^2.0.7
   
   # Firebase dependencies
   firebase_core: ^3.6.0
@@ -89,6 +91,7 @@ flutter:
     - assets/Images/
     - assets/Images/Milieu/
     - assets/Images/Bouton/
+    - assets/animations/
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

@@ -267,7 +267,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
         _progressController.animateTo(progress);
       }
       
-      if (kDebugMode) debugPrint('✅ ${_loadedImages} images préchargées dans le cache');
+      if (kDebugMode) debugPrint('✅ $_loadedImages images préchargées dans le cache');
       
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur préchargement images: $e');

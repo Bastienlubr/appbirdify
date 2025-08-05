@@ -9,7 +9,6 @@ import '../models/mission.dart';
 import '../pages/auth/login_screen.dart';
 import '../pages/mission_loading_screen.dart';
 import '../services/life_sync_service.dart';
-import '../services/life_system_test.dart';
 import '../services/mission_loader_service.dart';
 import '../services/mission_persistence_service.dart';
 
@@ -162,13 +161,13 @@ class _HomeContentState extends State<HomeContent> {
   /// Réinitialise les vies à 5 (fonction de test uniquement)
   Future<void> _resetVies() async {
     try {
-      final uid = LifeSystemTest.getCurrentUserId();
+      final uid = LifeSyncService.getCurrentUserId();
       if (uid == null) {
         if (kDebugMode) debugPrint('⚠️ Aucun utilisateur connecté');
         return;
       }
 
-      await LifeSystemTest.resetVies(uid);
+      await LifeSyncService.forceResetLives(uid);
       
       // Recharger les vies depuis Firestore après la réinitialisation
       if (mounted) {
