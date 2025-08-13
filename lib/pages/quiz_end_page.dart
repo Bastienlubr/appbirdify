@@ -81,6 +81,11 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
   int _lottieVersion = 0; // permet de forcer le rechargement de l'animation Lottie
   bool _showBlockBorders = false; // Nouvel état pour les bordures temporaires
   
+  // Confettis: deux animations en plein écran, la seconde démarre après 1 seconde
+  final bool _showConfetti1 = true; // démarre immédiatement
+  bool _showConfetti2 = false; // démarre après 1s
+  int _confettiVersion = 0; // pour forcer le redémarrage des confettis
+  
   // Cache pour les phrases du CSV
   Map<int, Map<String, String>>? _csvPhrases;
   
@@ -121,6 +126,14 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
     
     // Charge les phrases du CSV
     _loadCSVPhrases();
+
+    // Démarrer la seconde animation de confettis après 1 seconde
+    Future.delayed(const Duration(seconds: 1), () {
+      if (!mounted) return;
+      setState(() {
+        _showConfetti2 = true;
+      });
+    });
   }
 
   /// Met à jour complètement la progression de la mission dans Firestore
@@ -177,10 +190,48 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
     
     final s = useScreenSize(context);
     return AdaptiveScaffold(
-      body: Container(
-        color: const Color(0xFFF3F5F9),
-        child: SafeArea(
-        child: LayoutBuilder(
+      body: Stack(
+        children: [
+          // Couleur de fond
+          Positioned.fill(child: Container(color: const Color(0xFFF3F5F9))),
+          // Couche confettis plein écran (au-dessus du fond)
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: true,
+              child: SafeArea(
+                child: Stack(
+                  children: [
+                    if (_showConfetti1)
+                      Positioned.fill(
+                        child: FractionalTranslation(
+                          translation: const Offset(-0.20, 0.0), // encore plus à gauche
+                          child: Lottie.asset(
+                            'assets/PAGE/Score resultat/Confetti.json',
+                            key: ValueKey('confetti-1-v$_confettiVersion'),
+                            fit: BoxFit.cover,
+                            alignment: Alignment.centerLeft,
+                            repeat: false,
+                          ),
+                        ),
+                      ),
+                    if (_showConfetti2)
+                      Positioned.fill(
+                        child: Lottie.asset(
+                          'assets/PAGE/Score resultat/Confetti (1).json',
+                          key: ValueKey('confetti-2-v$_confettiVersion'),
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          repeat: false,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Contenu principal
+          SafeArea(
+            child: LayoutBuilder(
           builder: (context, constraints) {
               // === Ratios et dimensions HARMONISÉS pour tous les écrans ===
             final Size box = constraints.biggest;
@@ -189,7 +240,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
             final bool isLarge = s.isMD || s.isLG || s.isXL;
             final bool isTablet = shortest >= 600; // Supporte téléphone + tablette
 
-            _EndLayout _layout() {
+            _EndLayout calculateLayout() {
               // 1) Ring size
               final double baseFactor = isTablet
                   ? (isWide ? 0.46 : 0.54)  // légèrement plus grand pour tablettes
@@ -251,7 +302,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
               );
             }
 
-            final layout = _layout();
+            final layout = calculateLayout();
 
             return Center(
               child: SingleChildScrollView(
@@ -711,8 +762,9 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
           ),
             );
           },
-          ),
-        ),
+           ),
+         ),
+         ],
       ),
       floatingActionButton: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1095,10 +1147,21 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
     // 7) Forcer la reconstruction de l'anneau
     setState(() {
       _lottieVersion++;
+      // Confettis: redémarrer en réinitialisant l'état et en incrémentant la version
+      _confettiVersion++;
+      _showConfetti2 = false;
       // Force la régénération des messages en changeant un état
       _forceMessageRefresh = !_forceMessageRefresh;
       // Force la reconstruction de l'anneau
       _ringKey++;
+    });
+
+    // Reprogrammer le démarrage de la deuxième animation après 1 seconde
+    Future.delayed(const Duration(seconds: 1), () {
+      if (!mounted) return;
+      setState(() {
+        _showConfetti2 = true;
+      });
     });
   }
 
@@ -1477,7 +1540,7 @@ class _PlayAudioButtonState extends State<_PlayAudioButton> {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: widget.color.withOpacity(0.12),
+          color: widget.color.withValues(alpha: 0.12),
           shape: BoxShape.circle,
         ),
         child: _loading
@@ -1486,7 +1549,7 @@ class _PlayAudioButtonState extends State<_PlayAudioButton> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : Icon(widget.isActive ? Icons.stop : Icons.mic,
-                color: widget.audioUrl.isEmpty ? widget.color.withOpacity(0.4) : widget.color),
+                color: widget.audioUrl.isEmpty ? widget.color.withValues(alpha: 0.4) : widget.color),
       ),
     );
   }
@@ -1536,14 +1599,14 @@ class _TwoSemiCircleRingPainter extends CustomPainter {
       ..isAntiAlias = true;
 
     // Glow style "BoxShadow": puissant près du trait, diffus vers l'extérieur (simple et progressif)
-    const double _boxShadowBlurRadius = 35.8; // comme BoxShadow(blurRadius: 35.8)
-    final double _sigma = _boxShadowBlurRadius * 0.57735 + 0.5; // conversion radius -> sigma
+    const double boxShadowBlurRadius = 35.8; // comme BoxShadow(blurRadius: 35.8)
+    final double sigma = boxShadowBlurRadius * 0.57735 + 0.5; // conversion radius -> sigma
     final Paint glowShadow = Paint()
       ..color = color.withValues(alpha: 0.52)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth * 2.4
       ..strokeCap = StrokeCap.round
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, _sigma)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, sigma)
       ..filterQuality = FilterQuality.high
       ..isAntiAlias = true;
 

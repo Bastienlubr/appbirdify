@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'pages/home_screen.dart';
-import 'pages/auth/login_screen.dart';
 import 'pages/quiz_end_page.dart';
 import 'services/local_image_service.dart';
 
