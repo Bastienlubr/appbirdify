@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:ui';
 import 'register_screen.dart';
 import '../home_screen.dart';
+import '../../services/user_sync_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,6 +44,11 @@ class _LoginScreenState extends State<LoginScreen> {
         email: email,
         password: password,
       );
+
+      if (!mounted) return;
+      
+      // Démarrer la synchronisation et créer le profil dans `utilisateurs/{uid}` si absent
+      await UserSyncService.startSync();
 
       if (!mounted) return;
       

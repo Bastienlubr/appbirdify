@@ -91,7 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         // Sauvegarder les informations utilisateur dans Firestore
         try {
           await FirebaseFirestore.instance
-              .collection('users')
+              .collection('utilisateurs')
               .doc(userCredential.user!.uid)
               .set({
             'name': name,

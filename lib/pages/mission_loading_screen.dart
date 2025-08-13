@@ -8,16 +8,22 @@ import '../models/bird.dart';
 import '../theme/colors.dart';
 import '../services/image_cache_service.dart';
 import 'quiz_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/mission.dart';
+import '../services/mission_loader_service.dart';
+import '../services/life_sync_service.dart';
 
 /// Écran de chargement temporaire pour précharger les images des bonnes réponses
 class MissionLoadingScreen extends StatefulWidget {
   final String missionId;
   final String missionName;
+  final String? missionCsvPath;
 
   const MissionLoadingScreen({
     super.key,
     required this.missionId,
     required this.missionName,
+    this.missionCsvPath,
   });
 
   @override
@@ -87,39 +93,103 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
     try {
       if (kDebugMode) debugPrint('🔄 Début du chargement de la mission: ${widget.missionId}');
 
-      // Étape 1: Charger les données de la mission
-      await _updateProgress('Chargement des données mission...', 0.1);
-      final missionData = await _loadMissionData();
-      if (missionData.isEmpty) {
-        throw Exception('Aucune donnée trouvée pour la mission ${widget.missionId}');
+      // Étape 1: Charger la mission depuis Firestore si disponible, sinon basculer vers CSV
+      await _updateProgress('Chargement de la mission (Firestore)...', 0.1);
+      bool loadedFromFirestore = false;
+      try {
+        final missionDoc = await FirebaseFirestore.instance
+            .collection('missions')
+            .doc(widget.missionId)
+            .get();
+
+        if (missionDoc.exists) {
+          final data = missionDoc.data() as Map<String, dynamic>;
+          final pool = data['pool'] as Map<String, dynamic>?;
+          final List<dynamic> bonnesDetails = (pool?['bonnesDetails'] as List<dynamic>?) ?? [];
+
+          if (bonnesDetails.isNotEmpty) {
+            await _updateProgress('Analyse des bonnes réponses (Firestore)...', 0.2);
+            _birdNames = bonnesDetails
+                .map((e) => (e as Map<String, dynamic>)['nomFrancais']?.toString() ?? '')
+                .where((n) => n.isNotEmpty)
+                .toList();
+            _totalImages = _birdNames.length;
+
+            // Construire le cache oiseau minimal à partir de bonnesDetails
+            for (final entry in bonnesDetails) {
+              final m = entry as Map<String, dynamic>;
+              final nom = (m['nomFrancais'] ?? '').toString();
+              if (nom.isEmpty) continue;
+              final bird = Bird(
+                id: (m['id'] ?? nom).toString(),
+                genus: '',
+                species: '',
+                nomFr: nom,
+                urlMp3: (m['urlAudio'] ?? '').toString(),
+                urlImage: (m['urlImage'] ?? '').toString(),
+                milieux: <String>{},
+              );
+              _birdCache[nom] = bird;
+            }
+
+            if (kDebugMode) debugPrint('🐦 ${_birdNames.length} bonnes réponses (Firestore): $_birdNames');
+
+            // Étape: Précharger les images à partir des URLs Firestore
+            await _updateProgress('Préchargement des images...', 0.4);
+            await _preloadGoodAnswerImages();
+            loadedFromFirestore = true;
+          }
+        }
+      } catch (e) {
+        // Ne pas échouer l'écran si Firestore est interdit; on bascule vers CSV
+        if (kDebugMode) debugPrint('⚠️ Lecture Firestore impossible, bascule vers CSV: $e');
       }
 
-      // Étape 2: Extraire les noms des bonnes réponses
-      await _updateProgress('Analyse des bonnes réponses...', 0.2);
-      _birdNames = _extractGoodAnswers(missionData);
-      _totalImages = _birdNames.length;
-      
-      if (kDebugMode) debugPrint('🐦 ${_birdNames.length} bonnes réponses trouvées: $_birdNames');
+      if (!loadedFromFirestore) {
+        // Fallback CSV: ancien flux
+        await _updateProgress('Chargement des données mission (CSV)...', 0.1);
+        final missionData = await _loadMissionData();
+        if (missionData.isEmpty) {
+          throw Exception('Aucune donnée trouvée pour la mission ${widget.missionId}');
+        }
 
-      // Étape 3: Charger les données Birdify
-      await _updateProgress('Chargement de la base de données...', 0.3);
-      await _loadBirdifyData();
+        await _updateProgress('Analyse des bonnes réponses...', 0.2);
+        _birdNames = _extractGoodAnswers(missionData);
+        _totalImages = _birdNames.length;
+        if (kDebugMode) debugPrint('🐦 ${_birdNames.length} bonnes réponses trouvées: $_birdNames');
 
-      // Étape 4: Précharger les images des bonnes réponses
-      await _updateProgress('Préchargement des images...', 0.4);
-      await _preloadGoodAnswerImages();
+        await _updateProgress('Chargement de la base de données...', 0.3);
+        await _loadBirdifyData();
+
+        await _updateProgress('Préchargement des images...', 0.4);
+        await _preloadGoodAnswerImages();
+      }
 
       // Étape 5: Finalisation
       await _updateProgress('Finalisation...', 1.0);
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
+        // Récupérer l'objet Mission depuis HomeScreen
+        final mission = await _getMissionFromHomeScreen();
+        
+        if (!mounted) return;
+        
+        if (kDebugMode) {
+          debugPrint('🎯 Mission récupérée pour QuizPage:');
+          final missionTitle = mission?.titreMission ?? mission?.title ?? mission?.id ?? 'NULL';
+          debugPrint('   ID: ${mission?.id ?? "NULL"}');
+          debugPrint('   Nom: $missionTitle');
+          debugPrint('   Étoiles: ${mission?.lastStarsEarned ?? "NULL"}');
+        }
+        
         // Navigation vers le quiz avec les données préchargées
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => QuizPage(
               missionId: widget.missionId,
+              mission: mission, // Passer l'objet Mission
               preloadedBirds: _birdCache,
             ),
           ),
@@ -149,13 +219,37 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
   /// Charge les données de la mission depuis le CSV
   Future<List<Map<String, String>>> _loadMissionData() async {
     try {
-      final csvPath = 'assets/Missionhome/questionMission/${widget.missionId}.csv';
+      final csvPath = widget.missionCsvPath ?? 'assets/Missionhome/questionMission/${widget.missionId}.csv';
       final csvString = await rootBundle.loadString(csvPath);
       
       final List<List<dynamic>> csvTable = const CsvToListConverter().convert(csvString);
       if (csvTable.isEmpty) return [];
       
-      final headers = csvTable[0].map((e) => e.toString()).toList();
+      // Normaliser les en-têtes pour être robustes aux variantes
+      String normalizeHeader(String raw) {
+        String h = raw.toString().trim().toLowerCase();
+        h = h
+            .replaceAll('é', 'e')
+            .replaceAll('è', 'e')
+            .replaceAll('ê', 'e')
+            .replaceAll('ë', 'e')
+            .replaceAll('à', 'a')
+            .replaceAll('â', 'a')
+            .replaceAll('î', 'i')
+            .replaceAll('ï', 'i')
+            .replaceAll('ô', 'o')
+            .replaceAll('ö', 'o')
+            .replaceAll('ù', 'u')
+            .replaceAll('û', 'u')
+            .replaceAll('ü', 'u')
+            .replaceAll('’', "'")
+            .replaceAll('‘', "'");
+        h = h.replaceAll(RegExp(r"\s+"), '_');
+        return h;
+      }
+
+      final rawHeaders = csvTable[0].map((e) => e.toString()).toList();
+      final headers = rawHeaders.map(normalizeHeader).toList();
       final missionData = <Map<String, String>>[];
       
       for (int i = 1; i < csvTable.length; i++) {
@@ -164,11 +258,14 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
         
         final Map<String, String> csvRow = {};
         for (int j = 0; j < headers.length && j < row.length; j++) {
-          csvRow[headers[j]] = row[j]?.toString() ?? '';
+          final key = headers[j];
+          final value = row[j]?.toString().trim() ?? '';
+          csvRow[key] = value;
         }
         
-        // Ne garder que les lignes avec des bonnes réponses
-        if (csvRow['bonne_reponse']?.isNotEmpty == true) {
+        // Ne garder que les lignes avec des bonnes réponses (clé normalisée)
+        final bonne = csvRow['bonne_reponse'] ?? '';
+        if (bonne.isNotEmpty) {
           missionData.add(csvRow);
         }
       }
@@ -306,6 +403,26 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
       row[headers[i]] = values[i];
     }
     return row;
+  }
+
+  String _mapMissionIdToBiomeName(String missionId) {
+    if (missionId.isEmpty) return '';
+    switch (missionId[0].toUpperCase()) {
+      case 'U':
+        return 'urbain';
+      case 'F':
+        return 'forestier';
+      case 'A':
+        return 'agricole';
+      case 'H':
+        return 'humide';
+      case 'M':
+        return 'montagnard';
+      case 'L':
+        return 'littoral';
+      default:
+        return '';
+    }
   }
 
   @override
@@ -504,5 +621,49 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
         ),
       ),
     );
+  }
+  
+  /// Récupère l'objet Mission depuis HomeScreen via MissionLoaderService
+  Future<Mission?> _getMissionFromHomeScreen() async {
+    try {
+      final uid = LifeSyncService.getCurrentUserId();
+      if (uid == null) {
+        if (kDebugMode) debugPrint('⚠️ Aucun utilisateur connecté pour récupérer la mission');
+        return null;
+      }
+
+      final biome = _mapMissionIdToBiomeName(widget.missionId);
+      if (biome.isEmpty) {
+        if (kDebugMode) debugPrint('⚠️ Impossible de déduire le biome depuis ${widget.missionId}');
+        return null;
+      }
+
+      final missions = await MissionLoaderService.loadMissionsForBiomeWithProgression(uid, biome);
+      final mission = missions.firstWhere(
+        (m) => m.id == widget.missionId,
+        orElse: () => Mission(
+          id: widget.missionId,
+          milieu: biome,
+          index: 1,
+          status: 'available',
+          questions: const [],
+          titreMission: widget.missionName,
+        ),
+      );
+
+      if (kDebugMode) {
+        debugPrint('🎯 Mission trouvée pour ${widget.missionId}:');
+        final title = mission.titreMission ?? mission.title ?? mission.id;
+        debugPrint('   ID: ${mission.id}');
+        debugPrint('   Nom: $title');
+        debugPrint('   Étoiles: ${mission.lastStarsEarned}');
+        debugPrint('   Statut: ${mission.status}');
+      }
+
+      return mission;
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ Erreur lors de la récupération de la mission: $e');
+      return null;
+    }
   }
 } 

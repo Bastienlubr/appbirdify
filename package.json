@@ -1,0 +1,40 @@
+{
+  "name": "appbirdify",
+  "version": "1.0.0",
+  "description": "A new Flutter project.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "emu:start": "firebase emulators:start --only firestore",
+    "emu:start:background": "powershell -ExecutionPolicy Bypass -File scripts/start-emulator.ps1",
+    "emu:ping": "node scripts/ping_emulator.mjs",
+    "check": "node scripts/check_environment.mjs",
+    "java:install": "powershell -ExecutionPolicy Bypass -File scripts/install_java.ps1",
+    "import:oiseaux": "node scripts/import-oiseaux.mjs",
+    "import:missions:final": "node scripts/import-missions-final.mjs",
+    "import:missions:direct": "node scripts/import-missions-direct-id.mjs",
+    "approve:missions": "node scripts/approve-missions.mjs",
+    "import:all": "node scripts/import-all.mjs",
+    "import:verify": "node scripts/import-all.mjs --verify"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bastienlubr/appbirdify.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Bastienlubr/appbirdify/issues"
+  },
+  "homepage": "https://github.com/Bastienlubr/appbirdify#readme",
+  "dependencies": {
+    "csv-parse": "^6.1.0",
+    "firebase-admin": "^13.4.0"
+  }
+}

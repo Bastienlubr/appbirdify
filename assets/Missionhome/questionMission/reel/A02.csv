@@ -1,0 +1,31 @@
+id_mission,biome,num_question,bonne_reponse,id_oiseaux,URL_bonne_reponse,mauvaise_reponse,id_oiseaux
+A02,Milieu agricole,1,Tarier pâtre,248,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTarier%20p%C3%A2tre.mp3?alt=media&token=f018dbbc-3470-4b16-963f-6063db29cd3a,Tarier des prés,248
+A02,Milieu agricole,2,Bergeronnette grise,21,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBergeronnette%20grise.mp3?alt=media&token=a3a4a529-fcc4-4b46-aab2-5ccb19a62ac6,Rougequeue noir,21
+A02,Milieu agricole,3,Fauvette à lunettes,93,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FFauvette%20%C3%A0%20lunettes.wav?alt=media&token=f568a7e8-7251-41b4-8266-adbc104e1a7b,Bruant zizi,93
+A02,Milieu agricole,4,Fauvette pitchou,99,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FFauvette%20pitchou.wav?alt=media&token=6e6e7f58-9a5f-43c2-ba0a-4611ff76a7d5,Fauvette grisette,99
+A02,Milieu agricole,5,Chardonneret élégant,50,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FChardonneret%20%C3%A9l%C3%A9gant.wav?alt=media&token=12e0f3df-cf38-4438-a40f-a8d62711a11c,Fauvette à tête noire,50
+A02,Milieu agricole,6,Faucon crécerelle,90,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FFaucon%20cr%C3%A9cerelle.wav?alt=media&token=63046804-e4d9-40c6-ae17-d26fed5d35a4,Moineau domestique,90
+A02,Milieu agricole,7,Rollier d'Europe,227,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FRollier%20d'Europe.mp3?alt=media&token=4d5c328e-3b63-4ec6-af94-b5ec54ca67aa,Moineau friquet,
+A02,Milieu agricole,8,Cochevis huppé,65,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCochevis%20hupp%C3%A9.wav?alt=media&token=5ee6a108-a418-497d-b27f-d8596fa97b55,Bergeronnette printanière,65
+A02,Milieu agricole,9,Hypolaïs polyglotte,148,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FHypola%C3%AFs%20polyglotte.mp3?alt=media&token=0e13ca3c-528f-4000-bc15-88a2304447f0,Bergeronnette grise,148
+A02,Milieu agricole,10,Moineau friquet,175,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMoineau%20friquet.wav?alt=media&token=f6f7638b-d98c-4351-9a3e-afea44c5f374,Hypolaïs polyglotte,175
+,,,Élanion blanc,84,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2F%C3%89lanion%20blanc.mp3?alt=media&token=64c86c8f-ac5c-40a5-a8c3-afd16f6ce99d,Fauvette pitchou,84
+,,,Pie-grièche écorcheur,200,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPie-gri%C3%A8che%20%C3%A9corcheur%20(2).mp3?alt=media&token=d30c3c44-9d68-4547-8163-02a55cb525a2,Fauvette à lunettes,200
+,,,Pie-grièche grise,,lien manquant,Chardonneret élégant,
+,,,Corneille mantelée,70,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCorneille%20mantel%C3%A9e.wav?alt=media&token=d6594ae5-f833-4ca0-9228-fe5c02cb74f6,Verdier d’Europe,70
+,,,Traquet motteux,254,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTraquet%20motteux.mp3?alt=media&token=de7549d4-c2e7-4cc4-a2ef-5f28f8eaf050,Linotte mélodieuse,254
+,,,,,,Cochevis huppé,
+,,,,,,Cochevis de Thékla,
+,,,,,,Alouette des champs,
+,,,,,,Bruant proyer,
+,,,,,,Traquet motteux,
+,,,,,,Tarier pâtre,
+,,,,,,Faucon crécerelle,
+,,,,,,Élanion blanc,
+,,,,,,Rollier d’Europe,
+,,,,,,Corneille noire,
+,,,,,,Corneille mantelée,
+,,,,,,Pie-grièche écorcheur,
+,,,,,,Pie-grièche grise,
+,,,,,,Pigeon colombin,
+,,,,,,Pigeon ramier,

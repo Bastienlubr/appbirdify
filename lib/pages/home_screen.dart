@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
-import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/biome_carousel_enhanced.dart';
 import '../data/milieu_data.dart';
 import '../models/mission.dart';
-
-import '../pages/auth/login_screen.dart';
 import '../pages/mission_loading_screen.dart';
 import '../services/life_sync_service.dart';
 import '../services/mission_loader_service.dart';
 import '../services/mission_persistence_service.dart';
+import '../services/mission_progression_init_service.dart';
+import '../widgets/dev_tools_menu.dart';
+
 
 
 class HomeScreen extends StatefulWidget {
@@ -115,6 +115,7 @@ class _HomeContentState extends State<HomeContent> {
     super.didChangeDependencies();
     // Recharger les missions et les vies quand on revient d'un quiz
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Recharger les missions avec la progression mise à jour
       await _loadMissionsForBiome(_selectedBiome);
       // Attendre un peu avant de recharger les vies pour s'assurer que la synchronisation est terminée
       await Future.delayed(const Duration(milliseconds: 300));
@@ -158,51 +159,7 @@ class _HomeContentState extends State<HomeContent> {
     }
   }
 
-  /// Réinitialise les vies à 5 (fonction de test uniquement)
-  Future<void> _resetVies() async {
-    try {
-      final uid = LifeSyncService.getCurrentUserId();
-      if (uid == null) {
-        if (kDebugMode) debugPrint('⚠️ Aucun utilisateur connecté');
-        return;
-      }
 
-      await LifeSyncService.forceResetLives(uid);
-      
-      // Recharger les vies depuis Firestore après la réinitialisation
-      if (mounted) {
-        await _loadCurrentLives();
-        if (!mounted) return;
-        
-        // Afficher un SnackBar de confirmation
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Vies réinitialisées à 5 !',
-              style: TextStyle(fontFamily: 'Quicksand'),
-            ),
-            backgroundColor: Color(0xFF6A994E),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('❌ Erreur lors de la réinitialisation des vies: $e');
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Erreur lors de la réinitialisation: ${e.toString()}',
-              style: const TextStyle(fontFamily: 'Quicksand'),
-            ),
-            backgroundColor: const Color(0xFFBC4749),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
 
 
 
@@ -237,13 +194,38 @@ class _HomeContentState extends State<HomeContent> {
         return;
       }
       
-      // Charger les missions depuis le CSV
-      final List<Mission> allMissions = await MissionLoaderService.loadMissionsForBiome(biomeName.toLowerCase());
+      // Charger les missions depuis le CSV avec progression Firestore
+      final uid = LifeSyncService.getCurrentUserId();
+      List<Mission> allMissions;
+      
+      if (uid != null) {
+        // Utiliser le système existant avec progression
+        allMissions = await MissionLoaderService.loadMissionsForBiomeWithProgression(uid, biomeName.toLowerCase());
+        
+        // Initialiser la progression des missions si nécessaire
+        if (allMissions.isNotEmpty) {
+          await MissionProgressionInitService.initializeBiomeProgress(biomeName, allMissions);
+        }
+        
+        if (kDebugMode) {
+          debugPrint('🔄 Missions chargées avec progression pour le biome $biomeName:');
+          for (final mission in allMissions) {
+            debugPrint('   ${mission.id}: ${mission.lastStarsEarned} étoiles, statut: ${mission.status}');
+          }
+        }
+      } else {
+        // Fallback sans progression si pas d'utilisateur connecté
+        allMissions = await MissionLoaderService.loadMissionsForBiome(biomeName.toLowerCase());
+        
+        if (kDebugMode) {
+          debugPrint('⚠️ Missions chargées sans progression (utilisateur non connecté)');
+        }
+      }
       
       // Mettre en cache
       _missionsCache[biomeName] = allMissions;
       
-      // Synchroniser en arrière-plan pour les autres biomes
+      // Synchroniser en arrière-plan pour les autres biomes (sans étoiles pour l'instant)
       _syncOtherBiomesInBackground(biomeName);
       
       // Filtrer et organiser les missions selon les critères
@@ -293,6 +275,8 @@ class _HomeContentState extends State<HomeContent> {
     }
   }
 
+
+
   /// Synchronise les autres biomes en arrière-plan pour vérifier le déblocage
   void _syncOtherBiomesInBackground(String currentBiome) {
     // Charger en arrière-plan pour ne pas bloquer l'interface
@@ -301,7 +285,23 @@ class _HomeContentState extends State<HomeContent> {
         for (final biomeName in _biomeUnlockOrder) {
           if (biomeName != currentBiome && !_missionsCache.containsKey(biomeName)) {
             try {
-              final missions = await MissionLoaderService.loadMissionsForBiome(biomeName.toLowerCase());
+              final uid = LifeSyncService.getCurrentUserId();
+              List<Mission> missions;
+              
+              if (uid != null) {
+                // Charger avec progression si utilisateur connecté
+                missions = await MissionLoaderService.loadMissionsForBiomeWithProgression(uid, biomeName.toLowerCase());
+                if (kDebugMode) {
+                  debugPrint('🔄 Missions chargées en arrière-plan pour le biome $biomeName (avec progression)');
+                }
+              } else {
+                // Fallback sans progression
+                missions = await MissionLoaderService.loadMissionsForBiome(biomeName.toLowerCase());
+                if (kDebugMode) {
+                  debugPrint('🔄 Missions chargées en arrière-plan pour le biome $biomeName (sans progression)');
+                }
+              }
+              
               _missionsCache[biomeName] = missions;
               
               // Mettre à jour la map statique pour la compatibilité
@@ -377,20 +377,24 @@ class _HomeContentState extends State<HomeContent> {
         continue;
       }
       
-      // La première mission (index 1) est accessible si le biome est débloqué
-      if (mission.index == 1) {
-        filteredMissions.add(mission.copyWith(status: 'available'));
-        continue;
-      }
-      
-      // Pour les missions suivantes, vérifier si la mission précédente a au moins 2 étoiles
-      final previousMission = allMissions.where((m) => m.index == mission.index - 1).firstOrNull;
-      if (previousMission != null && previousMission.lastStarsEarned >= 2) {
-        // Mission débloquée - ajouter avec statut 'available'
-        filteredMissions.add(mission.copyWith(status: 'available'));
+      // Utiliser le statut déjà calculé par le service de chargement des missions
+      // au lieu de recalculer la logique de déverrouillage
+      if (mission.status == 'available' || mission.status == 'locked') {
+        // Le statut est déjà correct, l'utiliser tel quel
+        filteredMissions.add(mission);
       } else {
-        // Mission verrouillée - ajouter avec statut 'locked'
-        filteredMissions.add(mission.copyWith(status: 'locked'));
+        // Fallback pour les missions sans statut défini
+        if (mission.index == 1) {
+          filteredMissions.add(mission.copyWith(status: 'available'));
+        } else {
+          // Pour les missions suivantes, vérifier si la mission précédente a au moins 2 étoiles
+          final previousMission = allMissions.where((m) => m.index == mission.index - 1).firstOrNull;
+          if (previousMission != null && previousMission.lastStarsEarned >= 2) {
+            filteredMissions.add(mission.copyWith(status: 'available'));
+          } else {
+            filteredMissions.add(mission.copyWith(status: 'locked'));
+          }
+        }
       }
     }
     
@@ -399,94 +403,24 @@ class _HomeContentState extends State<HomeContent> {
 
 
 
-  Future<void> _signOut() async {
-    try {
-      debugPrint('🔄 Déconnexion en cours...');
-      await FirebaseAuth.instance.signOut();
-      debugPrint('✅ Déconnexion Firebase réussie');
-      
-      if (!mounted) return;
-      
-      // Navigation vers l'écran de connexion avec pushReplacement
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-      debugPrint('✅ Navigation vers l\'écran de connexion réussie');
-      
-    } catch (e) {
-      debugPrint('❌ Erreur lors de la déconnexion: $e');
-      if (!mounted) return;
-      
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors de la déconnexion: $e'),
-          backgroundColor: const Color(0xFFBC4749),
-        ),
-      );
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
         child: Stack(
           children: [
-            // Boutons en haut à gauche
-            Positioned(
-              top: 12,
-              left: 24,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Bouton de déconnexion
-                  GestureDetector(
-                onTap: _signOut,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF386641).withAlpha(20),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF386641),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.logout,
-                    color: Color(0xFF386641),
-                    size: 24,
-                  ),
-                    ),
-                  ),
-                  
-                  // Bouton développeur pour réinitialiser les vies (debug uniquement)
-                  if (kDebugMode) ...[
-                    const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: _resetVies,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFBC4749).withAlpha(20),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFFBC4749),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.refresh,
-                          color: Color(0xFFBC4749),
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            // Menu de développement (remplace les anciens boutons)
+            DevToolsMenu(
+          onLivesRestored: () {
+            if (kDebugMode) debugPrint('🔄 Rechargement forcé des vies après restauration...');
+            _loadCurrentLives(); // Forcer le rechargement des vies
+          },
+          onStarsReset: () {
+            if (kDebugMode) debugPrint('🔄 Rechargement forcé des missions après reset des étoiles...');
+            _loadMissionsForBiome(_selectedBiome); // Forcer le rechargement des missions
+          },
+        ),
             
             // Icône de vie avec compteur en haut à droite
             Positioned(
@@ -560,6 +494,9 @@ class _HomeContentState extends State<HomeContent> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 12),
+                          
+                          
+                          
                           Expanded(
                             child: Stack(
                               children: [
@@ -686,7 +623,9 @@ class _HomeContentState extends State<HomeContent> {
 
   Widget _buildQuizCardMission(Mission mission) {
     final hasCsvFile = mission.csvFile != null;
-    final isUnlocked = mission.status == 'available';
+    // Sécuriser l'accès à la première mission du biome: toujours déverrouillée si le biome est débloqué
+    final bool firstMissionUnlocked = (mission.index == 1) && _isBiomeUnlocked(_selectedBiome);
+    final isUnlocked = firstMissionUnlocked || (mission.status == 'available');
     
     return _AnimatedMissionCard(
       mission: mission,
@@ -695,7 +634,12 @@ class _HomeContentState extends State<HomeContent> {
       onTap: (hasCsvFile && isUnlocked)
           ? () => _handleQuizLaunch(mission.id)
           : null,
-      onMissionConsulted: () => _loadMissionsForBiome(_selectedBiome),
+      onMissionConsulted: () {
+        if (kDebugMode) debugPrint('🔄 Callback onMissionConsulted appelé pour ${mission.id}');
+        // Invalider le cache pour forcer le rechargement avec le nouveau statut hasBeenSeen
+        _missionsCache.remove(_selectedBiome);
+        _loadMissionsForBiome(_selectedBiome);
+      },
     );
   }
 
@@ -793,6 +737,10 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
   late Animation<double> _badgeOpacityAnimation;
   late Animation<double> _badgeScaleAnimation;
   late AnimationController _badgeFloatController;
+  
+  // Variables pour optimiser l'affichage du badge
+  bool _badgeShouldShow = false;
+  bool _badgeLogShown = false;
 
   @override
   void initState() {
@@ -829,21 +777,46 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
       curve: Curves.easeOut,
     ));
     
-    // Animation de flottement pour le badge
+    // Animation de flottement pour le badge (optimisée pour la performance)
     _badgeFloatController = AnimationController(
-      duration: const Duration(milliseconds: 4000),
+      duration: const Duration(milliseconds: 6000), // Plus lent pour économiser l'énergie
       vsync: this,
     );
     
     // Déclencher l'animation du badge si nécessaire
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_getAvailabilityText() != null) {
+      _checkAndStartBadgeAnimation();
+    });
+  }
+  
+  /// Vérifie et démarre l'animation du badge de manière optimisée
+  void _checkAndStartBadgeAnimation() {
+    final shouldShow = _getAvailabilityText() != null;
+    
+    if (shouldShow != _badgeShouldShow) {
+      _badgeShouldShow = shouldShow;
+      
+      if (shouldShow) {
+        // Afficher le log une seule fois
+        if (!_badgeLogShown) {
+          if (kDebugMode) debugPrint('🏷️ Badge NOUVEAU affiché pour ${widget.mission.id}');
+          _badgeLogShown = true;
+        }
+        
+        // Démarrer l'animation
         _badgeAnimationController.forward().then((_) {
           // Démarrer l'animation de flottement seulement après l'apparition
-          _badgeFloatController.repeat();
+          if (mounted && _badgeShouldShow) {
+            _badgeFloatController.repeat();
+          }
         });
+      } else {
+        // Arrêter l'animation si le badge ne doit plus être affiché
+        _badgeAnimationController.reverse();
+        _badgeFloatController.stop();
+        _badgeLogShown = false;
       }
-    });
+    }
   }
 
   @override
@@ -853,14 +826,36 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
     _badgeFloatController.dispose();
     super.dispose();
   }
+  
+  @override
+  void didUpdateWidget(_AnimatedMissionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // Si la mission a changé, réinitialiser l'état du badge
+    if (oldWidget.mission.id != widget.mission.id || 
+        oldWidget.isUnlocked != widget.isUnlocked ||
+        oldWidget.mission.lastStarsEarned != widget.mission.lastStarsEarned ||
+        oldWidget.mission.hasBeenSeen != widget.mission.hasBeenSeen) {
+      
+      _badgeLogShown = false;
+      _checkAndStartBadgeAnimation();
+    }
+  }
 
   void _handleTap() {
     if (widget.onTap != null) {
       // Marquer la mission comme consultée de manière persistante
       // Dès qu'on clique sur une mission débloquée nouvellement (sans étoiles)
       if (widget.isUnlocked && widget.mission.lastStarsEarned == 0) {
+        if (kDebugMode) {
+          debugPrint('🔍 Mission ${widget.mission.id} cliquée - marquage comme consultée');
+          debugPrint('   📊 État: débloquée=${widget.isUnlocked}, étoiles=${widget.mission.lastStarsEarned}, déjà consultée=${widget.mission.hasBeenSeen}');
+        }
+        
         MissionPersistenceService.markMissionAsConsulted(widget.mission.id);
+        
         // Notifier le parent pour recharger les missions
+        if (kDebugMode) debugPrint('🔄 Notification au parent pour recharger les missions');
         widget.onMissionConsulted?.call();
       }
       
@@ -1061,7 +1056,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Première étoile
+                          // Première étoile (8/10)
                           Transform.translate(
                             offset: const Offset(-0.8, 0),
                             child: Image.asset(
@@ -1073,7 +1068,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                               fit: BoxFit.contain,
                             ),
                           ),
-                          // Deuxième étoile
+                          // Deuxième étoile (8/10)
                           Transform.translate(
                             offset: const Offset(-0.8, 0),
                             child: Image.asset(
@@ -1085,7 +1080,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                               fit: BoxFit.contain,
                             ),
                           ),
-                          // Troisième étoile
+                          // Troisième étoile (10/10)
                           Transform.translate(
                             offset: const Offset(-0.8, 0),
                             child: Image.asset(
@@ -1106,15 +1101,15 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                 if (_getAvailabilityText() != null)
                   Positioned(
                     top: -6, // Déborde légèrement au-dessus de la carte
-                    right: 35, // Déplacé vers la gauche par rapport au bord droit
+                    right: 45, // Déplacé vers la gauche par rapport au bord droit
                     child: AnimatedBuilder(
                       animation: Listenable.merge([_badgeAnimationController, _badgeFloatController]),
                       builder: (context, child) {
-                        // Calcul du mouvement de flottement fluide
+                        // Calcul du mouvement de flottement fluide et optimisé
                         final floatValue = _badgeFloatController.value;
-                        final floatOffset = math.sin(floatValue * 2 * math.pi) * 2; // Déplacement de ±2 pixels
-                        // Zoom fluide sans paliers - utilise une fonction sinusoïdale lissée
-                        final zoomScale = 1.0 - 0.015 * (math.sin(floatValue * 2 * math.pi) + 1) / 2;
+                        final floatOffset = math.sin(floatValue * 2 * math.pi) * 1.5; // Réduit de ±2 à ±1.5 pixels
+                        // Zoom fluide optimisé - utilise une courbe plus douce
+                        final zoomScale = 1.0 - 0.01 * (math.sin(floatValue * 2 * math.pi) + 1) / 2; // Réduit de 0.015 à 0.01
                         // Séparer l'animation d'apparition du zoom de flottement
                         final appearanceScale = _badgeScaleAnimation.value;
                         final combinedScale = appearanceScale * zoomScale;

@@ -1,0 +1,31 @@
+id_mission,biome,num_question,bonne_reponse,id_oiseaux,URL_bonne_reponse,mauvaise_reponse
+L01,Milieu littoral,1,Eider à duvet,83,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FEider%20%C3%A0%20duvet.wav?alt=media&token=3dd5ac1c-ff10-4db7-8844-dcb1ba4c5c9e,Goéland argenté
+L01,Milieu littoral,2,Plongeon imbrin,210,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPlongeon%20imbrin.wav?alt=media&token=ccd65358-eb48-4ec1-8b34-0b0db5bd77da,Sterne caugek
+L01,Milieu littoral,3,Guillemot de Troïl,132,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGuillemot%20de%20Tro%C3%AFl.wav?alt=media&token=370852fb-1968-4240-bc3f-5fbd1143093a,Grèbe esclavon
+L01,Milieu littoral,4,Pingouin torda,204,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPingouin%20torda.wav?alt=media&token=84024161-76e4-4536-96da-7a7ef5f64c68,Bécasseau violet
+L01,Milieu littoral,5,Puffin fuligineux,220,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPuffin%20fuligineux.wav?alt=media&token=ff116303-0aff-4076-b117-fea3f609eb30,Huîtrier pie
+L01,Milieu littoral,6,Puffin de Scopoli,,lien manquant,Tadorne de Belon
+L01,Milieu littoral,7,Océanite culblanc,180,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FOc%C3%A9anite%20culblanc.wav?alt=media&token=c769688e-3e3f-4949-ba36-e590ca2b7c13,Goéland brun
+L01,Milieu littoral,8,Grand Labbe,118,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGrand%20Labbe.wav?alt=media&token=5824aa8e-7277-4285-a7b4-dcd55ca5d26a,Sterne arctique
+L01,Milieu littoral,9,Fou de Bassan,101,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FFou%20de%20Bassan.wav?alt=media&token=c5103604-ac02-492e-b131-90173a25037d,Bernache cravant
+L01,Milieu littoral,10,Fulmar boréal,104,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FFulmar%20bor%C3%A9al.wav?alt=media&token=56f212b1-4f3d-43c8-abec-b2141710d9bb,Sterne pierregarin
+,,,Macareux moine,156,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMacareux%20moine.wav?alt=media&token=b887e835-0de6-4f0b-bfd9-f6462de2611b,Grand Gravelot
+,,,Macreuse noire,157,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMacreuse%20noire.wav?alt=media&token=7addc061-a510-4f83-9c02-fc4276f504af,Phalarope à bec étroit
+,,,Harelde boréale,133,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FHarelde%20bor%C3%A9ale.wav?alt=media&token=27ecfe78-7c7e-4248-8396-3a55f938ad83,Canard siffleur
+,,,Mouette tridactyle,179,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMouette%20tridactyle.wav?alt=media&token=172c7ded-da4c-4fbf-8e88-c0c068f53caf,Eider à duvet
+,,,Albatros à sourcils noirs,4,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAlbatros%20%C3%A0%20sourcils%20noirs.wav?alt=media&token=59c8398f-9f47-4a4e-8eb6-68ff255f4c65,Guillemot à miroir
+,,,,,,Plongeon imbrin
+,,,,,,Labbe parasite
+,,,,,,Chevalier gambette
+,,,,,,Harle huppé
+,,,,,,Mouette pygmée
+,,,,,,Fou de Bassan
+,,,,,,Puffin des Baléares
+,,,,,,Mouette tridactyle
+,,,,,,Macreuse brune
+,,,,,,Macareux moine
+,,,,,,Fuligule milouin
+,,,,,,Océanite tempête
+,,,,,,Harelde boréale
+,,,,,,Pingouin torda
+,,,,,,Puffin fuligineux

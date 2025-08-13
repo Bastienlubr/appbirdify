@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Certains jeux de données ont "approuvee", d'autres "publiée"
+    function isApproved() {
+      return
+        (('statut' in resource.data) &&
+         (resource.data.statut == "approuvee" || resource.data.statut == "publiée"));
+    }
+
+    // ---- CONTENU PUBLIC (lecture contrôlée) ----
+    // Compat : deux noms possibles selon le code/époque (Cursor peut utiliser "missions")
+    match /missionsPubliques/{missionId} {
+      // Lecture publique uniquement si approuvée
+      allow read: if isApproved();
+      // Pas d'écriture côté client (Admin SDK uniquement)
+      allow write: if false;
+    }
+
+    match /missions/{missionId} {
+      // Même logique si le projet/code utilise "missions"
+      allow read: if isApproved();
+      allow write: if false;
+    }
+
+    // Banque de sons : lecture réservée aux utilisateurs connectés (comme la version Cursor)
+    match /sons_oiseaux/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ---- DONNÉES UTILISATEUR ----
+    match /utilisateurs/{uid} {
+      // Le propriétaire peut lire/écrire son doc racine...
+      allow read, write: if isOwner(uid);
+
+      // ...et tout sous-document / sous-collection
+      match /{subpath=**} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ---- HISTORIQUE DE QUIZ (racine) ----
+    match /tentativesQuiz/{attemptId} {
+      // Création par le propriétaire uniquement
+      allow create: if isSignedIn() &&
+                    (request.resource.data.idUtilisateur == request.auth.uid);
+
+      // Lecture par le propriétaire uniquement
+      allow read: if isSignedIn() &&
+                  (resource.data.idUtilisateur == request.auth.uid);
+
+      // Pas de mise à jour ni suppression côté client (immutables)
+      allow update, delete: if false;
+    }
+  }
+}

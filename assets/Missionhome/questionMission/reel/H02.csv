@@ -1,0 +1,31 @@
+id_mission,biome,num_question,bonne_reponse,id_oiseaux,URL_bonne_reponse,mauvaise_reponse
+H02,Milieu humide,1,Martin-pêcheur d'Europe,160,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMartin-p%C3%AAcheur%20d'Europe.mp3?alt=media&token=c4f33999-ada7-4651-ac9c-be823c2284fc,Héron garde-bœufs
+H02,Milieu humide,2,Héron cendré,135,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FH%C3%A9ron%20cendr%C3%A9.wav?alt=media&token=8a5e9942-eb6d-4caf-9a5f-2c14e96f3529,Héron cendré
+H02,Milieu humide,3,Aigrette garzette,3,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAigrette%20garzette.wav?alt=media&token=db1b1f6e-e796-48e1-abd2-d443ce076676,Aigrette garzette
+H02,Milieu humide,4,Butor étoilé,42,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FButor%20%C3%A9toil%C3%A9.wav?alt=media&token=56d4c19b-1e1a-4d6e-bc7f-804cd5249029,Butor étoilé
+H02,Milieu humide,5,Blongios nain,28,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBlongios%20nain.mp3?alt=media&token=093add2b-5685-4398-b2c0-d50e0f1bc39b,Blongios nain
+H02,Milieu humide,6,Chevalier cul-blanc,53,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FChevalier%20cul-blanc.wav?alt=media&token=549b59a5-c7df-44dc-a435-8f64efb07e3f,Chevalier aboyeur
+H02,Milieu humide,7,Chevalier gambette,54,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FChevalier%20gambette.wav?alt=media&token=e179d479-b714-4f83-86ff-8fe6006e79dd,Chevalier cul-blanc
+H02,Milieu humide,8,Bécassine des marais,19,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FB%C3%A9cassine%20des%20marais.mp3?alt=media&token=756f27e8-c77a-416c-bedf-51078026d387,Chevalier guignette
+H02,Milieu humide,9,Échasse blanche,81,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2F%C3%89chasse%20blanche.wav?alt=media&token=4f37023b-6a71-4ac7-b506-446c690cc06a,Chevalier gambette
+H02,Milieu humide,10,Spatule blanche,239,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FSpatule%20blanche.wav?alt=media&token=484c9747-4c28-4539-8755-a95819fb43ec,Bécassine des marais
+,,,Canard colvert,45,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCanard%20colvert.wav?alt=media&token=81137aba-d94c-44c2-abed-be4b1cdf81fc,Bécasse des bois
+,,,Canard chipeau,44,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCanard%20chipeau.wav?alt=media&token=27d939bf-4a9f-43d1-82d3-02236ba28832,Échasse blanche
+,,,Mouette rieuse,178,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMouette%20rieuse.wav?alt=media&token=5c8f0699-ff51-4312-b08c-f275e40e773b,Avocette élégante
+,,,Grèbe à cou noir,,,Spatule blanche
+,,,Gallinule poule-d'eau,105,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FGallinule%20poule-d'eau.wav?alt=media&token=d0d92bd0-4c24-4d18-b660-6507c775f40a,Tadorne de Belon
+,,,,,,Canard colvert
+,,,,,,Canard chipeau
+,,,,,,Canard siffleur
+,,,,,,Canard pilet
+,,,,,,Mouette rieuse
+,,,,,,Mouette mélanocéphale
+,,,,,,Goéland cendré
+,,,,,,Grèbe castagneux
+,,,,,,Grèbe à cou noir
+,,,,,,Grèbe huppé
+,,,,,,Gallinule poule-d’eau
+,,,,,,Foulque macroule
+,,,,,,Marouette ponctuée
+,,,,,,Martin-pêcheur d’Europe
+,,,,,,Râle d’eau

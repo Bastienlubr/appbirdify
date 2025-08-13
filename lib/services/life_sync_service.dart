@@ -38,7 +38,7 @@ class LifeSyncService {
       return null;
     }
     
-    return _firestore.collection('users').doc(uid);
+    return _firestore.collection('utilisateurs').doc(uid);
   }
 
   /// Synchronise les vies restantes avec Firestore après un quiz

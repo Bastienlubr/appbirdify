@@ -12,7 +12,7 @@ class FirestoreService {
   /// - Retourne true si le document a été créé, false s'il existait déjà
   Future<bool> createUserDocumentIfNeeded(String uid) async {
     try {
-      DocumentReference userRef = _firestore.collection('users').doc(uid);
+      DocumentReference userRef = _firestore.collection('utilisateurs').doc(uid);
       DocumentSnapshot userDoc = await userRef.get();
 
       if (!userDoc.exists) {
@@ -55,7 +55,7 @@ class FirestoreService {
     try {
       // Référence vers le document mission dans la sous-collection
       DocumentReference missionRef = _firestore
-          .collection('users')
+          .collection('utilisateurs')
           .doc(uid)
           .collection('missions')
           .doc(missionId);

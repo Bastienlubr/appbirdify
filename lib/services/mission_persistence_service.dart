@@ -53,4 +53,36 @@ class MissionPersistenceService {
       if (kDebugMode) debugPrint('❌ Erreur lors de l\'effacement des missions consultées: $e');
     }
   }
+  
+  /// Efface le statut consulté d'une mission spécifique (pour les tests)
+  static Future<void> clearMissionConsultedStatus(String missionId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final consultedMissions = prefs.getStringList(_consultedMissionsKey) ?? [];
+      consultedMissions.remove(missionId);
+      await prefs.setStringList(_consultedMissionsKey, consultedMissions);
+      if (kDebugMode) debugPrint('🔄 Statut consulté effacé pour la mission $missionId');
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ Erreur lors de l\'effacement du statut consulté pour $missionId: $e');
+    }
+  }
+  
+  /// Affiche toutes les missions consultées (pour le débogage)
+  static Future<void> debugConsultedMissions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final consultedMissions = prefs.getStringList(_consultedMissionsKey) ?? [];
+      if (kDebugMode) {
+        debugPrint('🔍 Missions consultées actuellement:');
+        for (final missionId in consultedMissions) {
+          debugPrint('   - $missionId');
+        }
+        if (consultedMissions.isEmpty) {
+          debugPrint('   (aucune)');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ Erreur lors de l\'affichage des missions consultées: $e');
+    }
+  }
 } 

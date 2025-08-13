@@ -4,12 +4,14 @@ import 'package:just_audio/just_audio.dart';
 import 'package:animations/animations.dart';
 import 'package:rive/rive.dart' as rive;
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/quiz_generator.dart';
 import '../services/life_sync_service.dart';
 import '../services/mission_preloader.dart';
 import '../services/image_cache_service.dart';
 import '../models/mission.dart';
 import '../models/bird.dart';
+import '../models/answer_recap.dart';
 import 'quiz_end_page.dart';
 import 'mission_unloading_screen.dart';
 
@@ -37,6 +39,9 @@ class _QuizPageState extends State<QuizPage> {
   int _currentQuestionIndex = 0;
   int _score = 0;
   
+  final List<String> _wrongBirds = []; // Nouvelle liste pour stocker les noms des oiseaux manqués
+  final List<AnswerRecap> _recapEntries = [];
+
   int _visibleLives = 5;
   bool _isLivesSyncing = false;
   
@@ -206,7 +211,33 @@ class _QuizPageState extends State<QuizPage> {
                       ),
                     ),
                   ),
-
+                  
+                  const SizedBox(width: 20), // Espacement
+                  
+                  // Bouton de test caché (pour simuler une réussite)
+                  GestureDetector(
+                    onTap: _simulateQuizSuccess,
+                    child: Container(
+                      width: 100,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.orange, width: 1.5),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '🎯 Test',
+                          style: TextStyle(
+                            fontFamily: 'Quicksand',
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -480,6 +511,30 @@ class _QuizPageState extends State<QuizPage> {
 
   Future<void> _loadQuiz() async {
     try {
+      // 1) Essayer de charger la mission depuis Firestore (collection 'missions')
+      try {
+        final doc = await FirebaseFirestore.instance.collection('missions').doc(widget.missionId).get();
+        if (doc.exists) {
+          final data = doc.data() as Map<String, dynamic>;
+          final questions = await QuizGenerator.generateQuizFromFirestoreAndCsv(widget.missionId, data);
+          if (!mounted) return;
+          setState(() {
+            _questions = questions;
+            _isLoading = false;
+            _currentQuestionIndex = 0;
+            _score = 0;
+            _audioAnimationOn = true;
+          });
+          if (questions.isNotEmpty) {
+            _loadAndPlayAudio(questions[0].audioUrl);
+          }
+          return;
+        }
+      } catch (_) {
+        // Si Firestore échoue, on tombera sur le fallback CSV
+      }
+
+      // 2) Fallback: charger depuis le CSV d'assets
       final questions = await QuizGenerator.generateQuizFromCsv(widget.missionId);
       if (!mounted) return;
       setState(() {
@@ -661,6 +716,27 @@ class _QuizPageState extends State<QuizPage> {
       // Erreur ignorée
     }
     
+    // Récupérer au mieux l'URL audio pour le récap (priorité: question.audioUrl, sinon cache birds)
+    String recapAudioUrl = currentQuestion.audioUrl;
+    if (recapAudioUrl.isEmpty) {
+      try {
+        final birdData = MissionPreloader.getBirdData(currentQuestion.correctAnswer);
+        if (birdData != null && birdData.urlMp3.isNotEmpty) {
+          recapAudioUrl = birdData.urlMp3;
+        }
+      } catch (_) {}
+    }
+
+    // Enregistrer l'entrée du récap (dans l'ordre des questions)
+    _recapEntries.add(
+      AnswerRecap(
+        questionBird: currentQuestion.correctAnswer,
+        selected: selectedAnswer,
+        isCorrect: isCorrect,
+        audioUrl: recapAudioUrl,
+      ),
+    );
+
     setState(() {
       _selectedAnswer = selectedAnswer;
       _showFeedback = true;
@@ -671,6 +747,12 @@ class _QuizPageState extends State<QuizPage> {
         _score++;
       } else {
         _visibleLives--;
+        // Ajouter l'oiseau choisi (mauvaise réponse) à la liste des oiseaux manqués
+        _wrongBirds.add(selectedAnswer);
+        // Ajouter aussi l'oiseau correct s'il n'est pas déjà dans la liste
+        if (!_wrongBirds.contains(currentQuestion.correctAnswer)) {
+          _wrongBirds.add(currentQuestion.correctAnswer);
+        }
         _syncLivesImmediately();
       }
     });
@@ -683,6 +765,23 @@ class _QuizPageState extends State<QuizPage> {
     } else {
       _goToNextQuestion();
     }
+  }
+
+  Future<void> _simulateQuizSuccess() async {
+    if (!mounted) return;
+
+    await _stopAudio();
+
+    setState(() {
+      _score = 10; // Simuler un score de 10
+      _visibleLives = 5; // Réinitialiser les vies
+      _isLivesSyncing = false; // Désactiver la synchronisation
+    });
+
+    await Future.delayed(const Duration(milliseconds: 2000));
+    if (!context.mounted) return;
+
+    _onQuizCompleted();
   }
 
   Future<void> _syncLivesImmediately() async {
@@ -882,6 +981,8 @@ class _QuizPageState extends State<QuizPage> {
           score: _score,
           totalQuestions: _questions.length,
           mission: widget.mission,
+          wrongBirds: _wrongBirds, // Passer les oiseaux manqués
+          recap: _recapEntries,
         ),
       ),
     );
@@ -1092,28 +1193,51 @@ class _AudioAnimationWidget extends StatefulWidget {
 }
 
 class _AudioAnimationWidgetState extends State<_AudioAnimationWidget> {
+  Widget? _onAnimation;
+  Widget? _offAnimation;
+  bool _animationsInitialized = false;
+  // Garder les animations qui tournent mais optimiser le switch
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeAnimationsIfNeeded();
+  }
+
+  void _initializeAnimationsIfNeeded() {
+    if (_animationsInitialized) return;
+    // Précharger et conserver les deux animations
+    _onAnimation = rive.RiveAnimation.asset(
+      'assets/animations/audio_on.riv',
+      fit: BoxFit.contain,
+    );
+    _offAnimation = rive.RiveAnimation.asset(
+      'assets/animations/audio_off.riv',
+      fit: BoxFit.contain,
+    );
+    _animationsInitialized = true;
+  }
+
   @override
   Widget build(BuildContext context) {
+    _initializeAnimationsIfNeeded();
+    
+    // Switch ultra-rapide avec AnimatedSwitcher mais durée minimale
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 50), // Transition ultra-rapide
-      switchInCurve: Curves.easeInOut,
-      switchOutCurve: Curves.easeInOut,
+      duration: const Duration(milliseconds: 1), // Presque instantané
+      switchInCurve: Curves.linear, // Pas de courbe d'animation
+      switchOutCurve: Curves.linear,
       transitionBuilder: (Widget child, Animation<double> animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: child,
-        );
+        // Transition directe sans effet
+        return child;
       },
       child: SizedBox(
         key: ValueKey('audio_${widget.isOn ? 'on' : 'off'}'),
         width: 160,
         height: 160,
-        child: rive.RiveAnimation.asset(
-          widget.isOn 
-              ? 'assets/animations/audio_on.riv'
-              : 'assets/animations/audio_off.riv',
-          fit: BoxFit.contain,
-        ),
+        child: widget.isOn 
+            ? _onAnimation!
+            : _offAnimation!,
       ),
     );
   }

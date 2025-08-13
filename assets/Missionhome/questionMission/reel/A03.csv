@@ -1,0 +1,31 @@
+id_mission,biome,num_question,bonne_reponse,id_oiseaux,URL_bonne_reponse,mauvaise_reponse
+A03,Milieu agricole,1,Fauvette babillarde,95,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FFauvette%20babillarde.wav?alt=media&token=f6c351d1-4888-4c3d-932c-85691afa45d6,Milan noir
+A03,Milieu agricole,2,Engoulevent d'Europe,85,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FEngoulevent%20d'Europe.wav?alt=media&token=466205ed-50f2-4d37-ad8d-07fc8a02025f,Élanion blanc
+A03,Milieu agricole,3,Pie-grièche écorcheur,200,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPie-gri%C3%A8che%20%C3%A9corcheur%20(2).mp3?alt=media&token=d30c3c44-9d68-4547-8163-02a55cb525a2,Milan noir
+A03,Milieu agricole,4,Moineau friquet,175,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMoineau%20friquet.wav?alt=media&token=f6f7638b-d98c-4351-9a3e-afea44c5f374,Buse variable
+A03,Milieu agricole,5,Pipit de Godlewski,,lien manquant,Faucon crécerelle
+A03,Milieu agricole,6,Alouette calandrelle,6,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAlouette%20calandrelle.wav?alt=media&token=9ce99208-a543-48f8-9412-d2f142abf0ee,Faisan de Colchide
+A03,Milieu agricole,7,Perdrix grise,186,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPerdrix%20grise.mp3?alt=media&token=713d57fb-7c0e-4136-95b9-fe60d8348668,Bruant proyer
+A03,Milieu agricole,8,Colin de Virginie,66,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FColin%20de%20Virginie.wav?alt=media&token=30b21565-fef0-4a79-b4ff-916fac999051,Cochevis huppé
+A03,Milieu agricole,9,Faucon hobereau,91,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FFaucon%20hobereau.mp3?alt=media&token=ea6baf69-5ca4-40e4-ba5f-3ae3fce8204a,Fauvette pitchou
+A03,Milieu agricole,10,Caille des blés,43,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCaille%20des%20bl%C3%A9s.mp3?alt=media&token=71765284-be87-43f3-858d-0d577d40b280,Huppe fasciée
+,,,Pipit spioncelle,,lien manquant,Ouette d'Égypte
+,,,Fauvette mélanocéphale,98,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FFauvette%20m%C3%A9lanoc%C3%A9phale.wav?alt=media&token=4d40be40-4527-4309-8d43-9c551e5999ab,Alouette des champs
+,,,Rousserolle verderolle,,lien manquant,Guêpier d'Europe
+,,,Bouscarle de Cetti,30,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBouscarle%20de%20Cetti%20bis.wav?alt=media&token=84a7844d-25d8-4b61-8801-e9f4c2f2e3b4,Chardonneret élégant
+,,,Alouette calandre,5,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAlouette%20calandre.wav?alt=media&token=7ac6bb8a-7968-4223-a21e-7154d8cbd490,Engoulevent d'Europe
+,,,,,,Rollier d'Europe
+,,,,,,Oie rieuse
+,,,,,,Pluvier argenté
+,,,,,,Corneille mantelée
+,,,,,,Alouette hausse-col
+,,,,,,Hypolaïs polyglotte
+,,,,,,Grive draine
+,,,,,,Outarde canepetière
+,,,,,,Busard cendré
+,,,,,,Vanneau huppé
+,,,,,,Bruant ortolan
+,,,,,,Crave à bec rouge
+,,,,,,Pigeon biset
+,,,,,,Hibou des marais
+,,,,,,Pipit à gorge rousse
