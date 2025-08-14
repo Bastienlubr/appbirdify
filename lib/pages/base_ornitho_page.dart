@@ -81,7 +81,7 @@ class _BaseOrnithoPageState extends State<BaseOrnithoPage> {
           });
         }
         if (_selectedMilieux.isNotEmpty) {
-          displayed.retainWhere((b) => b.milieux.any((m) => _selectedMilieux.contains(m.toLowerCase())));
+          displayed.retainWhere((b) => _birdMatchesSelectedBiomes(b, _selectedMilieux));
         }
         displayed.sort((a, b) {
           final ak = _normalizeForSort(a.nomFr);
@@ -318,34 +318,33 @@ class _BaseOrnithoPageState extends State<BaseOrnithoPage> {
 
 extension _Filters on _BaseOrnithoPageState {
   List<Widget> _buildFilterChips(ResponsiveMetrics m) {
-    final List<String> milieux = const [
-      'plaine', 'forêt', 'montagne', 'marais', 'plan d\'eau', 'littoral'
+    // Biomes affichés dans l'UI (sans suffixe "milieu")
+    final List<String> biomes = const [
+      'Urbain', 'Forestier', 'Agricole', 'Humide', 'Montagnard', 'Littoral'
     ];
     return [
-      for (final milieu in milieux)
+      for (final biome in biomes)
         Padding(
           padding: EdgeInsets.only(right: m.gapSmall()),
           child: FilterChip(
-            selected: _selectedMilieux.contains(milieu),
+            selected: _selectedMilieux.contains(biome.toLowerCase()),
             onSelected: (sel) {
               setState(() {
                 if (sel) {
-                  _selectedMilieux.add(milieu);
+                  _selectedMilieux.add(biome.toLowerCase());
                 } else {
-                  _selectedMilieux.remove(milieu);
+                  _selectedMilieux.remove(biome.toLowerCase());
                 }
               });
             },
             backgroundColor: const Color(0xFF6A994E),
             selectedColor: const Color(0xFF6A994E),
-            label: Text(
-              milieu[0].toUpperCase() + milieu.substring(1),
-              style: const TextStyle(
-                fontFamily: 'Quicksand',
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            label: Text(biome,
+                style: const TextStyle(
+                  fontFamily: 'Quicksand',
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                )),
             shape: StadiumBorder(
               side: BorderSide(color: const Color(0x2D000000), width: 1),
             ),
@@ -383,6 +382,24 @@ extension _SortNormalize on _BaseOrnithoPageState {
     n = n.replaceAll(RegExp(r"\s+"), " ").trim();
     return n;
   }
+}
+
+bool _birdMatchesSelectedBiomes(Bird b, Set<String> selected) {
+  // Normaliser les noms de biomes stockés côté Bird.milieux vers nos libellés UI
+  // On accepte plusieurs variantes: 'urbain' / 'urbains' / 'ville' → 'urbain', etc.
+  final Set<String> normalized = b.milieux
+      .map((m) => m.toLowerCase().trim())
+      .map((m) {
+        if (m.contains('urb')) return 'urbain';
+        if (m.contains('forest')) return 'forestier';
+        if (m.contains('agric')) return 'agricole';
+        if (m.contains('humid') || m.contains('marais') || m.contains("plan d'eau") || m.contains('eau')) return 'humide';
+        if (m.contains('mont')) return 'montagnard';
+        if (m.contains('littoral') || m.contains('côte') || m.contains('cote')) return 'littoral';
+        return m;
+      })
+      .toSet();
+  return normalized.any((n) => selected.contains(n));
 }
 
 class _AutoFitTwoLineText extends StatelessWidget {
