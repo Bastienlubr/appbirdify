@@ -46,6 +46,18 @@ class LifeSyncService {
   /// [uid] : ID de l'utilisateur
   /// [livesRemaining] : Nombre de vies restantes (sera clampé entre 0 et 5)
   static Future<void> syncLivesAfterQuiz(String uid, int livesRemaining) async {
+    // Mode vies infinies: ne pas synchroniser de décrément
+    try {
+      final userDocRef = _getSecureUserDocument(uid);
+      if (userDocRef != null) {
+        final snap = await userDocRef.get();
+        final data = snap.data() as Map<String, dynamic>?;
+        if ((data?['livesInfinite'] ?? false) == true) {
+          if (kDebugMode) debugPrint('♾️ Mode vies infinies actif: synchronisation ignorée');
+          return;
+        }
+      }
+    } catch (_) {}
     const maxRetries = 3;
     int retryCount = 0;
     
@@ -142,6 +154,10 @@ class LifeSyncService {
       
       if (userDocSnapshot.exists) {
         final data = userDocSnapshot.data() as Map<String, dynamic>?;
+        if ((data?['livesInfinite'] ?? false) == true) {
+          if (kDebugMode) debugPrint('♾️ getCurrentLives: mode vies infinies → retour 5 (affichage)');
+          return 5; // Affichage stable
+        }
         final livesRemaining = data?['livesRemaining'] ?? 5;
         
         // S'assurer que le nombre de vies est valide
@@ -211,6 +227,10 @@ class LifeSyncService {
         }
 
         final data = userDocSnapshot.data() as Map<String, dynamic>?;
+        if ((data?['livesInfinite'] ?? false) == true) {
+          if (kDebugMode) debugPrint('♾️ checkAndResetLives: vies infinies actives → aucune réinitialisation');
+          return 5;
+        }
         final currentLives = (data?['livesRemaining'] ?? 5) as int;
         
         if (kDebugMode) {
@@ -314,6 +334,10 @@ class LifeSyncService {
       }
 
       final data = userDocSnapshot.data() as Map<String, dynamic>?;
+      if ((data?['livesInfinite'] ?? false) == true) {
+        if (kDebugMode) debugPrint('♾️ verifyAndFixLives: vies infinies → rien à corriger');
+        return 5;
+      }
       final currentLives = (data?['livesRemaining'] ?? 5) as int;
       final correctedLives = currentLives.clamp(0, 5);
       

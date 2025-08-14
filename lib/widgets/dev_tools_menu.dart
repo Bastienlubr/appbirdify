@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../services/dev_tools_service.dart';
 import '../theme/colors.dart';
 import '../services/mission_persistence_service.dart'; // Added import for MissionPersistenceService
+import '../pages/auth/login_screen.dart';
 
 class DevToolsMenu extends StatefulWidget {
   final VoidCallback? onLivesRestored;
@@ -119,12 +120,29 @@ class _DevToolsPopup extends StatefulWidget {
 class _DevToolsPopupState extends State<_DevToolsPopup> {
   bool _isLoading = false;
 
-  void _handleSignOut() {
-    DevToolsService.signOut().then((_) {
+  Future<void> _handleSignOut() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      await DevToolsService.signOut();
+      if (!mounted) return;
+      // Naviguer vers l'écran de connexion et vider la pile de navigation
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
       if (mounted) {
-        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Erreur lors de la déconnexion: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-    });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _executeAction(Future<void> Function() action) async {
@@ -393,6 +411,22 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
               if (kDebugMode) debugPrint('🔄 Appel du callback de rechargement des vies...');
               widget.onLivesRestored!();
             }
+          }),
+        ),
+        _buildActionButton(
+          icon: Icons.all_inclusive,
+          label: '♾️ Activer vies infinies (compte courant)',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.setInfiniteLives(true);
+            if (widget.onLivesRestored != null) widget.onLivesRestored!();
+          }),
+        ),
+        _buildActionButton(
+          icon: Icons.block,
+          label: '⛔ Désactiver vies infinies',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.setInfiniteLives(false);
+            if (widget.onLivesRestored != null) widget.onLivesRestored!();
           }),
         ),
         _buildActionButton(

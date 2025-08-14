@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/quiz_generator.dart';
 import '../services/life_sync_service.dart';
 import '../services/mission_preloader.dart';
+import '../ui/responsive/responsive.dart';
 import '../models/mission.dart';
 import '../models/bird.dart';
 import '../models/answer_recap.dart';
@@ -220,8 +221,64 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
         ),
       ),
       child: SafeArea(
-        child: Stack(
-          children: [
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final m = buildResponsiveMetrics(context, constraints);
+            final double ui = m.isTablet ? (m.localScale * 1.20).clamp(1.0, 1.5) : 1.0;
+            final double topButtonsTop = 30.0 * ui;
+            final double topButtonsLeft = 35.0 * ui;
+            final double livesTop = 5.0 * ui;
+            final double livesRight = 30.0 * ui;
+            final double questionCounterTop = 30.0 * ui;
+            final double progressTop = 70.0 * ui;
+            final double progressSide = 20.0 * ui;
+            final double progressWidth = m.isTablet ? (m.maxWidth * 0.66) : (300.0 * ui);
+            final double progressHeight = (14.0 * ui).toDouble();
+            final double baseAudioSize = m.isTablet ? (m.shortest * 0.30).clamp(220.0, 300.0) : (160.0 * ui);
+            final double audioSize = baseAudioSize;
+            final double audioTop = m.isTablet ? 240.0 * ui : 200.0;
+            // Mobile: conserver le rendu d'origine (3:4, 195x260). Tablette: 4:3 agrandi
+            // Exiger un format portrait 3:4 (vertical) sur tous les écrans
+            final double imageAspect = (3.0 / 4.0); // width / height
+            final double imageBaseHeight = 260.0 * ui;
+            final double imageBaseWidth = 195.0 * ui;
+            // Sur mobile (A54): conserver base 260x195 (3:4 portrait).
+            // Sur tablette: viser 4:3, dimensionné principalement par la largeur pour un rendu "plein" sans letterbox.
+            // Mobile: conserver strictement l'emplacement et la taille d'origine (195x260, 3:4)
+            final double imageWidth;
+            final double imageHeight;
+            if (m.isTablet) {
+              // Déterminer la hauteur d'abord (portrait), puis calculer la largeur via 3:4
+              final double targetHeight = math.min(m.box.height * 0.40, m.shortest * 0.78)
+                  .clamp(360.0, 700.0);
+              imageHeight = targetHeight;
+              imageWidth = (imageHeight * imageAspect);
+            } else {
+              // Mobile A54: taille d'origine
+              imageWidth = 195.0;
+              imageHeight = 260.0;
+            }
+            final double titleFont = m.isTablet ? m.font(28, tabletFactor: 1.2, min: 24, max: 40) : 28.0;
+            final double titleTopSpacer = m.isTablet ? 40.0 * ui : 16.0 * ui;
+            final int optionCount = question.options.length;
+            final double approxAnswersHeight = (optionCount * (50.0 * ui)) + ((optionCount - 1) * (12.0 * ui));
+            // Espace souhaité sous le bloc 3 (juste milieu)
+            final double bottomGap = math.max(64.0 * ui, m.box.height * 0.08);
+            // Hauteur approximative du titre (2 lignes max)
+            final double titleHeightApprox = (titleFont * 2.0 * 1.15);
+            final double usedBeforeSpacer = (80.0 * ui) + titleTopSpacer + titleHeightApprox;
+            final double answersTopSpacer = m.isTablet
+                ? ((m.box.height - approxAnswersHeight - bottomGap) - usedBeforeSpacer).clamp(200.0 * ui, 480.0 * ui)
+                : 320.0 * ui;
+            final double answerHeight = 50.0 * ui;
+            final double answerFont = 22.0 * ui;
+            // Rayon des coins proportionnel à la taille de l'image
+            final double imageRadius = m.isTablet
+                ? (imageWidth * 0.045).clamp(18.0, 32.0)
+                : 15.0;
+
+            return Stack(
+              children: [
             // Effet d'auréole animé: se révèle du bas vers le haut
             if (_showFeedback)
               Positioned.fill(
@@ -278,8 +335,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             
             // Zone supérieure avec bouton échappe
             Positioned(
-              top: 30, // Exactement la même hauteur que le compteur
-              left: 35,
+              top: topButtonsTop,
+              left: topButtonsLeft,
               child: Row(
                 children: [
                   GestureDetector(
@@ -289,8 +346,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                     },
                     child: SvgPicture.asset(
                       "assets/Images/cross.svg",
-                      width: 30,
-                      height: 30,
+                      width: 30 * ui,
+                      height: 30 * ui,
                       colorFilter: const ColorFilter.mode(
                         Color(0xFF473C33),
                         BlendMode.srcIn,
@@ -298,18 +355,18 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                     ),
                   ),
                   
-                  const SizedBox(width: 20), // Espacement
+                  SizedBox(width: 20 * ui),
                   
                   // Bouton de test caché (pour simuler une réussite)
                   GestureDetector(
                     onTap: _simulateQuizSuccess,
                     child: Container(
-                      width: 100,
-                      height: 32,
+                      width: 100 * ui,
+                      height: 32 * ui,
                       decoration: BoxDecoration(
                         color: Colors.orange.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.orange, width: 1.5),
+                        border: Border.all(color: Colors.orange, width: 1.5 * ui),
                       ),
                       child: const Center(
                         child: Text(
@@ -330,11 +387,12 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             
             // Icône de vie avec compteur en haut à droite
             Positioned(
-              top: 5,
-              right: 30,
+              top: livesTop,
+              right: livesRight,
               child: _LivesDisplayWidget(
                 lives: _visibleLives,
                 isSyncing: _isLivesSyncing,
+                uiScale: ui,
               ),
             ),
             
@@ -344,14 +402,14 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             Align(
               alignment: Alignment.topCenter,
         child: Padding(
-                padding: const EdgeInsets.only(top: 30),
+                padding: EdgeInsets.only(top: questionCounterTop),
                 child: Opacity(
                   opacity: 0.6,
                   child: Text(
                     '${_currentQuestionIndex + 1} sur ${_questions.length}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Quicksand',
-                  fontSize: 20,
+                  fontSize: 20 * ui,
                       fontWeight: FontWeight.w500,
                   color: Colors.black,
                 ),
@@ -362,15 +420,15 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             
             // Barre de progression animée (plus épaisse + barre intérieure en relief)
             Positioned(
-              top: 70,
-              left: 20,
-              right: 20,
+              top: progressTop,
+              left: progressSide,
+              right: progressSide,
               child: Column(
                 children: [
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8 * ui),
                   Center(
                     child: SizedBox(
-                      width: 300,
+                      width: progressWidth,
                       child: TweenAnimationBuilder<double>(
                         duration: const Duration(milliseconds: 450),
                         tween: Tween<double>(
@@ -379,10 +437,10 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                         ),
                         onEnd: () {
                           _progressFrom = _progressTo;
-                          _triggerProgressBurst(300 * _progressTo);
+                          _triggerProgressBurst(progressWidth * _progressTo);
                         },
                         builder: (context, value, child) {
-                          final double fillWidth = 300 * value;
+                          final double fillWidth = progressWidth * value;
                           return Stack(
                             clipBehavior: Clip.none,
                             children: [
@@ -393,8 +451,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                                   children: [
                                     // Track
                                     Container(
-                                      width: 300,
-                                      height: 14,
+                                      width: progressWidth,
+                                      height: progressHeight,
                                       decoration: BoxDecoration(
                                         color: const Color(0xFF473C33),
                                         borderRadius: BorderRadius.circular(8),
@@ -403,7 +461,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                                     // Remplissage
                                     SizedBox(
                                       width: fillWidth,
-                                      height: 14,
+                                      height: progressHeight,
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(8),
                                         child: Stack(
@@ -418,11 +476,11 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                                             Positioned(
                                               left: 4,
                                               right: 4,
-                                              top: 2,
+                                              top: 3.5 * ui,
                                               child: Container(
-                                                height: 5,
+                                                height: 3.5 * ui,
                                                 decoration: BoxDecoration(
-                                                  color: const Color(0xFFD2DBB2),
+                                                  color: const Color(0xFFC2D78D),
                                                   borderRadius: BorderRadius.circular(5),
                                                 ),
                                               ),
@@ -437,9 +495,9 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                               // Peinture des gouttes en dehors de la barre (overlay non clipé)
                               Positioned(
                                 left: 0,
-                                top: -18,
-                                width: 300,
-                                height: 50, // périmètre restreint autour de la barre
+                                top: -18 * ui,
+                                width: progressWidth,
+                                height: 50 * ui,
                                 child: IgnorePointer(
                                   child: CustomPaint(
                                     painter: _DropletPainter(
@@ -456,14 +514,14 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8 * ui),
                 ],
               ),
             ),
             
             // Bouton audio en overlay (position fixe)
             Positioned(
-              top: 200, // Position fixe pour le bouton audio
+              top: audioTop,
               left: 0,
               right: 0,
               child: Center(
@@ -471,6 +529,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                   onTap: _toggleAudio,
                   child: _AudioAnimationWidget(
                     isOn: _audioAnimationOn,
+                    size: audioSize,
                   ),
                 ),
               ),
@@ -478,7 +537,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             
             // Image de la bonne réponse en overlay (par-dessus le bouton audio)
             Positioned(
-              top: 200, // Position plus basse pour éviter le titre et être plus proche des réponses
+              top: audioTop,
               left: 0,
               right: 0,
               child: Center(
@@ -494,14 +553,15 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                               builder: (context, scale, child) {
                                 return Transform.scale(
                                   scale: scale,
-                                  child: SizedBox(
-                                    height: 260,
-                                    width: 195,
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(15), // Coins moins arrondis
-                                      child: _buildCachedImage(),
-                                    ),
-                                  ),
+                                   child: SizedBox(
+                                     width: imageWidth,
+                                     height: imageHeight,
+                                     child: ClipRRect(
+                                       borderRadius: BorderRadius.circular(imageRadius),
+                                       clipBehavior: Clip.antiAliasWithSaveLayer,
+                                       child: _buildCachedImage(fit: BoxFit.cover),
+                                     ),
+                                   ),
                                 );
                               },
                             )
@@ -514,27 +574,32 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             
                         // Contenu principal du quiz
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 0.0),
+              padding: EdgeInsets.symmetric(horizontal: 20.0 * ui, vertical: 0.0),
               child: Column(
                 children: [
                   // Espace supplémentaire pour éviter le chevauchement avec la barre de progression
-                  const SizedBox(height: 80),
+                  SizedBox(height: 80 * ui),
               
-                  const SizedBox(height: 16),
+                  SizedBox(height: titleTopSpacer),
               
               // Titre principal
-              Text(
+              Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: m.isTablet ? (m.maxWidth * 0.68) : double.infinity,
+                  ),
+                  child: Text(
                 'Quel oiseau se cache derrière ce son ?',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                     fontFamily: 'Quicksand',
-                    fontSize: 28,
+                    fontSize: titleFont,
                     fontWeight: FontWeight.w900, // Plus gras que bold
                     color: Color(0xFF344356),
                     letterSpacing: 0.5, // Espacement entre les lettres
                     shadows: [
                       Shadow(
-                        offset: Offset(0, 1),
-                        blurRadius: 2,
+                        offset: Offset(0, 1 * ui),
+                        blurRadius: 2 * ui,
                         color: Color.fromRGBO(0, 0, 0, 0.1),
                       ),
                     ],
@@ -542,13 +607,15 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                 textAlign: TextAlign.center,
                 softWrap: true,
                 maxLines: 2,
+                ),
+              ),
               ),
               
                   const SizedBox(height: 0),
               
               const SizedBox(height: 0),
               
-              const SizedBox(height: 320), // Questions plus basses
+              SizedBox(height: answersTopSpacer),
               
               // Options de réponse positionnées vers le centre de l'écran
               Column(
@@ -556,7 +623,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5 * ui),
                   
                   ...List.generate(question.options.length, (optionIndex) {
                     final option = question.options[optionIndex];
@@ -585,7 +652,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                     }
 
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
+                      padding: EdgeInsets.only(bottom: 12.0 * ui),
                       child: TweenAnimationBuilder<double>(
                         duration: const Duration(milliseconds: 250),
                         tween: Tween<double>(
@@ -602,18 +669,18 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                         child: GestureDetector(
                           onTap: _showFeedback ? null : () => _onAnswerSelected(option),
                           child: Container(
-                            height: 50,
-                            width: MediaQuery.of(context).size.width * 0.85,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            height: answerHeight,
+                            width: m.isTablet ? (m.maxWidth * 0.85) : MediaQuery.of(context).size.width * 0.85,
+                            padding: EdgeInsets.symmetric(horizontal: 16 * ui),
                             decoration: BoxDecoration(
                               color: backgroundColor,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: borderColor, width: 2),
+                              border: Border.all(color: borderColor, width: 2 * ui),
                               boxShadow: [
                                 BoxShadow(
                                   color: const Color.fromRGBO(0, 0, 0, 0.04),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
+                                  blurRadius: 4 * ui,
+                                  offset: Offset(0, 2 * ui),
                                 ),
                               ],
                             ),
@@ -622,7 +689,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                                 option,
                                 style: TextStyle(
                                   fontFamily: 'Quicksand',
-                                  fontSize: 22,
+                                  fontSize: answerFont,
                                   fontWeight: FontWeight.w600,
                                   color: textColor,
                                 ),
@@ -637,11 +704,13 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                 ],
               ),
               
-              const SizedBox(height: 20),
+              SizedBox(height: 20 * ui),
             ],
           ),
             ),
           ],
+        );
+          },
         ),
       ),
     );
@@ -1015,7 +1084,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
 
 
 
-  Widget _buildCachedImage() {
+  Widget _buildCachedImage({BoxFit fit = BoxFit.cover}) {
     if (_correctAnswerImageUrl.isEmpty) {
       return Container(
         width: 300,
@@ -1053,7 +1122,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     if (!(url.startsWith('http://') || url.startsWith('https://'))) {
       return Image.asset(
         url,
-        fit: BoxFit.cover,
+        fit: fit,
         errorBuilder: (context, error, stackTrace) {
           return Container(
             color: Colors.grey[200],
@@ -1066,7 +1135,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     }
     return Image.network(
       url,
-      fit: BoxFit.cover,
+      fit: fit,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return Container(
@@ -1428,9 +1497,11 @@ class _DropletPainter extends CustomPainter {
 
 class _AudioAnimationWidget extends StatefulWidget {
   final bool isOn;
+  final double? size;
   
   const _AudioAnimationWidget({
     required this.isOn,
+    this.size,
   });
 
   @override
@@ -1478,8 +1549,8 @@ class _AudioAnimationWidgetState extends State<_AudioAnimationWidget> {
       },
       child: SizedBox(
         key: ValueKey('audio_${widget.isOn ? 'on' : 'off'}'),
-        width: 160,
-        height: 160,
+        width: widget.size ?? 160,
+        height: widget.size ?? 160,
         child: widget.isOn 
             ? _onAnimation!
             : _offAnimation!,
@@ -1491,10 +1562,12 @@ class _AudioAnimationWidgetState extends State<_AudioAnimationWidget> {
 class _LivesDisplayWidget extends StatefulWidget {
   final int lives;
   final bool isSyncing;
+  final double uiScale;
   
   const _LivesDisplayWidget({
     required this.lives,
     required this.isSyncing,
+    this.uiScale = 1.0,
   });
 
   @override
@@ -1544,27 +1617,28 @@ class _LivesDisplayWidgetState extends State<_LivesDisplayWidget>
 
   @override
   Widget build(BuildContext context) {
+    final double ui = widget.uiScale;
     return AnimatedBuilder(
       animation: _pulseAnimation,
       builder: (context, child) {
         return Transform.scale(
           scale: _pulseAnimation.value,
           child: SizedBox(
-            width: 80,
-            height: 80,
+            width: 80 * ui,
+            height: 80 * ui,
             child: Stack(
               children: [
                 Image.asset(
                   'assets/Images/Bouton/barvie.png',
-                  width: 100,
-                  height: 100,
+                  width: 100 * ui,
+                  height: 100 * ui,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
-                      width: 80,
-                      height: 80,
+                      width: 80 * ui,
+                      height: 80 * ui,
                       decoration: BoxDecoration(
                         color: const Color.fromRGBO(188, 71, 73, 0.2),
-                        borderRadius: BorderRadius.circular(40),
+                        borderRadius: BorderRadius.circular(40 * ui),
                       ),
                       child: const Icon(
                         Icons.favorite,
@@ -1576,14 +1650,14 @@ class _LivesDisplayWidgetState extends State<_LivesDisplayWidget>
                 ),
                 Positioned.fill(
                   child: Transform.translate(
-                    offset: const Offset(18, -0.5),
+                    offset: Offset(18 * ui, -0.5 * ui),
                     child: Align(
                       alignment: Alignment.center,
                       child: Text(
                         widget.lives.toString(),
                         style: TextStyle(
                           fontFamily: 'Quicksand',
-                          fontSize: 34,
+                          fontSize: 34 * ui,
                           fontWeight: FontWeight.w900,
                           color: widget.lives <= 1 
                               ? const Color(0xFFBC4749)

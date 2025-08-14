@@ -21,14 +21,9 @@ class LocalImageService {
   /// Initialise le service en chargeant les mappings d'images locales
   Future<void> initialize() async {
     try {
-      if (kDebugMode) debugPrint('🔄 Initialisation du service d\'images locales...');
-      
+      // Scan optionnel retiré du démarrage; laisser vide pour éviter les logs inutiles.
       await _loadLocalImageMappings();
-      
-      if (kDebugMode) debugPrint('✅ Service d\'images locales initialisé (${_localImageCache.length} mappings)');
-    } catch (e) {
-      if (kDebugMode) debugPrint('❌ Erreur initialisation service images locales: $e');
-    }
+    } catch (_) {}
   }
 
   /// Charge les mappings d'images locales depuis les fichiers de mission
@@ -56,9 +51,7 @@ class LocalImageService {
           await _loadMissionImages(missionId);
         }
       }
-    } catch (e) {
-      if (kDebugMode) debugPrint('❌ Erreur chargement mappings images locales: $e');
-    }
+    } catch (_) {}
   }
 
   /// Charge les images d'une mission spécifique
@@ -91,13 +84,10 @@ class LocalImageService {
           final localImagePath = await _findLocalImage(imageCode);
           if (localImagePath != null) {
             _localImageCache[birdName] = localImagePath;
-            if (kDebugMode) debugPrint('📸 Image locale trouvée: $birdName -> $localImagePath');
           }
         }
       }
-    } catch (e) {
-      if (kDebugMode) debugPrint('❌ Erreur chargement images mission $missionId: $e');
-    }
+    } catch (_) {}
   }
 
   /// Génère un code d'image basé sur l'ID de mission et l'index
@@ -170,7 +160,7 @@ class LocalImageService {
   void clearCache() {
     _localImageCache.clear();
     _birdNameToCodeCache.clear();
-    if (kDebugMode) debugPrint('🗑️ Cache images locales nettoyé');
+    // Silent
   }
 
   /// Debug: affiche les mappings d'images
@@ -236,4 +226,5 @@ extension BirdImageExtension on Bird {
     // Priorité 3: Image par défaut
     return const AssetImage('assets/Images/Milieu/placeholder_bird.png');
   }
+} 
 } 

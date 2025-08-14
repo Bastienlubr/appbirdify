@@ -98,6 +98,35 @@ class DevToolsService {
     }
   }
 
+  /// Active/désactive le mode vies infinies sur le compte courant
+  static Future<void> setInfiniteLives(bool enabled) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      if (kDebugMode) {
+        debugPrint('♾️ Mise à jour du mode vies infinies=${enabled} pour ${user.uid}');
+      }
+
+      await _firestore
+          .collection('utilisateurs')
+          .doc(user.uid)
+          .set({
+        'livesInfinite': enabled,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (kDebugMode) {
+        debugPrint('✅ Mode vies infinies ${enabled ? 'activé' : 'désactivé'}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Erreur lors du paramétrage vies infinies: $e');
+      }
+      rethrow;
+    }
+  }
+
   /// Déverrouille toutes les missions d'un biome
   static Future<void> unlockAllBiomeMissions(String biome) async {
     try {

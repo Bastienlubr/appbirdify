@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +13,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/mission.dart';
 import '../services/mission_loader_service.dart';
 import '../services/life_sync_service.dart';
+import 'package:lottie/lottie.dart';
+import '../services/quiz_generator.dart';
+import '../ui/responsive/responsive.dart';
 
 /// Écran de chargement temporaire pour précharger les images des bonnes réponses
 class MissionLoadingScreen extends StatefulWidget {
@@ -36,6 +40,13 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
   late AnimationController _progressController;
   late Animation<double> _pulseAnimation;
   late Animation<double> _progressAnimation;
+  final String _lottiePath = 'assets/PAGE/Chargement/chenille.json';
+  final List<String> _funFacts = [];
+  int _currentFunFactIndex = 0;
+  Timer? _funFactTimer;
+  AnimationController? _funFactController; // Nullable pour éviter LateInitializationError
+  int? _previousFunFactIndex;
+  bool _isFunFactAnimating = false;
 
   String _currentStep = 'Initialisation...';
   List<String> _birdNames = [];
@@ -43,11 +54,14 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
   int _loadedImages = 0;
   int _totalImages = 0;
   String? _errorMessage;
+  List<QuizQuestion> _preloadedQuestions = [];
 
   @override
   void initState() {
     super.initState();
     _setupAnimations();
+    _loadFunFacts();
+    _initFunFactAnimation();
     _startLoading();
   }
 
@@ -55,6 +69,8 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
   void dispose() {
     _pulseController.dispose();
     _progressController.dispose();
+    _funFactTimer?.cancel();
+    _funFactController?.dispose();
     super.dispose();
   }
 
@@ -87,6 +103,73 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
 
     // Démarrer les animations
     _pulseController.repeat(reverse: true);
+  }
+
+  Future<void> _loadFunFacts() async {
+    try {
+      final String csvString = await rootBundle.loadString('assets/PAGE/Chargement/fun_facts_oiseaux.csv');
+      final List<String> lines = csvString
+          .split(RegExp(r'\r?\n'))
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty)
+          .toList();
+
+      final List<String> facts = lines
+          .where((l) => !l.toLowerCase().contains('chargement'))
+          .map((l) => l.replaceFirst(RegExp(r'^\s*\d+\s*[-–:]\s*'), ''))
+          .toList();
+
+      if (facts.isNotEmpty) {
+        setState(() {
+          _funFacts
+            ..clear()
+            ..addAll(facts);
+          _currentFunFactIndex = 0;
+        });
+
+        _scheduleFunFactTimer();
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('⚠️ Impossible de charger les fun facts: $e');
+    }
+  }
+
+  void _initFunFactAnimation() {
+    _funFactController?.dispose();
+    _funFactController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 550),
+    );
+    _funFactController!.value = 1.0;
+  }
+
+  void _scheduleFunFactTimer() {
+    _funFactTimer?.cancel();
+    if (_funFacts.length < 2) return;
+    _funFactTimer = Timer.periodic(const Duration(milliseconds: 3500), (_) {
+      _startFunFactTransition();
+    });
+  }
+
+  void _startFunFactTransition() {
+    if (!mounted || _funFacts.length < 2) return;
+    final controller = _funFactController;
+    if (controller == null) return;
+
+    setState(() {
+      _previousFunFactIndex = _currentFunFactIndex;
+      _currentFunFactIndex = (_currentFunFactIndex + 1) % _funFacts.length;
+      _isFunFactAnimating = true;
+    });
+
+    controller.stop();
+    controller.value = 0.0;
+    controller.forward().whenComplete(() {
+      if (!mounted) return;
+      setState(() {
+        _isFunFactAnimating = false;
+      });
+    });
   }
 
   Future<void> _startLoading() async {
@@ -138,6 +221,11 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
             await _updateProgress('Préchargement des images...', 0.4);
             await _preloadGoodAnswerImages();
             loadedFromFirestore = true;
+
+            // Précharger aussi les questions pour éviter tout second écran de chargement
+            try {
+              _preloadedQuestions = await QuizGenerator.generateQuizFromFirestoreAndCsv(widget.missionId, data);
+            } catch (_) {}
           }
         }
       } catch (e) {
@@ -163,6 +251,11 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
 
         await _updateProgress('Préchargement des images...', 0.4);
         await _preloadGoodAnswerImages();
+
+        // Précharger aussi les questions pour éviter tout second écran de chargement
+        try {
+          _preloadedQuestions = await QuizGenerator.generateQuizFromCsv(widget.missionId);
+        } catch (_) {}
       }
 
       // Étape 5: Finalisation
@@ -191,6 +284,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
               missionId: widget.missionId,
               mission: mission, // Passer l'objet Mission
               preloadedBirds: _birdCache,
+              preloadedQuestions: _preloadedQuestions.isNotEmpty ? _preloadedQuestions : null,
             ),
           ),
         );
@@ -427,197 +521,207 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final s = useScreenSize(context);
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(40.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Icône animée
-              AnimatedBuilder(
-                animation: _pulseAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _pulseAnimation.value,
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.quiz,
-                        color: Colors.white,
-                        size: 40,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              
-              const SizedBox(height: 40),
-              
-              // Titre
-              Text(
-                'Préparation de la mission',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                  fontFamily: 'Quicksand',
+      backgroundColor: const Color(0xFFF2F5F8),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final Size box = constraints.biggest;
+            final double shortest = box.shortestSide;
+            final bool isWide = box.aspectRatio >= 0.70;
+            final bool isLarge = s.isMD || s.isLG || s.isXL;
+            final bool isTablet = shortest >= 600;
+
+            final double scale = s.textScale();
+            final double localScale = isTablet
+                ? (shortest / 800.0).clamp(0.85, 1.2)
+                : (shortest / 600.0).clamp(0.92, 1.45);
+            final double spacing = isTablet
+                ? (s.spacing() * localScale * 1.05).clamp(12.0, 40.0).toDouble()
+                : 32.0;
+
+            final double lottieSize = isTablet
+                ? (shortest * (isWide ? 0.22 : 0.26)).clamp(130.0, 280.0).toDouble()
+                : 170.0;
+            final double lineWidth = isTablet
+                ? (lottieSize * 0.70).clamp(90.0, 220.0).toDouble()
+                : 120.0;
+            final double lineHeight = isTablet
+                ? (4.0 * localScale * 1.1).clamp(3.0, 6.0).toDouble()
+                : 4.0;
+            final double titleFontSize = isTablet
+                ? (20.0 * scale * 1.05).clamp(16.0, 28.0).toDouble()
+                : 20.0;
+            final double factFontSize = isTablet
+                ? (20.0 * scale * 1.02).clamp(16.0, 26.0).toDouble()
+                : 20.0;
+            final double smallGap = isTablet ? (spacing * 0.16).clamp(3.0, 10.0).toDouble() : 3.0;
+            final double mediumGap = isTablet ? (spacing * 0.5).clamp(10.0, 24.0).toDouble() : 15.0;
+            final double largeGap = isTablet ? (spacing * 0.7).clamp(14.0, 32.0).toDouble() : 20.0;
+
+            return Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  top: isTablet ? spacing * 0.5 : spacing * 0.2,
+                  left: spacing,
+                  right: spacing,
+                  bottom: spacing,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: 8),
-              
-              // Nom de la mission
-              Text(
-                widget.missionName,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.secondary,
-                  fontFamily: 'Quicksand',
-                ),
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: 40),
-              
-              // Barre de progression
-              Container(
-                width: double.infinity,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: AnimatedBuilder(
-                  animation: _progressAnimation,
-                  builder: (context, child) {
-                    return FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: _progressAnimation.value,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              
-              const SizedBox(height: 20),
-              
-              // Étape actuelle
-              Text(
-                _currentStep,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.textDark,
-                  fontFamily: 'Quicksand',
-                ),
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: 10),
-              
-              // Progression détaillée
-              if (_totalImages > 0)
-                Text(
-                  '$_loadedImages/$_totalImages images chargées',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                    fontFamily: 'Quicksand',
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              
-              // Message d'erreur
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 30),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.accent,
-                      width: 1,
-                    ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0,
                   ),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: AppColors.accent,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Erreur de chargement',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.accent,
-                          fontFamily: 'Quicksand',
+                      SizedBox(
+                        width: lottieSize,
+                        height: lottieSize,
+                        child: Lottie.asset(
+                          _lottiePath,
+                          width: lottieSize,
+                          height: lottieSize,
+                          fit: BoxFit.contain,
+                          repeat: true,
+                          animate: true,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _errorMessage!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.accent,
-                          fontFamily: 'Quicksand',
+
+                      SizedBox(height: smallGap),
+
+                      Container(
+                        width: lineWidth,
+                        height: lineHeight,
+                        decoration: BoxDecoration(
+                          color: const Color(0x68606D7C),
+                          borderRadius: BorderRadius.circular(8),
                         ),
+                      ),
+
+                      SizedBox(height: mediumGap),
+
+                      Text(
+                        'Chargement en cours...',
                         textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: const Color(0xDB606D7C).withValues(alpha: 0.7),
+                          fontSize: titleFontSize,
+                          fontFamily: 'Quicksand',
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.30,
+                          shadows: [
+                            Shadow(
+                              offset: const Offset(0.5, 0.5),
+                              blurRadius: 1.0,
+                              color: Colors.black.withValues(alpha: 0.1),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                                             ElevatedButton(
-                         onPressed: () {
-                           setState(() {
-                             _errorMessage = null;
-                             _loadedImages = 0;
-                             _birdCache.clear();
-                           });
-                           _startLoading();
-                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accent,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
+
+                      SizedBox(height: largeGap * 0.9),
+
+                      if (_funFacts.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: spacing * 0.5),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: isTablet ? 700.0 : 600.0),
+                            child: AnimatedBuilder(
+                              animation: _funFactController ?? const AlwaysStoppedAnimation<double>(1.0),
+                              builder: (context, child) {
+                                final double t = (_funFactController?.value ?? 1.0).clamp(0.0, 1.0);
+                                final double outDx = -20.0 * t;
+                                final double outOpacity = 1.0 - t;
+                                final double outBlur = 1.5 * t;
+                                final double inDx = 20.0 * (1.0 - t);
+                                final double inOpacity = t;
+                                final double inBlur = 1.5 * (1.0 - t);
+
+                                final String currentText = _funFacts[_currentFunFactIndex];
+                                final String? prevText = _previousFunFactIndex != null && _isFunFactAnimating
+                                    ? _funFacts[_previousFunFactIndex!]
+                                    : null;
+
+                                final TextStyle funFactStyle = TextStyle(
+                                  color: const Color(0xFF344356),
+                                  fontSize: factFontSize,
+                                  height: 1.35,
+                                  fontFamily: 'Quicksand',
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.30,
+                                );
+
+                                return Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    if (prevText != null)
+                                      Opacity(
+                                        opacity: outOpacity,
+                                        child: Transform.translate(
+                                          offset: Offset(outDx, 0),
+                                          child: ImageFiltered(
+                                            imageFilter: ui.ImageFilter.blur(sigmaX: outBlur, sigmaY: outBlur),
+                                            child: Text(
+                                              prevText,
+                                              textAlign: TextAlign.center,
+                                              softWrap: true,
+                                              style: funFactStyle,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    Opacity(
+                                      opacity: inOpacity,
+                                      child: Transform.translate(
+                                        offset: Offset(inDx, 0),
+                                        child: ImageFiltered(
+                                          imageFilter: ui.ImageFilter.blur(sigmaX: inBlur, sigmaY: inBlur),
+                                          child: Text(
+                                            currentText,
+                                            textAlign: TextAlign.center,
+                                            softWrap: true,
+                                            style: funFactStyle,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+
+                      if (_errorMessage != null) ...[
+                        SizedBox(height: spacing * 0.6),
+                        Container(
+                          padding: EdgeInsets.all(spacing * 0.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBC4749).withAlpha(20),
                             borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFFBC4749).withAlpha(50),
+                            ),
+                          ),
+                          child: Text(
+                            'Erreur: ${_errorMessage}',
+                            style: const TextStyle(
+                              fontFamily: 'Quicksand',
+                              fontSize: 14,
+                              color: Color(0xFFBC4749),
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
-                        child: const Text(
-                          'Réessayer',
-                          style: TextStyle(
-                            fontFamily: 'Quicksand',
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
-              ],
-            ],
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

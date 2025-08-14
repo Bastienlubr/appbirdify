@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 import '../widgets/biome_carousel_enhanced.dart';
+import '../widgets/home_bottom_nav_bar.dart';
+import 'base_ornitho_page.dart';
 import '../data/milieu_data.dart';
 import '../models/mission.dart';
 import '../pages/mission_loading_screen.dart';
@@ -10,6 +12,7 @@ import '../services/mission_loader_service.dart';
 import '../services/mission_persistence_service.dart';
 import '../services/mission_progression_init_service.dart';
 import '../widgets/dev_tools_menu.dart';
+import '../ui/responsive/responsive.dart';
 
 
 
@@ -21,62 +24,44 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 1; // 0: Quiz, 1: Accueil, 2: Profil, 3: Bibliothèque
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
-      body: const HomeContent(),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF6A994E),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6), // Réduit de 8 à 6
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, Icons.quiz, 'Quiz', false),
-                _buildNavItem(1, Icons.home, 'Accueil', true),
-                _buildNavItem(2, Icons.person, 'Profil', false),
-              ],
-            ),
-          ),
-        ),
+      body: _currentIndex == 3 ? const BaseOrnithoPage() : const HomeContent(),
+      bottomNavigationBar: HomeBottomNavBar(
+        currentIndex: _currentIndex,
+        onTabSelected: (idx) {
+          setState(() => _currentIndex = idx);
+          // TODO: Brancher la navigation vers pages quand elles seront prêtes
+        },
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label, bool isSelected) {
-    return GestureDetector(
-      onTap: () {
-        // TODO: Implémenter la navigation vers les différentes pages
-        // setState(() => _currentIndex = index);
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: isSelected ? const Color(0xFFFEC868) : Colors.white,
-            size: 24,
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    // Conservé pour compatibilité si besoin, non utilisé car remplacé par HomeBottomNavBar
+    final bool isSelected = _currentIndex == index;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          color: isSelected ? const Color(0xFFFEC868) : Colors.white,
+          size: 24,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Quicksand',
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Quicksand',
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isSelected ? const Color(0xFFFEC868) : Colors.white,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -115,6 +100,9 @@ class _HomeContentState extends State<HomeContent> {
     super.didChangeDependencies();
     // Recharger les missions et les vies quand on revient d'un quiz
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Invalider le cache du biome actuel pour forcer un rechargement depuis Firestore
+      // afin de refléter immédiatement les étoiles gagnées après un quiz
+      _missionsCache.remove(_selectedBiome);
       // Recharger les missions avec la progression mise à jour
       await _loadMissionsForBiome(_selectedBiome);
       // Attendre un peu avant de recharger les vies pour s'assurer que la synchronisation est terminée
@@ -407,187 +395,222 @@ class _HomeContentState extends State<HomeContent> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-        child: Stack(
-          children: [
-            // Menu de développement (remplace les anciens boutons)
-            DevToolsMenu(
-          onLivesRestored: () {
-            if (kDebugMode) debugPrint('🔄 Rechargement forcé des vies après restauration...');
-            _loadCurrentLives(); // Forcer le rechargement des vies
-          },
-          onStarsReset: () {
-            if (kDebugMode) debugPrint('🔄 Rechargement forcé des missions après reset des étoiles...');
-            _loadMissionsForBiome(_selectedBiome); // Forcer le rechargement des missions
-          },
-        ),
-            
-            // Icône de vie avec compteur en haut à droite
-            Positioned(
-              top: 4,
-              right: 4,
-              child: SizedBox(
-                width: 110,
-                height: 110,
-                child: Stack(
-                  children: [
-                    // Icône de vie en arrière-plan
-                    Image.asset(
-                      'assets/Images/Bouton/Group 15.png',
-                      width: 110,
-                      height: 110,
-                    ),
-                    // Compteur de vies centré par-dessus
-                    Positioned.fill(
-                      child: Transform.translate(
-                        offset: const Offset(15, 35), // Ajustement fin de la position verticale
-                        child: Align(
-                          alignment: Alignment.center,
-                          child: Text(
-                            _currentLives.toString(),
-                            style: TextStyle(
-                              fontFamily: 'Quicksand',
-                              fontSize: 32,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF473C33),
+    final s = useScreenSize(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final Size box = constraints.biggest;
+        final double shortest = box.shortestSide;
+        final bool isWide = box.aspectRatio >= 0.70;
+        final bool isTablet = shortest >= 600;
+        final double scale = s.textScale();
+        final double localScale = isTablet
+            ? (shortest / 800.0).clamp(0.85, 1.2)
+            : (shortest / 600.0).clamp(0.92, 1.45);
+        // Échelle progressive pour grands téléphones sans toucher A54
+        final double phoneScaleUp = !isTablet ? (shortest / 400.0).clamp(1.0, 1.12) : 1.0;
+        final double spacing = isTablet
+            ? (s.spacing() * localScale * 1.08).clamp(14.0, 44.0).toDouble()
+            : 24.0 * phoneScaleUp;
+
+        final double topPadding = isTablet ? (spacing * 1.2) : 50.0;
+        final double titleFontSize = isTablet
+            ? (30.0 * scale * 1.10).clamp(28.0, 46.0).toDouble()
+            : 30.0 * phoneScaleUp;
+        final double subtitleFontSize = isTablet
+            ? (14.0 * scale * 1.10).clamp(13.0, 22.0).toDouble()
+            : 14.0 * phoneScaleUp;
+        final double navIconSize = isTablet ? 28.0 : 24.0;
+        final double navLabelSize = isTablet ? 13.0 : 12.0;
+
+        final double livesSize = isTablet
+            ? (shortest * (isWide ? 0.15 : 0.18)).clamp(150.0, 230.0).toDouble()
+            : 110.0 * phoneScaleUp;
+        final double livesOffsetX = 15.0 * (livesSize / 110.0);
+        final double livesOffsetY = 35.0 * (livesSize / 110.0);
+        final double livesFontSize = 32.0 * (livesSize / 110.0) * (isTablet ? 1.06 : 1.0);
+
+        // Échelle UI des cartes (1.0 mobile, >1 tablette)
+        final double uiScale = isTablet ? (localScale * 1.08).clamp(1.0, 1.3).toDouble() : 1.0;
+
+        return SafeArea(
+          child: Stack(
+            children: [
+              DevToolsMenu(
+                onLivesRestored: () {
+                  if (kDebugMode) debugPrint('🔄 Rechargement forcé des vies après restauration...');
+                  _loadCurrentLives();
+                },
+                onStarsReset: () {
+                  if (kDebugMode) debugPrint('🔄 Rechargement forcé des missions après reset des étoiles...');
+                  _loadMissionsForBiome(_selectedBiome);
+                },
+              ),
+
+              Positioned(
+                top: 4,
+                right: 4,
+                child: SizedBox(
+                  width: livesSize,
+                  height: livesSize,
+                  child: Stack(
+                    children: [
+                      Image.asset(
+                        'assets/Images/Bouton/Group 15.png',
+                        width: livesSize,
+                        height: livesSize,
+                      ),
+                      Positioned.fill(
+                        child: Transform.translate(
+                          offset: Offset(livesOffsetX, livesOffsetY),
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: Text(
+                              _currentLives.toString(),
+                              style: TextStyle(
+                                fontFamily: 'Quicksand',
+                                fontSize: livesFontSize,
+                                fontWeight: FontWeight.w900,
+                                color: const Color(0xFF473C33),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            
 
-            
-            Padding(
-              padding: const EdgeInsets.only(top: 50), // Ajoute 50px d'espace en haut
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 12), // Réduit de 16 à 12
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              Padding(
+                padding: EdgeInsets.only(top: topPadding),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isTablet ? (isWide ? 1000.0 : 900.0) : 720.0,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildTitleSection(),
-                        const SizedBox(height: 4),
-
-                      ],
-                    ),
-                  ),
-                  BiomeCarouselEnhanced(
-                    onBiomeSelected: (biome) {
-                      setState(() {
-                        _selectedBiome = biome.name;
-                      });
-                      _loadMissionsForBiome(biome.name);
-                    },
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 12),
-                          
-                          
-                          
-                          Expanded(
-                            child: Stack(
+                        SizedBox(height: spacing * 0.5),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: spacing),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildTitleSection(titleFontSize, subtitleFontSize),
+                              SizedBox(height: spacing * 0.15),
+                            ],
+                          ),
+                        ),
+                        BiomeCarouselEnhanced(
+                          onBiomeSelected: (biome) {
+                            setState(() {
+                              _selectedBiome = biome.name;
+                            });
+                            _loadMissionsForBiome(biome.name);
+                          },
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: spacing),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                ListView(
-                                  controller: _missionScrollController,
-                                  padding: const EdgeInsets.only(bottom: 20),
-                                  children: [
-                                    _buildQuizCards(),
-                                    const SizedBox(height: 60),
-                                  ],
-                                ),
-                                // Effet de fondu au bas de la liste
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: Container(
-                                    height: 30,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          const Color(0xFFF3F5F9).withValues(alpha: 0.0),
-                                          const Color(0xFFF3F5F9).withValues(alpha: 0.4),
-                                          const Color(0xFFF3F5F9).withValues(alpha: 0.7),
+                                SizedBox(height: spacing * 0.5),
+                                Expanded(
+                                  child: Stack(
+                                    children: [
+                                      ListView(
+                                        controller: _missionScrollController,
+                                        padding: EdgeInsets.only(bottom: spacing * 0.8),
+                                        children: [
+                                          _buildQuizCards(uiScale),
+                                          SizedBox(height: spacing * 2.0),
                                         ],
-                                        stops: const [0.0, 0.6, 1.0],
                                       ),
-                                    ),
-                                  ),
-                                ),
-                                // Effet de fondu en haut de la liste
-                                Positioned(
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: Container(
-                                    height: 25,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.bottomCenter,
-                                        end: Alignment.topCenter,
-                                        colors: [
-                                          const Color(0xFFF3F5F9).withValues(alpha: 0.0),
-                                          const Color(0xFFF3F5F9).withValues(alpha: 0.3),
-                                          const Color(0xFFF3F5F9).withValues(alpha: 0.6),
-                                        ],
-                                        stops: const [0.0, 0.7, 1.0],
+                                      Positioned(
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
+                                        child: Container(
+                                          height: 30 * uiScale,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                const Color(0xFFF3F5F9).withValues(alpha: 0.0),
+                                                const Color(0xFFF3F5F9).withValues(alpha: 0.4),
+                                                const Color(0xFFF3F5F9).withValues(alpha: 0.7),
+                                              ],
+                                              stops: const [0.0, 0.6, 1.0],
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      Positioned(
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        child: Container(
+                                          height: 25 * uiScale,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.bottomCenter,
+                                              end: Alignment.topCenter,
+                                              colors: [
+                                                const Color(0xFFF3F5F9).withValues(alpha: 0.0),
+                                                const Color(0xFFF3F5F9).withValues(alpha: 0.3),
+                                                const Color(0xFFF3F5F9).withValues(alpha: 0.6),
+                                              ],
+                                              stops: const [0.0, 0.7, 1.0],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        );
+      },
     );
   }
 
 
 
-  Widget _buildTitleSection() {
+  Widget _buildTitleSection(double titleFontSize, double subtitleFontSize) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
           'Les habitats',
           style: TextStyle(
             fontFamily: 'Quicksand',
-            fontSize: 30,
+            fontSize: titleFontSize,
             fontWeight: FontWeight.w900,
-            color: Color(0xFF344356),
+            color: const Color(0xFF344356),
           ),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Text(
           'Le voyage ne fait que commencer...\nFaites défiler pour découvrir la suite des habitats.',
           style: TextStyle(
             fontFamily: 'Quicksand',
-            fontSize: 14,
+            fontSize: subtitleFontSize,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF344356),
+            color: const Color(0xFF344356),
             height: 1.4,
           ),
         ),
@@ -597,7 +620,7 @@ class _HomeContentState extends State<HomeContent> {
 
 
 
-  Widget _buildQuizCards() {
+  Widget _buildQuizCards(double uiScale) {
     return Column(
       key: ValueKey(_selectedBiome),
       children: List.generate(_currentMissions.length, (index) {
@@ -614,14 +637,14 @@ class _HomeContentState extends State<HomeContent> {
               _missionVisibility[index] ? 0 : 20,
               0,
             ),
-            child: _buildQuizCardMission(mission),
+            child: _buildQuizCardMission(mission, uiScale),
           ),
         );
       }),
     );
   }
 
-  Widget _buildQuizCardMission(Mission mission) {
+  Widget _buildQuizCardMission(Mission mission, double uiScale) {
     final hasCsvFile = mission.csvFile != null;
     // Sécuriser l'accès à la première mission du biome: toujours déverrouillée si le biome est débloqué
     final bool firstMissionUnlocked = (mission.index == 1) && _isBiomeUnlocked(_selectedBiome);
@@ -631,6 +654,7 @@ class _HomeContentState extends State<HomeContent> {
       mission: mission,
       hasCsvFile: hasCsvFile,
       isUnlocked: isUnlocked,
+      uiScale: uiScale,
       onTap: (hasCsvFile && isUnlocked)
           ? () => _handleQuizLaunch(mission.id)
           : null,
@@ -716,11 +740,13 @@ class _AnimatedMissionCard extends StatefulWidget {
   final bool isUnlocked;
   final VoidCallback? onTap;
   final VoidCallback? onMissionConsulted;
+  final double uiScale;
 
   const _AnimatedMissionCard({
     required this.mission,
     required this.hasCsvFile,
     required this.isUnlocked,
+    required this.uiScale,
     this.onTap,
     this.onMissionConsulted,
   });
@@ -891,6 +917,22 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
 
   @override
   Widget build(BuildContext context) {
+    final double ui = widget.uiScale;
+    final double cardHeight = 88.0 * ui;
+    final double bottomMargin = 12.0 * ui;
+    final double cardPadding = 8.0 * ui;
+    final double missionImageSize = 64.0 * ui;
+    final double titleFont = 16.0 * ui;
+    final double subtitleFont = 14.0 * ui;
+    final double starsRailWidth = 28.0 * ui;
+    final double starSize = 24.0 * ui;
+    final double starTop = 5.0 * ui;
+    final double starBottom = 17.0 * ui;
+    final double starRight = 7.0 * ui;
+    final double badgeTop = -6.0 * ui;
+    final double badgeRight = 45.0 * ui;
+    final double badgeFont = 12.0 * ui;
+
     return AnimatedBuilder(
       animation: _scaleAnimation,
       builder: (context, child) {
@@ -903,17 +945,17 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
               children: [
                 // Carte principale de la mission
                 Container(
-                  height: 88.0, // Hauteur fixe uniforme pour toutes les missions
-                  margin: const EdgeInsets.only(bottom: 12), // Réduit de 16 à 12
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8), // Padding réduit pour plus d'espace à l'icône
+                  height: cardHeight,
+                  margin: EdgeInsets.only(bottom: bottomMargin),
+                  padding: EdgeInsets.symmetric(horizontal: cardPadding, vertical: cardPadding),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withAlpha(20),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        blurRadius: 8 * ui,
+                        offset: Offset(0, 2 * ui),
                       ),
                     ],
                     border: widget.isUnlocked 
@@ -923,11 +965,11 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                   child: Row(
                     children: [
                       // Espacement pour déplacer l'icône vers la droite
-                      const SizedBox(width: 4),
+                      SizedBox(width: 4 * ui),
                       // Image de la mission
                       Container(
-                        width: 64,
-                        height: 64,
+                        width: missionImageSize,
+                        height: missionImageSize,
                         decoration: BoxDecoration(
                           color: widget.isUnlocked 
                               ? const Color(0xFFD2DBB2)
@@ -939,18 +981,18 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                           child: !widget.isUnlocked
                               ? Image.asset(
                                   'assets/Missionhome/Images/logolock.png',
-                                  width: 64,
-                                  height: 64,
+                                  width: missionImageSize,
+                                  height: missionImageSize,
                                   fit: BoxFit.contain,
                                   errorBuilder: (context, error, stackTrace) {
                                     // Fallback vers l'icône de cadenas si l'image ne charge pas
                                     return SizedBox(
-                                      width: 64,
-                                      height: 64,
+                                      width: missionImageSize,
+                                      height: missionImageSize,
                                       child: Icon(
                                         Icons.lock,
                                         color: Colors.grey,
-                                        size: 32,
+                                        size: 32 * ui,
                                       ),
                                     );
                                   },
@@ -958,35 +1000,35 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                               : widget.mission.iconUrl != null
                                   ? Image.asset(
                                       widget.mission.iconUrl!,
-                                      width: 64,
-                                      height: 64,
+                                      width: missionImageSize,
+                                      height: missionImageSize,
                                       fit: BoxFit.contain,
                                       errorBuilder: (context, error, stackTrace) {
                                         // Fallback vers l'icône si l'image ne charge pas
                                         return SizedBox(
-                                          width: 64,
-                                          height: 64,
+                                          width: missionImageSize,
+                                          height: missionImageSize,
                                           child: Icon(
                                             Icons.quiz,
                                             color: const Color(0xFF6A994E),
-                                            size: 32,
+                                            size: 32 * ui,
                                           ),
                                         );
                                       },
                                     )
                                   : SizedBox(
-                                      width: 64,
-                                      height: 64,
+                                      width: missionImageSize,
+                                      height: missionImageSize,
                                       child: Icon(
                                         Icons.quiz,
                                         color: const Color(0xFF6A994E),
-                                        size: 32,
+                                        size: 32 * ui,
                                       ),
                                     ),
                         ),
                       ),
                       
-                      const SizedBox(width: 16),
+                      SizedBox(width: 16 * ui),
                       
                       // Contenu texte (largeur augmentée pour s'approcher des étoiles)
                       SizedBox(
@@ -999,7 +1041,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                               widget.mission.titreMission ?? widget.mission.title ?? 'Mission ${widget.mission.index}',
                               style: TextStyle(
                                 fontFamily: 'Quicksand',
-                                fontSize: 16,
+                                fontSize: titleFont,
                                 fontWeight: FontWeight.w700,
                                 color: widget.isUnlocked 
                                     ? const Color(0xFF344356)
@@ -1008,13 +1050,13 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 2),
+                            SizedBox(height: 2 * ui),
                             Expanded(
                               child: Text(
                                 widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
                                 style: TextStyle(
                                   fontFamily: 'Quicksand',
-                                  fontSize: 14.0, // Taille fixe
+                                  fontSize: subtitleFont,
                                   fontWeight: FontWeight.w500,
                                   color: widget.isUnlocked 
                                       ? const Color(0xFF344356).withAlpha(179)
@@ -1025,7 +1067,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                               ),
                             ),
                             // Espace supplémentaire pour le sous-titre
-                            const SizedBox(height: 4),
+                            SizedBox(height: 4 * ui),
                           ],
                         ),
                       ),
@@ -1038,11 +1080,11 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                 // Système d'étoiles positionné à droite de la case mission (seulement pour les missions débloquées)
                 if (widget.isUnlocked)
                   Positioned(
-                    top: 5, // Espace en haut similaire au padding de la case mission
-                    bottom: 17, // Espace en bas similaire au padding de la case mission
-                    right: 7, // Décalé vers la gauche pour plus d'espace avec le texte
+                    top: starTop,
+                    bottom: starBottom,
+                    right: starRight,
                     child: Container(
-                      width: 28,
+                      width: starsRailWidth,
                       decoration: BoxDecoration(
                         color: const Color(0xFFD2DBB2),
                         borderRadius: const BorderRadius.only(
@@ -1058,37 +1100,37 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                         children: [
                           // Première étoile (8/10)
                           Transform.translate(
-                            offset: const Offset(-0.8, 0),
+                            offset: Offset(-0.8 * ui, 0),
                             child: Image.asset(
                               widget.mission.lastStarsEarned >= 1 
                                   ? 'assets/Images/Bouton/etoile_check.png'
                                   : 'assets/Images/Bouton/etoile-nocheck.png',
-                              width: 24,
-                              height: 24,
+                              width: starSize,
+                              height: starSize,
                               fit: BoxFit.contain,
                             ),
                           ),
                           // Deuxième étoile (8/10)
                           Transform.translate(
-                            offset: const Offset(-0.8, 0),
+                            offset: Offset(-0.8 * ui, 0),
                             child: Image.asset(
                               widget.mission.lastStarsEarned >= 2 
                                   ? 'assets/Images/Bouton/etoile_check.png'
                                   : 'assets/Images/Bouton/etoile-nocheck.png',
-                              width: 24,
-                              height: 24,
+                              width: starSize,
+                              height: starSize,
                               fit: BoxFit.contain,
                             ),
                           ),
                           // Troisième étoile (10/10)
                           Transform.translate(
-                            offset: const Offset(-0.8, 0),
+                            offset: Offset(-0.8 * ui, 0),
                             child: Image.asset(
                               widget.mission.lastStarsEarned >= 3 
                                   ? 'assets/Images/Bouton/etoile_check.png'
                                   : 'assets/Images/Bouton/etoile-nocheck.png',
-                              width: 24,
-                              height: 24,
+                              width: starSize,
+                              height: starSize,
                               fit: BoxFit.contain,
                             ),
                           ),
@@ -1100,8 +1142,8 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                 // Étiquette "NOUVEAU" positionnée au-dessus de la carte, en haut à droite
                 if (_getAvailabilityText() != null)
                   Positioned(
-                    top: -6, // Déborde légèrement au-dessus de la carte
-                    right: 45, // Déplacé vers la gauche par rapport au bord droit
+                    top: badgeTop,
+                    right: badgeRight,
                     child: AnimatedBuilder(
                       animation: Listenable.merge([_badgeAnimationController, _badgeFloatController]),
                       builder: (context, child) {
@@ -1121,7 +1163,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                             child: Transform.translate(
                               offset: Offset(0, floatOffset),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                padding: EdgeInsets.symmetric(horizontal: 4 * ui, vertical: 1 * ui),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF6A994E),
                                   borderRadius: BorderRadius.circular(3),
@@ -1130,7 +1172,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                                   _getAvailabilityText()!,
                                   style: TextStyle(
                                     fontFamily: 'Quicksand',
-                                    fontSize: 12,
+                                    fontSize: badgeFont,
                                     fontWeight: FontWeight.w900,
                                     color: const Color(0xFFFEC868),
                                   ),

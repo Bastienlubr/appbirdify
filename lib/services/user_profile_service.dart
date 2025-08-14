@@ -20,11 +20,14 @@ class UserProfileService {
   }) async {
     try {
       final userRef = _firestore.collection('utilisateurs').doc(uid);
-      
+      // Lire l'état actuel pour ne pas écraser les champs "créés le"
+      final existingDoc = await userRef.get();
+      final existingData = existingDoc.data() as Map<String, dynamic>?;
+
       final now = DateTime.now();
       final todayMidnight = DateTime(now.year, now.month, now.day);
       
-      final profileData = {
+      final Map<String, dynamic> profileData = {
         'profil': {
           'nomAffichage': displayName ?? 'Utilisateur Birdify',
           'email': email,
@@ -54,13 +57,29 @@ class UserProfileService {
         },
         'biomesUnlocked': ['milieu urbain'],
         'biomeActuel': 'milieu urbain',
-        'creeLe': FieldValue.serverTimestamp(),
         'derniereConnexion': FieldValue.serverTimestamp(),
         'dateResetQuotidien': Timestamp.fromDate(todayMidnight),
         ...?additionalData,
       };
+      
+      // Ne définir 'creeLe' qu'une seule fois :
+      // - Si le document n'existe pas encore → serverTimestamp()
+      // - Si le doc existe sans 'creeLe' mais possède 'createdAt' → recopier 'createdAt' pour conserver l'historique
+      // - Sinon, ne pas toucher à 'creeLe'
+      final Map<String, dynamic> creationFields = {};
+      if (!existingDoc.exists) {
+        creationFields['creeLe'] = FieldValue.serverTimestamp();
+      } else {
+        final hasCreeLe = existingData?.containsKey('creeLe') == true;
+        if (!hasCreeLe) {
+          final createdAt = existingData?['createdAt'];
+          if (createdAt != null) {
+            creationFields['creeLe'] = createdAt;
+          }
+        }
+      }
 
-      await userRef.set(profileData, SetOptions(merge: true));
+      await userRef.set({...profileData, ...creationFields}, SetOptions(merge: true));
       
       if (kDebugMode) {
         debugPrint('✅ Profil utilisateur créé/mis à jour pour $uid');
