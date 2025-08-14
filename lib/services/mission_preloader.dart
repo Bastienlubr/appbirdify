@@ -108,7 +108,7 @@ class MissionPreloader {
     if (kDebugMode) debugPrint('🎯 Chargement ciblé pour ${birdNames.length} oiseaux spécifiques');
     
     try {
-      final String csvString = await rootBundle.loadString('assets/data/Database birdify.csv');
+      final String csvString = await rootBundle.loadString('assets/data/Bank son oiseauxV4.csv');
       final List<String> lines = const LineSplitter().convert(csvString);
       
       if (lines.isEmpty) {
@@ -165,7 +165,7 @@ class MissionPreloader {
     try {
       if (kDebugMode) debugPrint('🔄 Chargement complet des données Birdify...');
       
-      final String csvString = await rootBundle.loadString('assets/data/Database birdify.csv');
+      final String csvString = await rootBundle.loadString('assets/data/Bank son oiseauxV4.csv');
       final List<String> lines = const LineSplitter().convert(csvString);
       
       if (lines.isEmpty) {
@@ -284,6 +284,42 @@ class MissionPreloader {
   /// Récupère les données Bird d'un oiseau
   static Bird? getBirdData(String birdName) {
     return _birdCache[birdName];
+  }
+
+  /// Normalise un nom pour comparaison tolérante (minuscules, accents retirés, espaces trim)
+  static String _normalizeName(String name) {
+    String n = name.toLowerCase().trim();
+    const accents = {
+      'à':'a','â':'a','ä':'a','á':'a','ã':'a','å':'a',
+      'ç':'c',
+      'é':'e','è':'e','ê':'e','ë':'e',
+      'í':'i','ì':'i','î':'i','ï':'i',
+      'ñ':'n',
+      'ò':'o','ó':'o','ô':'o','ö':'o','õ':'o',
+      'ù':'u','ú':'u','û':'u','ü':'u',
+      'ý':'y','ÿ':'y',
+      'œ':'oe','æ':'ae',
+      '’':'\'','‘':'\'','ʼ':'\'',
+    };
+    n = n.split('').map((ch) => accents[ch] ?? ch).join();
+    n = n.replaceAll(RegExp(r"\s+"), ' ');
+    return n;
+  }
+
+  /// Recherche tolérante par nom (retire accents/casse) dans le cache
+  static Bird? findBirdByName(String name) {
+    if (_birdCache.containsKey(name)) return _birdCache[name];
+    final target = _normalizeName(name);
+    for (final entry in _birdCache.entries) {
+      final candidate = _normalizeName(entry.key);
+      if (candidate == target) return entry.value;
+    }
+    // Tentative de correspondance partielle (commence par)
+    for (final entry in _birdCache.entries) {
+      final candidate = _normalizeName(entry.key);
+      if (candidate.startsWith(target) || target.startsWith(candidate)) return entry.value;
+    }
+    return null;
   }
 
   /// Ajoute un oiseau au cache (pour les données préchargées)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:animations/animations.dart';
@@ -8,7 +9,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/quiz_generator.dart';
 import '../services/life_sync_service.dart';
 import '../services/mission_preloader.dart';
-import '../services/image_cache_service.dart';
 import '../models/mission.dart';
 import '../models/bird.dart';
 import '../models/answer_recap.dart';
@@ -19,25 +19,33 @@ class QuizPage extends StatefulWidget {
   final String missionId;
   final Mission? mission;
   final Map<String, Bird>? preloadedBirds;
+  final List<QuizQuestion>? preloadedQuestions;
   
   const QuizPage({
     super.key,
     required this.missionId,
     this.mission,
     this.preloadedBirds,
+    this.preloadedQuestions,
   });
 
   @override
   State<QuizPage> createState() => _QuizPageState();
 }
 
-class _QuizPageState extends State<QuizPage> {
+class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   List<QuizQuestion> _questions = [];
   String? _selectedAnswer;
   bool _showFeedback = false;
   bool _isLoading = true;
   int _currentQuestionIndex = 0;
   int _score = 0;
+  double _progressFrom = 0.0;
+  double _progressTo = 0.0;
+  AnimationController? _progressBurstController;
+  final List<_ProgressDroplet> _droplets = [];
+  AnimationController? _glowController;
+  Animation<double>? _glowAnimation;
   
   final List<String> _wrongBirds = []; // Nouvelle liste pour stocker les noms des oiseaux manqués
   final List<AnswerRecap> _recapEntries = [];
@@ -53,6 +61,7 @@ class _QuizPageState extends State<QuizPage> {
   bool _showCorrectAnswerImage = false;
   String _correctAnswerImageUrl = '';
   
+  
 
 
   @override
@@ -60,7 +69,46 @@ class _QuizPageState extends State<QuizPage> {
     super.initState();
     _audioPlayer = AudioPlayer();
     _setupAudioLooping();
-    _initializeQuiz();
+    _progressBurstController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..addListener(() {
+        if (mounted) setState(() {});
+      })
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          _droplets.clear();
+        }
+      });
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _glowAnimation = CurvedAnimation(
+      parent: _glowController!,
+      curve: Curves.easeOutCubic,
+    );
+    // Si des questions sont préchargées, les utiliser immédiatement pour éviter tout écran de chargement
+    if (widget.preloadedQuestions != null && widget.preloadedQuestions!.isNotEmpty) {
+      _questions = widget.preloadedQuestions!;
+      _isLoading = false; // éviter l'écran "Chargement du quiz..."
+      _currentQuestionIndex = 0;
+      _score = 0;
+      _audioAnimationOn = true;
+      _progressFrom = 0.0;
+      _progressTo = _questions.isNotEmpty ? (1.0 / _questions.length) : 0.0;
+      _prepareDroplets();
+      // Charger les vies en arrière-plan; l'UI affichera 5 par défaut puis se mettra à jour
+      _loadLivesWithRetry();
+      // Lancer l'audio après le premier frame pour ne pas bloquer le rendu
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_questions.isNotEmpty) {
+          _loadAndPlayAudio(_questions[0].audioUrl);
+        }
+      });
+    } else {
+      _initializeQuiz();
+    }
   }
 
   void _setupAudioLooping() {
@@ -73,7 +121,23 @@ class _QuizPageState extends State<QuizPage> {
 
   Future<void> _initializeQuiz() async {
     await _loadLivesWithRetry();
-    
+
+    // Si des questions sont déjà préchargées (depuis MissionLoadingScreen), les utiliser directement
+    if (widget.preloadedQuestions != null && widget.preloadedQuestions!.isNotEmpty) {
+      if (kDebugMode) debugPrint('✅ Utilisation des questions préchargées (${widget.preloadedQuestions!.length} questions)');
+      setState(() {
+        _questions = widget.preloadedQuestions!;
+        _isLoading = false;
+        _currentQuestionIndex = 0;
+        _score = 0;
+        _audioAnimationOn = true;
+      });
+      if (_questions.isNotEmpty) {
+        _loadAndPlayAudio(_questions[0].audioUrl);
+      }
+      return;
+    }
+
     if (widget.preloadedBirds != null && widget.preloadedBirds!.isNotEmpty) {
       if (kDebugMode) debugPrint('✅ Utilisation des oiseaux préchargés (${widget.preloadedBirds!.length} oiseaux)');
       
@@ -137,6 +201,8 @@ class _QuizPageState extends State<QuizPage> {
   @override
   void dispose() {
     _audioPlayer.dispose();
+    _progressBurstController?.dispose();
+    _glowController?.dispose();
     super.dispose();
   }
 
@@ -156,37 +222,57 @@ class _QuizPageState extends State<QuizPage> {
       child: SafeArea(
         child: Stack(
           children: [
-            // Effet d'auréole en arrière-plan (feedback visuel subtil)
+            // Effet d'auréole animé: se révèle du bas vers le haut
             if (_showFeedback)
               Positioned.fill(
-                child: AnimatedOpacity(
-                  opacity: _showFeedback ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 800),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: Alignment.bottomCenter,
-                        radius: 1.8, // Rayon encore plus grand pour couvrir plus de zone
-                        colors: [
-                          // Déterminer la couleur selon la réponse
-                          (_selectedAnswer == question.correctAnswer 
-                              ? const Color(0xFF6A994E) // Vert pour bonne réponse
-                              : const Color(0xFFBC4749) // Rouge pour mauvaise réponse
-                          ).withValues(alpha: 0.25), // Opacité significativement augmentée
-                          (_selectedAnswer == question.correctAnswer 
-                              ? const Color(0xFF6A994E) // Vert pour bonne réponse
-                              : const Color(0xFFBC4749) // Rouge pour mauvaise réponse
-                          ).withValues(alpha: 0.15), // Couche intermédiaire plus visible
-                          (_selectedAnswer == question.correctAnswer 
-                              ? const Color(0xFF6A994E) // Vert pour bonne réponse
-                              : const Color(0xFFBC4749) // Rouge pour mauvaise réponse
-                          ).withValues(alpha: 0.08), // Couche externe subtile
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.3, 0.6, 0.9], // Dégradé plus étendu et progressif
+                child: AnimatedBuilder(
+                  animation: _glowAnimation!,
+                  builder: (context, child) {
+                    final double t = _glowAnimation?.value ?? 0.0;
+                    // Intensité lumineuse progressive, plus douce au départ
+                    final double intensity = Curves.easeIn.transform(t).clamp(0.0, 1.0);
+                    final bool isCorrect = _selectedAnswer == question.correctAnswer;
+                    final double boost = isCorrect ? 1.15 : 1.0; // léger boost pour le vert uniquement
+                    return Align(
+                      alignment: Alignment.bottomCenter,
+                      child: ShaderMask(
+                        shaderCallback: (Rect rect) {
+                          final double revealRadius = (0.001 + 1.8 * t).clamp(0.0, 1.8);
+                          const double feather = 0.28; // bords très adoucis
+                          final double innerStop = (1.0 - feather).clamp(0.0, 1.0);
+                          return RadialGradient(
+                            center: Alignment.bottomCenter,
+                            radius: revealRadius,
+                            colors: const [
+                              Colors.white,
+                              Colors.white,
+                              Colors.transparent,
+                            ],
+                            stops: [0.0, innerStop, 1.0],
+                          ).createShader(rect);
+                        },
+                        blendMode: BlendMode.dstIn,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: RadialGradient(
+                              center: Alignment.bottomCenter,
+                              radius: 1.8,
+                              colors: [
+                                (isCorrect ? const Color(0xFF6A994E) : const Color(0xFFBC4749))
+                                    .withValues(alpha: math.min(1.0, 0.35 * intensity * boost)),
+                                (isCorrect ? const Color(0xFF6A994E) : const Color(0xFFBC4749))
+                                    .withValues(alpha: math.min(1.0, 0.22 * intensity * boost)),
+                                (isCorrect ? const Color(0xFF6A994E) : const Color(0xFFBC4749))
+                                    .withValues(alpha: math.min(1.0, 0.12 * intensity * boost)),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.3, 0.6, 0.9],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             
@@ -274,7 +360,7 @@ class _QuizPageState extends State<QuizPage> {
               ),
             ),
             
-            // Barre de progression animée
+            // Barre de progression animée (plus épaisse + barre intérieure en relief)
             Positioned(
               top: 70,
               left: 20,
@@ -283,38 +369,90 @@ class _QuizPageState extends State<QuizPage> {
                 children: [
                   const SizedBox(height: 8),
                   Center(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Stack(
-                        children: [
-                          // Fond de la barre (track)
-                          Container(
-                            width: 300,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF473C33),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          // Barre de progression animée
-                          TweenAnimationBuilder<double>(
-                            duration: const Duration(milliseconds: 500),
-                            tween: Tween<double>(
-                              begin: 0.0,
-                              end: (_currentQuestionIndex + 1) / _questions.length,
-                            ),
-                            builder: (context, value, child) {
-                              return Container(
-                                height: 8,
-                                width: 300 * value,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFABC270),
-                                  borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 300,
+                      child: TweenAnimationBuilder<double>(
+                        duration: const Duration(milliseconds: 450),
+                        tween: Tween<double>(
+                          begin: _progressFrom,
+                          end: _progressTo,
+                        ),
+                        onEnd: () {
+                          _progressFrom = _progressTo;
+                          _triggerProgressBurst(300 * _progressTo);
+                        },
+                        builder: (context, value, child) {
+                          final double fillWidth = 300 * value;
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              // Barre (track + remplissage) avec clip uniquement sur la barre
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Stack(
+                                  children: [
+                                    // Track
+                                    Container(
+                                      width: 300,
+                                      height: 14,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF473C33),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    // Remplissage
+                                    SizedBox(
+                                      width: fillWidth,
+                                      height: 14,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Stack(
+                                          children: [
+                                            Container(
+                                              width: double.infinity,
+                                              height: double.infinity,
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFFABC270),
+                                              ),
+                                            ),
+                                            Positioned(
+                                              left: 4,
+                                              right: 4,
+                                              top: 2,
+                                              child: Container(
+                                                height: 5,
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFD2DBB2),
+                                                  borderRadius: BorderRadius.circular(5),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              );
-                            },
-                          ),
-                        ],
+                              ),
+                              // Peinture des gouttes en dehors de la barre (overlay non clipé)
+                              Positioned(
+                                left: 0,
+                                top: -18,
+                                width: 300,
+                                height: 50, // périmètre restreint autour de la barre
+                                child: IgnorePointer(
+                                  child: CustomPaint(
+                                    painter: _DropletPainter(
+                                      droplets: _droplets,
+                                      t: _progressBurstController?.value ?? 0.0,
+                                      originX: fillWidth,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -348,7 +486,7 @@ class _QuizPageState extends State<QuizPage> {
                   builder: (context) {
                     return IgnorePointer(
                       ignoring: !_showCorrectAnswerImage, // Ignorer les interactions quand l'image n'est pas visible
-                      child: _showCorrectAnswerImage && _correctAnswerImageUrl.isNotEmpty
+                      child: _showCorrectAnswerImage
                           ? TweenAnimationBuilder<double>(
                               tween: Tween(begin: 0.0, end: 1.0),
                               duration: const Duration(milliseconds: 500),
@@ -357,8 +495,8 @@ class _QuizPageState extends State<QuizPage> {
                                 return Transform.scale(
                                   scale: scale,
                                   child: SizedBox(
-                                    height: 280, // Plus haut pour un format vertical
-                                    width: 210, // Plus étroit pour un ratio 4:3
+                                    height: 260,
+                                    width: 195,
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(15), // Coins moins arrondis
                                       child: _buildCachedImage(),
@@ -524,6 +662,9 @@ class _QuizPageState extends State<QuizPage> {
             _currentQuestionIndex = 0;
             _score = 0;
             _audioAnimationOn = true;
+            _progressFrom = 0.0;
+            _progressTo = _questions.isNotEmpty ? (1.0 / _questions.length) : 0.0;
+            _prepareDroplets();
           });
           if (questions.isNotEmpty) {
             _loadAndPlayAudio(questions[0].audioUrl);
@@ -543,6 +684,9 @@ class _QuizPageState extends State<QuizPage> {
         _currentQuestionIndex = 0;
         _score = 0;
         _audioAnimationOn = true; // Animation "on" au démarrage
+        _progressFrom = 0.0;
+        _progressTo = _questions.isNotEmpty ? (1.0 / _questions.length) : 0.0;
+        _prepareDroplets();
       });
       
       // Charger et lancer l'audio de la première question
@@ -628,6 +772,31 @@ class _QuizPageState extends State<QuizPage> {
     }
   }
 
+  Future<void> _precacheAnswerImage(String url) async {
+    if (url.isEmpty) return;
+    final normalized = _normalizeImageUrl(url);
+    // Choisir correctement le provider (réseau vs asset local)
+    final ImageProvider provider = (normalized.startsWith('http://') || normalized.startsWith('https://'))
+        ? NetworkImage(normalized)
+        : AssetImage(normalized) as ImageProvider;
+    // Utiliser precacheImage pour charger avant affichage, ignorer les erreurs
+    try {
+      await precacheImage(provider, context);
+    } catch (_) {}
+  }
+
+  Future<void> _setAnswerImageSafely(String url) async {
+    if (!mounted) return;
+    // Afficher immédiatement l'image; précache en arrière-plan pour les prochaines fois
+    setState(() {
+      _correctAnswerImageUrl = _normalizeImageUrl(url);
+      // Toujours afficher le conteneur image; _buildCachedImage gère les cas vides/erreurs
+      _showCorrectAnswerImage = true;
+    });
+    // Lancer le précache sans bloquer ni re-set l'état ensuite
+    _precacheAnswerImage(_correctAnswerImageUrl);
+  }
+
   Future<void> _restartAudioAtRandomPosition() async {
     if (!_isAudioLooping || !mounted) {
       return;
@@ -642,6 +811,42 @@ class _QuizPageState extends State<QuizPage> {
 
   int _getRandomInt(int min, int max) {
     return min + (DateTime.now().millisecondsSinceEpoch % (max - min + 1));
+  }
+
+  void _prepareDroplets() {
+    _droplets.clear();
+    // 2 à 4 gouttes maximum, bien visibles, légèrement dispersées
+    final int count = 2 + (DateTime.now().microsecondsSinceEpoch % 2); // 2..3
+    final randomSeed = DateTime.now().microsecondsSinceEpoch;
+    for (int i = 0; i < count; i++) {
+      // Trois profils d'angles typiques vers la droite: léger haut, milieu, léger bas
+      final List<double> baseAnglesDeg = [-8, 8, 22];
+      final baseDeg = baseAnglesDeg[i % baseAnglesDeg.length];
+      final jitter = ((randomSeed >> (i % 8)) & 3) - 1.5; // bruit léger -1.5..+1.5
+      final angle = ((baseDeg + jitter) / 180.0) * math.pi;
+      // Vitesse courte (proche), avec petite variation
+      final speed = 32.0 + ((randomSeed >> (i % 6)) & 5) * 2.0; // ~32..42
+      final lifespan = 0.5; // rapide
+      // Décalage vertical initial pour varier haut/centre/bas (faible amplitude)
+      final yOffsets = [-6.0, 0.0, 6.0];
+      final originOffsetY = yOffsets[(i + (randomSeed % 3)) % yOffsets.length];
+      // Taille aléatoire légère
+      final baseRadius = 1.6 + ((randomSeed >> (i % 5)) & 2) * 0.4; // ~1.6..2.4
+      _droplets.add(_ProgressDroplet(
+        angle: angle,
+        speed: speed,
+        lifespan: lifespan,
+        color: const Color(0xFFABC270),
+        originOffsetY: originOffsetY,
+        baseRadius: baseRadius,
+      ));
+    }
+  }
+
+  void _triggerProgressBurst(double xPosition) {
+    if (_droplets.isEmpty || _progressBurstController == null) return;
+    // Rejouer l'animation depuis 0
+    _progressBurstController!.forward(from: 0.0);
   }
 
   Future<void> _toggleAudio() async {
@@ -698,23 +903,24 @@ class _QuizPageState extends State<QuizPage> {
     
     String imageUrl = '';
     try {
-      final birdData = MissionPreloader.getBirdData(currentQuestion.correctAnswer);
-      if (birdData != null) {
+      // 1) Priorité: mission Firestore si dispo dans la question (audioUrl ou métadonnées annexes)
+      // Ici on n'a que audioUrl côté question; on reste sur Birdify cache pour image
+      // 2) Recherche stricte puis tolérante (accents/casse)
+      final birdData = MissionPreloader.getBirdData(currentQuestion.correctAnswer)
+          ?? MissionPreloader.findBirdByName(currentQuestion.correctAnswer);
+      if (birdData != null && birdData.urlImage.isNotEmpty) {
         imageUrl = birdData.urlImage;
       } else {
         try {
           await MissionPreloader.loadBirdifyData();
-          final retryBirdData = MissionPreloader.getBirdData(currentQuestion.correctAnswer);
-          if (retryBirdData != null) {
+          final retryBirdData = MissionPreloader.getBirdData(currentQuestion.correctAnswer)
+              ?? MissionPreloader.findBirdByName(currentQuestion.correctAnswer);
+          if (retryBirdData != null && retryBirdData.urlImage.isNotEmpty) {
             imageUrl = retryBirdData.urlImage;
           }
-        } catch (retryError) {
-          // Erreur ignorée
-        }
+        } catch (_) {}
       }
-    } catch (e) {
-      // Erreur ignorée
-    }
+    } catch (_) {}
     
     // Récupérer au mieux l'URL audio pour le récap (priorité: question.audioUrl, sinon cache birds)
     String recapAudioUrl = currentQuestion.audioUrl;
@@ -740,22 +946,22 @@ class _QuizPageState extends State<QuizPage> {
     setState(() {
       _selectedAnswer = selectedAnswer;
       _showFeedback = true;
-      _showCorrectAnswerImage = true;
-      _correctAnswerImageUrl = imageUrl;
-      
+      // défère l'affichage de l'image après précache via _setAnswerImageSafely
       if (isCorrect) {
         _score++;
       } else {
         _visibleLives--;
-        // Ajouter l'oiseau choisi (mauvaise réponse) à la liste des oiseaux manqués
         _wrongBirds.add(selectedAnswer);
-        // Ajouter aussi l'oiseau correct s'il n'est pas déjà dans la liste
         if (!_wrongBirds.contains(currentQuestion.correctAnswer)) {
           _wrongBirds.add(currentQuestion.correctAnswer);
         }
         _syncLivesImmediately();
       }
     });
+    _glowController?.forward(from: 0.0);
+
+    // Lancer le chargement/affichage sécurisé de l'image sans bloquer l'UI
+    _setAnswerImageSafely(imageUrl);
 
     await Future.delayed(const Duration(milliseconds: 2000));
     if (!context.mounted) return;
@@ -776,6 +982,10 @@ class _QuizPageState extends State<QuizPage> {
       _score = 10; // Simuler un score de 10
       _visibleLives = 5; // Réinitialiser les vies
       _isLivesSyncing = false; // Désactiver la synchronisation
+      // Progresser directement à 100%
+      _progressFrom = _progressTo;
+      _progressTo = 1.0;
+      _prepareDroplets();
     });
 
     await Future.delayed(const Duration(milliseconds: 2000));
@@ -838,81 +1048,57 @@ class _QuizPageState extends State<QuizPage> {
         ),
       );
     }
-
-    final imageCacheService = ImageCacheService();
-    final cachedImage = imageCacheService.getCachedImage(_correctAnswerImageUrl);
-
-    if (cachedImage != null) {
-      // Image en cache - affichage instantané
-      return Image(
-        image: cachedImage,
-        fit: BoxFit.cover, // Utilise cover pour remplir le conteneur
-      );
-    } else {
-      // Image pas en cache - fallback vers Image.network
-      return Image.network(
-        _correctAnswerImageUrl,
-        fit: BoxFit.cover, // Utilise cover pour remplir le conteneur
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    color: Color(0xFF6A994E),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Chargement...',
-                    style: TextStyle(
-                      fontFamily: 'Quicksand',
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+    // Choisir asset vs réseau
+    final String url = _correctAnswerImageUrl;
+    if (!(url.startsWith('http://') || url.startsWith('https://'))) {
+      return Image.asset(
+        url,
+        fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           return Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(15),
-            ),
+            color: Colors.grey[200],
             child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.image_not_supported,
-                    size: 48,
-                    color: Colors.grey,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Image non disponible',
-                    style: TextStyle(
-                      fontFamily: 'Quicksand',
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+              child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
             ),
           );
         },
       );
     }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey[200],
+          child: const Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.6),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          color: Colors.grey[200],
+          child: const Center(
+            child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
+          ),
+        );
+      },
+    );
+  }
+
+  String _normalizeImageUrl(String url) {
+    final u = url.trim();
+    if (u.isEmpty) return '';
+    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+    // Traitement chemin relatif asset
+    if (u.startsWith('assets/')) return u;
+    // Certaines sources stockent des chemins relatifs sans le préfixe assets/
+    return 'assets/$u';
   }
 
   void _goToNextQuestion() async {
@@ -933,8 +1119,17 @@ class _QuizPageState extends State<QuizPage> {
       _showFeedback = false;
       _showCorrectAnswerImage = false;
       _correctAnswerImageUrl = '';
+      
       _audioAnimationOn = true;
+      // Mettre à jour la progression: aller de la valeur atteinte vers la suivante
+      final total = _questions.isNotEmpty ? _questions.length : 1;
+      _progressFrom = _progressTo;
+      _progressTo = (_currentQuestionIndex + 1) / total;
+      // Préparer quelques gouttes pour la prochaine animation
+      _prepareDroplets();
     });
+    _glowController?.stop();
+    _glowController?.value = 0.0;
   }
 
   void _exitQuiz() async {
@@ -977,11 +1172,13 @@ class _QuizPageState extends State<QuizPage> {
     final navigator = Navigator.of(context);
     navigator.pushReplacement(
       MaterialPageRoute(
-        builder: (context) => QuizEndPage(
+        builder: (context) => MissionUnloadingScreen(
+          livesRemaining: _visibleLives,
+          missionId: widget.missionId,
           score: _score,
           totalQuestions: _questions.length,
           mission: widget.mission,
-          wrongBirds: _wrongBirds, // Passer les oiseaux manqués
+          wrongBirds: _wrongBirds,
           recap: _recapEntries,
         ),
       ),
@@ -1132,23 +1329,7 @@ class _QuizPageState extends State<QuizPage> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF3F5F9),
         body: _isLoading
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(color: Color(0xFF6A994E)),
-                    SizedBox(height: 16),
-                    Text(
-                      'Chargement du quiz...',
-                      style: TextStyle(
-                        fontFamily: 'Quicksand',
-                        fontSize: 16,
-                        color: Color(0xFF386641),
-                      ),
-                    ),
-                  ],
-                ),
-              )
+            ? const SizedBox.shrink()
             : _questions.isEmpty
                 ? const Center(
                     child: Text(
@@ -1178,6 +1359,70 @@ class _QuizPageState extends State<QuizPage> {
                   ),
       ),
     );
+  }
+}
+
+class _ProgressDroplet {
+  final double angle; // direction en radians
+  final double speed; // px/s approximatif
+  final double lifespan; // secondes
+  final Color color;
+  final double originOffsetY; // décalage vertical initial (px)
+  final double baseRadius; // rayon de base (px)
+  _ProgressDroplet({
+    required this.angle,
+    required this.speed,
+    required this.lifespan,
+    required this.color,
+    required this.originOffsetY,
+    required this.baseRadius,
+  });
+}
+
+class _DropletPainter extends CustomPainter {
+  final List<_ProgressDroplet> droplets;
+  final double t; // 0.0 -> 1.0 progression de l'animation
+  final double originX; // position de l'extrémité de la barre (0..300)
+  _DropletPainter({required this.droplets, required this.t, this.originX = 0});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (droplets.isEmpty || t <= 0) return;
+    final origin = Offset(originX, size.height / 2); // extrémité de la barre
+    for (final d in droplets) {
+      final double life = (t).clamp(0.0, 1.0);
+      // Distance en fonction de la vie
+      final double dist = d.speed * life * 0.22; // très proche de la barre
+      final dx = math.cos(d.angle) * dist;
+      final dy = math.sin(d.angle) * dist * 0.7; // légère présence haut/bas
+      final pos = origin + Offset(dx, dy + d.originOffsetY);
+
+      // Moins présent visuellement à gauche (dx<0)
+      final double baseAlpha = (1.0 - life).clamp(0.0, 1.0);
+      final double sideFactor = dx < 0 ? 0.7 : 1.0; // côté gauche moins pénalisé
+      final double alpha = (baseAlpha * sideFactor).clamp(0.0, 1.0);
+      final paint = Paint()
+        ..color = d.color.withOpacity(1.0 * alpha)
+        ..style = PaintingStyle.fill;
+
+      // Taille décroissante et légère ovalisation au cours du temps
+      final double r = d.baseRadius + (d.baseRadius * 0.7) * (1.0 - life); // base size
+      final double ovalFactor = 1.0 + 0.18 * life; // commence rond (1.0) → légèrement ovale
+      final double rx = r * ovalFactor;      // rayon dans l'axe du déplacement
+      final double ry = r * (2.0 - ovalFactor); // compense légèrement sur l'axe perpendiculaire
+
+      canvas.save();
+      canvas.translate(pos.dx, pos.dy);
+      canvas.rotate(d.angle);
+      final Rect ovalRect = Rect.fromCenter(center: Offset.zero, width: rx * 2, height: ry * 2);
+      canvas.drawOval(ovalRect, paint);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DropletPainter oldDelegate) {
+    return oldDelegate.t != t || oldDelegate.droplets != droplets;
   }
 }
 
@@ -1255,6 +1500,8 @@ class _LivesDisplayWidget extends StatefulWidget {
   @override
   State<_LivesDisplayWidget> createState() => _LivesDisplayWidgetState();
 }
+
+ 
 
 class _LivesDisplayWidgetState extends State<_LivesDisplayWidget>
     with SingleTickerProviderStateMixin {
