@@ -65,17 +65,28 @@ class _BaseOrnithoPageState extends State<BaseOrnithoPage> {
         final int crossAxisCount = _dense ? (m.isTablet ? baseCols + 1 : 3) : baseCols; // bouton temporaire densité
         final double gridSpacing = m.dp(10, tabletFactor: 1.1);
 
-        // Filtrer/ordonner dynamiquement selon _query et _sortAsc
+        // Filtrer/ordonner dynamiquement selon _query/_sortAsc avec normalisation (sans accents, œ->o, æ->a)
         final List<Bird> displayed = List<Bird>.from(_birds);
+        // Retirer entrées non valides (nom vide / non alpha en tête)
+        displayed.removeWhere((b) {
+          final key = _normalizeForSort(b.nomFr);
+          return key.isEmpty || !RegExp(r'^[a-z]').hasMatch(key);
+        });
         if (_query.trim().isNotEmpty) {
-          final q = _query.trim().toLowerCase();
-          displayed.retainWhere((b) => b.nomFr.toLowerCase().contains(q) || b.species.toLowerCase().contains(q));
+          final q = _normalizeForSort(_query.trim());
+          displayed.retainWhere((b) {
+            final nameKey = _normalizeForSort(b.nomFr);
+            final speciesKey = _normalizeForSort(b.species);
+            return nameKey.contains(q) || speciesKey.contains(q);
+          });
         }
         if (_selectedMilieux.isNotEmpty) {
           displayed.retainWhere((b) => b.milieux.any((m) => _selectedMilieux.contains(m.toLowerCase())));
         }
         displayed.sort((a, b) {
-          final cmp = a.nomFr.toLowerCase().compareTo(b.nomFr.toLowerCase());
+          final ak = _normalizeForSort(a.nomFr);
+          final bk = _normalizeForSort(b.nomFr);
+          final cmp = ak.compareTo(bk);
           return _sortAsc ? cmp : -cmp;
         });
 
@@ -344,6 +355,33 @@ extension _Filters on _BaseOrnithoPageState {
           ),
         ),
     ];
+  }
+}
+
+extension _SortNormalize on _BaseOrnithoPageState {
+  String _normalizeForSort(String input) {
+    String n = input.toLowerCase().trim();
+    const Map<String, String> map = {
+      'à':'a','â':'a','ä':'a','á':'a','ã':'a','å':'a',
+      'ç':'c',
+      'é':'e','è':'e','ê':'e','ë':'e',
+      'í':'i','ì':'i','î':'i','ï':'i',
+      'ñ':'n',
+      'ò':'o','ó':'o','ô':'o','ö':'o','õ':'o',
+      'ù':'u','ú':'u','û':'u','ü':'u',
+      'ý':'y','ÿ':'y',
+      'œ':'o','Œ':'o','æ':'a','Æ':'a',
+      '’':'\'','‘':'\'','ʼ':'\'',
+    };
+    final StringBuffer sb = StringBuffer();
+    for (int i = 0; i < n.length; i++) {
+      final ch = n[i];
+      sb.write(map[ch] ?? ch);
+    }
+    n = sb.toString();
+    n = n.replaceAll(RegExp(r"[^a-z0-9\s\-]"), "");
+    n = n.replaceAll(RegExp(r"\s+"), " ").trim();
+    return n;
   }
 }
 
