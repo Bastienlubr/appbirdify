@@ -88,35 +88,32 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            // Image principale
-            if (widget.bird.urlImage.isNotEmpty)
-              Image.network(
-                widget.bird.urlImage,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: AppColors.lightGreen.withOpacity(0.3),
-                    child: Center(
-                      child: Icon(
-                        Icons.image_not_supported,
-                        size: m.dp(64),
-                        color: AppColors.secondary,
-                      ),
-                    ),
-                  );
-                },
-              )
-            else
-              Container(
-                color: AppColors.lightGreen.withOpacity(0.3),
-                child: Center(
-                  child: Icon(
-                    Icons.image,
-                    size: m.dp(64),
-                    color: AppColors.secondary,
-                  ),
-                ),
-              ),
+                      // Image principale
+          if (widget.bird.nomFr == "Rollier d'Europe")
+            Image.asset(
+              "assets/Rollier d'Europe 1.png",
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return _buildFallbackImage(m);
+              },
+            )
+          else if (widget.bird.urlImage.isNotEmpty)
+            Image.network(
+              widget.bird.urlImage,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return _buildFallbackImage(m);
+              },
+            )
+          else
+            _buildFallbackImage(m),
+            
+          // Contrôles audio en haut à droite
+          Positioned(
+            top: m.dp(60),
+            right: m.dp(20),
+            child: _buildAudioControls(context, m),
+          ),
             
             // Gradient overlay au bas
             Positioned(
@@ -256,28 +253,45 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
   Widget _buildTabsSection(BuildContext context, ResponsiveMetrics m) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: m.dp(20)),
-      child: Row(
+      child: Column(
         children: [
-          _buildTab(context, m, 'Identification', true, const Color(0xFFFF98B7)),
-          SizedBox(width: m.dp(8)),
-          _buildTab(context, m, 'Habitat', false, const Color(0xFFFC826A)),
-          SizedBox(width: m.dp(8)),
-          _buildTab(context, m, 'Audio', false, const Color(0xFFFEC868)),
+          // Onglets colorés en haut
+          Row(
+            children: [
+              _buildTabHeader(context, m, 'Identification', true, const Color(0xFFFF98B7)),
+              SizedBox(width: m.dp(8)),
+              _buildTabHeader(context, m, 'Habitat', false, const Color(0xFFFC826A)),
+              SizedBox(width: m.dp(8)),
+              _buildTabHeader(context, m, 'Audio', false, const Color(0xFFFEC868)),
+            ],
+          ),
+          
+          SizedBox(height: m.dp(8)),
+          
+          // Contenus des onglets en dessous
+          Row(
+            children: [
+              _buildTabContent(context, m, 'Description', true, "assets/description.png"),
+              SizedBox(width: m.dp(8)),
+              _buildTabContent(context, m, 'Habitat', false, "assets/Habitat.png"),
+              SizedBox(width: m.dp(8)),
+              _buildTabContent(context, m, 'Audio', false, null),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTab(BuildContext context, ResponsiveMetrics m, String title, bool isActive, Color color) {
+  Widget _buildTabHeader(BuildContext context, ResponsiveMetrics m, String title, bool isActive, Color color) {
     return Expanded(
       child: Container(
-        height: m.dp(50),
+        height: m.dp(22),
         decoration: BoxDecoration(
-          color: isActive ? color : Colors.white,
-          borderRadius: BorderRadius.circular(m.dp(15)),
-          border: Border.all(
-            color: isActive ? color : AppColors.textDark.withOpacity(0.2),
-            width: 1,
+          color: color,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(m.dp(15)),
+            topRight: Radius.circular(m.dp(15)),
           ),
         ),
         child: Center(
@@ -285,11 +299,55 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
             title,
             style: TextStyle(
               fontFamily: 'Quicksand',
-              fontSize: m.font(14, tabletFactor: 1.05),
+              fontSize: m.font(12, tabletFactor: 1.05),
               fontWeight: FontWeight.w600,
-              color: isActive ? Colors.white : AppColors.textDark.withOpacity(0.7),
+              color: Colors.white,
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabContent(BuildContext context, ResponsiveMetrics m, String title, bool isActive, String? imagePath) {
+    return Expanded(
+      child: Container(
+        height: m.dp(58),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(m.dp(15)),
+          border: Border.all(
+            color: AppColors.textDark.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        child: Center(
+          child: imagePath != null
+              ? Image.asset(
+                  imagePath,
+                  width: m.dp(40),
+                  height: m.dp(40),
+                  errorBuilder: (context, error, stackTrace) {
+                    return Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: 'Quicksand',
+                        fontSize: m.font(12, tabletFactor: 1.05),
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textDark.withOpacity(0.7),
+                      ),
+                    );
+                  },
+                )
+              : Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: 'Quicksand',
+                    fontSize: m.font(12, tabletFactor: 1.05),
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark.withOpacity(0.7),
+                  ),
+                ),
         ),
       ),
     );
@@ -364,5 +422,136 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
     }
     
     return "Cet oiseau présente des caractéristiques distinctives qui permettent son identification en milieu naturel. L'observation attentive de son plumage, de sa silhouette et de son comportement facilitent sa reconnaissance sur le terrain. Les variations saisonnières et les différences entre mâles et femelles peuvent également aider à l'identification précise de l'espèce.";
+  }
+
+  Widget _buildFallbackImage(ResponsiveMetrics m) {
+    return Container(
+      color: AppColors.lightGreen.withOpacity(0.3),
+      child: Center(
+        child: Icon(
+          Icons.image_not_supported,
+          size: m.dp(64),
+          color: AppColors.secondary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAudioControls(BuildContext context, ResponsiveMetrics m) {
+    return Container(
+      padding: EdgeInsets.all(m.dp(8)),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(m.dp(15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Bouton audio principal
+          GestureDetector(
+            onTap: () {
+              // TODO: Jouer l'audio principal
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Lecture audio principal")),
+              );
+            },
+            child: Container(
+              padding: EdgeInsets.all(m.dp(8)),
+              decoration: const BoxDecoration(
+                color: Color(0xFF473C33),
+                shape: BoxShape.circle,
+              ),
+              child: Image.asset(
+                "assets/audio.png",
+                width: m.dp(32),
+                height: m.dp(32),
+                color: Colors.white,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    Icons.play_arrow,
+                    color: Colors.white,
+                    size: m.dp(32),
+                  );
+                },
+              ),
+            ),
+          ),
+          
+          SizedBox(height: m.dp(8)),
+          
+          // Bouton audio secondaire
+          GestureDetector(
+            onTap: () {
+              // TODO: Jouer l'audio secondaire
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Lecture audio secondaire")),
+              );
+            },
+            child: Container(
+              padding: EdgeInsets.all(m.dp(6)),
+              decoration: BoxDecoration(
+                color: const Color(0xFF473C33).withOpacity(0.8),
+                shape: BoxShape.circle,
+              ),
+              child: Image.asset(
+                "assets/audio.png",
+                width: m.dp(24),
+                height: m.dp(24),
+                color: Colors.white,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    Icons.play_arrow,
+                    color: Colors.white,
+                    size: m.dp(24),
+                  );
+                },
+              ),
+            ),
+          ),
+          
+          SizedBox(height: m.dp(8)),
+          
+          // Points de navigation
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: m.dp(8),
+                height: m.dp(8),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(width: m.dp(4)),
+              Container(
+                width: m.dp(8),
+                height: m.dp(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xCC473C33),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(width: m.dp(4)),
+              Container(
+                width: m.dp(8),
+                height: m.dp(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xCC473C33),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
