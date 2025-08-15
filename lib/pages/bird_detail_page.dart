@@ -95,7 +95,7 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
                 ),
               ),
 
-              // Bouton retour + titres superposés
+              // Bouton retour + titres superposés + anneau décoratif
               SafeArea(
                 child: Padding(
                   padding: EdgeInsets.all(m.dp(12)),
@@ -150,6 +150,8 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
                           ],
                         ),
                       ),
+                      SizedBox(width: m.dp(8)),
+                      _DecorativeRing(size: m.dp(56)),
                     ],
                   ),
                 ),
@@ -159,10 +161,19 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
               _BottomSheetSections(
                 metrics: m,
                 currentIndex: _currentSection,
-                onIndexChanged: (i) {
+                onDotTap: (i) {
                   setState(() => _currentSection = i);
                   _pageController.animateToPage(i, duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
                 },
+                headerBuilder: () => _HeaderArea(
+                  currentIndex: _currentSection,
+                  onDotTap: (i) {
+                    setState(() => _currentSection = i);
+                    _pageController.animateToPage(i, duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
+                  },
+                  showNameBlock: _currentSection == 0,
+                  data: data,
+                ),
                 pageView: PageView(
                   controller: _pageController,
                   onPageChanged: (i) => setState(() => _currentSection = i),
@@ -212,13 +223,15 @@ class _CircleBackButton extends StatelessWidget {
 class _BottomSheetSections extends StatefulWidget {
   final ResponsiveMetrics metrics;
   final int currentIndex;
-  final ValueChanged<int> onIndexChanged;
+  final ValueChanged<int> onDotTap;
   final Widget pageView;
+  final Widget Function() headerBuilder;
   const _BottomSheetSections({
     required this.metrics,
     required this.currentIndex,
-    required this.onIndexChanged,
+    required this.onDotTap,
     required this.pageView,
+    required this.headerBuilder,
   });
 
   @override
@@ -239,7 +252,7 @@ class _BottomSheetSectionsState extends State<_BottomSheetSections> with SingleT
     final m = widget.metrics;
     return DraggableScrollableSheet(
       controller: _controller,
-      initialChildSize: 0.35,
+      initialChildSize: 0.34,
       minChildSize: 0.30,
       maxChildSize: 0.95,
       snap: true,
@@ -265,7 +278,8 @@ class _BottomSheetSectionsState extends State<_BottomSheetSections> with SingleT
                 ),
               ),
               SizedBox(height: m.dp(8)),
-              _SectionTabs(currentIndex: widget.currentIndex, onTap: widget.onIndexChanged),
+              // Header custom (points colorés + bloc infos pour Identification)
+              widget.headerBuilder(),
               Expanded(
                 child: NotificationListener<ScrollNotification>(
                   onNotification: (_) => false,
@@ -280,37 +294,115 @@ class _BottomSheetSectionsState extends State<_BottomSheetSections> with SingleT
   }
 }
 
-class _SectionTabs extends StatelessWidget {
+class _HeaderArea extends StatelessWidget {
   final int currentIndex;
-  final ValueChanged<int> onTap;
-  const _SectionTabs({required this.currentIndex, required this.onTap});
+  final ValueChanged<int> onDotTap;
+  final bool showNameBlock;
+  final BirdDetailData data;
+  const _HeaderArea({required this.currentIndex, required this.onDotTap, required this.showNameBlock, required this.data});
 
   @override
   Widget build(BuildContext context) {
-    final labels = const ['Identification', 'Habitat', 'Alimentation', 'Reproduction', 'Répartition'];
-    final colors = const [Color(0xFF606D7C), Color(0xFF6A994E), Color(0xFFFF98B7), Color(0xFFABC270), Color(0xFFFC826A)];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          for (int i = 0; i < labels.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(labels[i], style: const TextStyle(fontFamily: 'Quicksand', fontWeight: FontWeight.w700)),
-                selected: currentIndex == i,
-                onSelected: (_) => onTap(i),
-                selectedColor: colors[i].withOpacity(0.18),
-                backgroundColor: Colors.white,
-                labelStyle: TextStyle(color: currentIndex == i ? colors[i] : const Color(0xFF344356)),
-                shape: const StadiumBorder(side: BorderSide(color: Color(0x2D000000), width: 1)),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final m = buildResponsiveMetrics(context, constraints);
+        final colors = const [
+          Color(0xFFFEC868), // jaune
+          Color(0xFFFF98B7), // rose
+          Color(0xFFABC270), // olive
+          Color(0xFFFC826A), // corail
+          Color(0xFFF3F5F9), // clair
+        ];
+
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: m.dp(16)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  for (int i = 0; i < colors.length; i++)
+                    Padding(
+                      padding: EdgeInsets.only(right: m.dp(10)),
+                      child: GestureDetector(
+                        onTap: () => onDotTap(i),
+                        child: Container(
+                          width: m.dp(currentIndex == i ? 14 : 11),
+                          height: m.dp(currentIndex == i ? 14 : 11),
+                          decoration: BoxDecoration(
+                            color: colors[i].withOpacity(i == 4 ? 1.0 : 0.8),
+                            shape: BoxShape.circle,
+                            boxShadow: const [BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))],
+                            border: currentIndex == i ? Border.all(color: const Color(0xFF344356), width: 1) : null,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
+              SizedBox(height: m.dp(8)),
+              Container(
+                decoration: const BoxDecoration(),
+                child: Divider(color: const Color(0x70344356), thickness: 2),
+              ),
+              if (showNameBlock) ...[
+                SizedBox(height: m.dp(10)),
+                _NameBlock(data: data),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _NameBlock extends StatelessWidget {
+  final BirdDetailData data;
+  const _NameBlock({required this.data});
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final m = buildResponsiveMetrics(context, constraints);
+        TextStyle label = TextStyle(
+          color: const Color(0xFF606D7C),
+          fontSize: m.font(16, tabletFactor: 1.02, min: 14, max: 22),
+          fontFamily: 'Quicksand',
+          fontWeight: FontWeight.w300,
+        );
+        TextStyle value = TextStyle(
+          color: const Color(0xFF606D7C),
+          fontSize: m.font(18, tabletFactor: 1.02, min: 16, max: 24),
+          fontFamily: 'Quicksand',
+          fontWeight: FontWeight.w500,
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text('Nom                     :', style: label)),
+                Expanded(child: Text(data.commonName, style: value, textAlign: TextAlign.right)),
+              ],
             ),
-        ],
-      ),
+            SizedBox(height: m.dp(6)),
+            Row(
+              children: [
+                Expanded(child: Text('Nom scientifique :', style: label)),
+                Expanded(child: Text(data.scientificName, style: value, textAlign: TextAlign.right)),
+              ],
+            ),
+            SizedBox(height: m.dp(6)),
+            Row(
+              children: [
+                Expanded(child: Text('Famille                 :', style: label)),
+                Expanded(child: Text(data.family.isNotEmpty ? data.family : '-', style: value, textAlign: TextAlign.right)),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -337,7 +429,7 @@ class _SectionContent extends StatelessWidget {
                   fontFamily: 'Quicksand',
                   fontWeight: FontWeight.w900,
                   fontSize: m.font(28, tabletFactor: 1.08, min: 20, max: 40),
-                  color: color,
+                  color: title == 'Identification' ? const Color(0xFF606D7C) : color,
                 ),
               ),
               SizedBox(height: m.gapSmall()),
@@ -354,6 +446,33 @@ class _SectionContent extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _DecorativeRing extends StatelessWidget {
+  final double size;
+  const _DecorativeRing({required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: size * 0.74,
+            height: size * 0.74,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF473C33), width: size * 0.12),
+              boxShadow: const [BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
