@@ -26,6 +26,8 @@ class _BaseOrnithoPageState extends State<BaseOrnithoPage> {
 
   Future<void> _loadAllBirds() async {
     try {
+      // Forcer un rechargement des données Birdify pour récupérer habitats principal/secondaire à jour
+      MissionPreloader.clearAllCache();
       await MissionPreloader.loadBirdifyData();
       final names = MissionPreloader.getAllBirdNames();
       final birds = <Bird>[];
@@ -196,95 +198,14 @@ class _BaseOrnithoPageState extends State<BaseOrnithoPage> {
                     Expanded(
                       child: _isLoading
                           ? const Center(child: CircularProgressIndicator())
-                          : GridView.builder(
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: crossAxisCount,
-                                mainAxisSpacing: gridSpacing,
-                                crossAxisSpacing: gridSpacing,
-                                childAspectRatio: _dense ? 0.75 : 0.67,
-                              ),
-                              itemCount: displayed.length,
-                              itemBuilder: (context, index) {
-                                final bird = displayed[index];
-                                return InkWell(
-                                  borderRadius: BorderRadius.circular(imageRadius),
-                                  onTap: () {
-                                    // TODO: Naviguer vers la fiche espèce détaillée
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(bird.nomFr)),
-                                    );
-                                  },
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(imageRadius),
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        // Image principale
-                                        if (bird.urlImage.isNotEmpty)
-                                          Image.network(
-                                            bird.urlImage,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Container(
-                                                color: const Color(0xFFD2DBB2),
-                                                child: const Icon(Icons.image_not_supported, color: Color(0xFF6A994E)),
-                                              );
-                                            },
-                                          )
-                                        else
-                                          Container(
-                                            color: const Color(0xFFD2DBB2),
-                                            child: const Icon(Icons.image, color: Color(0xFF6A994E)),
-                                          ),
-
-                                        // Etiquette blanche superposée sur l'image (en bas)
-                                        Align(
-                                          alignment: Alignment.bottomCenter,
-                                          child: Container(
-                                            margin: EdgeInsets.only(
-                                              left: m.dp(6),
-                                              right: m.dp(6),
-                                              bottom: m.dp(6),
-                                            ),
-                                            height: m.dp(40),
-                                            padding: EdgeInsets.symmetric(horizontal: m.dp(8)),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius: BorderRadius.only(
-                                                topLeft: Radius.circular(m.dp(5)),
-                                                topRight: Radius.circular(m.dp(5)),
-                                                bottomLeft: Radius.circular(m.dp(12)),
-                                                bottomRight: Radius.circular(m.dp(12)),
-                                              ),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: const Color(0x3F000000),
-                                                  blurRadius: m.dp(4),
-                                                  offset: const Offset(0, 4),
-                                                ),
-                                              ],
-                                            ),
-                                            child: Center(
-                                              child: _AutoFitNameText(
-                                                text: bird.nomFr,
-                                                maxFontSize: nameFont,
-                                                minSingleLineFactor: 0.88,
-                                                minTwoLineFactor: 0.70,
-                                                baseStyle: const TextStyle(
-                                                  fontFamily: 'Quicksand',
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF344356),
-                                                  letterSpacing: -0.3,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
+                          : _GroupedBirdsGrid(
+                              birds: displayed,
+                              crossAxisCount: crossAxisCount,
+                              gridSpacing: gridSpacing,
+                              dense: _dense,
+                              imageRadius: imageRadius,
+                              nameFont: nameFont,
+                              metrics: m,
                             ),
                     ),
                   ],
@@ -527,5 +448,239 @@ class _AutoFitNameText extends StatelessWidget {
     );
   }
 }
+
+class _GroupedBirdsGrid extends StatelessWidget {
+  final List<Bird> birds;
+  final int crossAxisCount;
+  final double gridSpacing;
+  final bool dense;
+  final double imageRadius;
+  final double nameFont;
+  final ResponsiveMetrics metrics;
+
+  const _GroupedBirdsGrid({
+    required this.birds,
+    required this.crossAxisCount,
+    required this.gridSpacing,
+    required this.dense,
+    required this.imageRadius,
+    required this.nameFont,
+    required this.metrics,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Construire une liste avec des séparateurs de changement de lettre
+    final List<_GridItem> items = [];
+    String? currentLetter;
+    for (final b in birds) {
+      final letter = _normalize(b.nomFr).isNotEmpty ? _normalize(b.nomFr)[0].toUpperCase() : '#';
+      if (currentLetter != letter) {
+        currentLetter = letter;
+        items.add(_GridItem.header(letter));
+      }
+      items.add(_GridItem.bird(b));
+    }
+
+    return CustomScrollView(
+      slivers: [
+        // Grille d'oiseaux intercalée avec des en-têtes: on recommence un bloc par lettre
+        ..._buildLetterGrids(context, items),
+        SliverPadding(padding: EdgeInsets.only(bottom: metrics.gapLarge())),
+      ],
+    );
+  }
+
+  List<Widget> _buildLetterGrids(BuildContext context, List<_GridItem> items) {
+    final List<Widget> slivers = [];
+    List<Bird> bucket = [];
+    String? currentLetter;
+    bool isFirstHeader = true;
+    for (final it in items) {
+      if (it.isHeader) {
+        if (bucket.isNotEmpty) {
+          slivers.add(_buildGrid(bucket));
+          bucket = [];
+        }
+        currentLetter = it.letter;
+        // Insérer l'en-tête visuel comme SliverToBoxAdapter
+        slivers.add(SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(top: isFirstHeader ? 0 : metrics.gapMedium(), bottom: metrics.gapSmall()),
+            child: Text(
+              currentLetter!,
+              style: TextStyle(
+                fontFamily: 'Quicksand',
+                fontWeight: FontWeight.w900,
+                fontSize: metrics.font(18, tabletFactor: 1.05, min: 14, max: 28),
+                color: const Color(0xFF57534E),
+              ),
+            ),
+          ),
+        ));
+        isFirstHeader = false;
+      } else {
+        bucket.add(it.bird!);
+      }
+    }
+    if (bucket.isNotEmpty) {
+      slivers.add(_buildGrid(bucket));
+    }
+    return slivers;
+  }
+
+  Widget _buildGrid(List<Bird> group) {
+    return SliverPadding(
+      padding: EdgeInsets.only(bottom: metrics.gapSmall()),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          mainAxisSpacing: gridSpacing,
+          crossAxisSpacing: gridSpacing,
+          childAspectRatio: dense ? 0.75 : 0.67,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final bird = group[index];
+            return _BirdTile(
+              bird: bird,
+              imageRadius: imageRadius,
+              nameFont: nameFont,
+              metrics: metrics,
+            );
+          },
+          childCount: group.length,
+        ),
+      ),
+    );
+  }
+
+  String _normalize(String s) {
+    // identique à _normalizeForSort mais local (évite dépendance de l'état)
+    const map = {
+      'à':'a','â':'a','ä':'a','á':'a','ã':'a','å':'a',
+      'ç':'c',
+      'é':'e','è':'e','ê':'e','ë':'e',
+      'í':'i','ì':'i','î':'i','ï':'i',
+      'ñ':'n',
+      'ò':'o','ó':'o','ô':'o','ö':'o','õ':'o',
+      'ù':'u','ú':'u','û':'u','ü':'u',
+      'ý':'y','ÿ':'y',
+      'œ':'o','Œ':'o','æ':'a','Æ':'a',
+      '’':'\'','‘':'\'','ʼ':'\'',
+    };
+    s = s.toLowerCase().trim();
+    final sb = StringBuffer();
+    for (final ch in s.split('')) {
+      sb.write(map[ch] ?? ch);
+    }
+    s = sb.toString();
+    s = s.replaceAll(RegExp(r"[^a-z0-9\s\-]"), "");
+    s = s.replaceAll(RegExp(r"\s+"), " ").trim();
+    return s;
+  }
+}
+
+class _GridItem {
+  final bool isHeader;
+  final String? letter;
+  final Bird? bird;
+  _GridItem.header(this.letter)
+      : isHeader = true,
+        bird = null;
+  _GridItem.bird(this.bird)
+      : isHeader = false,
+        letter = null;
+}
+
+class _BirdTile extends StatelessWidget {
+  final Bird bird;
+  final double imageRadius;
+  final double nameFont;
+  final ResponsiveMetrics metrics;
+  const _BirdTile({
+    required this.bird,
+    required this.imageRadius,
+    required this.nameFont,
+    required this.metrics,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(imageRadius),
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(bird.nomFr)));
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(imageRadius),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (bird.urlImage.isNotEmpty)
+              Image.network(
+                bird.urlImage,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: const Color(0xFFD2DBB2),
+                    child: const Icon(Icons.image_not_supported, color: Color(0xFF6A994E)),
+                  );
+                },
+              )
+            else
+              Container(
+                color: const Color(0xFFD2DBB2),
+                child: const Icon(Icons.image, color: Color(0xFF6A994E)),
+              ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                margin: EdgeInsets.only(
+                  left: metrics.dp(6),
+                  right: metrics.dp(6),
+                  bottom: metrics.dp(6),
+                ),
+                height: metrics.dp(40),
+                padding: EdgeInsets.symmetric(horizontal: metrics.dp(8)),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(metrics.dp(5)),
+                    topRight: Radius.circular(metrics.dp(5)),
+                    bottomLeft: Radius.circular(metrics.dp(12)),
+                    bottomRight: Radius.circular(metrics.dp(12)),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0x3F000000),
+                      blurRadius: metrics.dp(4),
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: _AutoFitNameText(
+                    text: bird.nomFr,
+                    maxFontSize: nameFont,
+                    minSingleLineFactor: 0.88,
+                    minTwoLineFactor: 0.70,
+                    baseStyle: const TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF344356),
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
 
