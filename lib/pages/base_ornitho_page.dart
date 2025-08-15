@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../ui/responsive/responsive.dart';
 import '../models/bird.dart';
 import '../services/mission_preloader.dart';
+import 'bird_detail_page.dart';
 
 class BaseOrnithoPage extends StatefulWidget {
   const BaseOrnithoPage({super.key});
@@ -610,7 +611,11 @@ class _BirdTile extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(imageRadius),
       onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(bird.nomFr)));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => BirdDetailPage(birdId: bird.id.isNotEmpty ? bird.id : bird.nomFr),
+          ),
+        );
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(imageRadius),
