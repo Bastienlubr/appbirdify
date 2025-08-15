@@ -611,8 +611,7 @@ class _BirdTile extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(imageRadius),
       onTap: () {
-        Navigator.push(
-          context,
+        Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => BirdDetailPage(bird: bird),
           ),

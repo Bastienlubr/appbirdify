@@ -16,6 +16,8 @@ class BirdDetailPage extends StatefulWidget {
 }
 
 class _BirdDetailPageState extends State<BirdDetailPage> {
+  bool _isPlayingAudio = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -23,212 +25,226 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final m = buildResponsiveMetrics(context, constraints);
-          return _buildContent(context, m);
+          
+          return CustomScrollView(
+            slivers: [
+              // App Bar personnalisée avec image de fond
+              _buildSliverAppBar(m),
+              
+              // Contenu principal
+              SliverToBoxAdapter(
+                child: _buildMainContent(m),
+              ),
+            ],
+          );
         },
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, ResponsiveMetrics m) {
-    return CustomScrollView(
-      slivers: [
-        // Hero image avec AppBar intégré
-        _buildHeroSection(context, m),
-        
-        // Contenu principal
-        SliverToBoxAdapter(
-          child: Container(
-            color: AppColors.background,
-            child: Column(
-              children: [
-                _buildInfoSection(context, m),
-                _buildTabsSection(context, m),
-                _buildIdentificationSection(context, m),
-                SizedBox(height: m.gapLarge()),
-              ],
+  Widget _buildSliverAppBar(ResponsiveMetrics m) {
+    final double appBarHeight = m.dp(400, tabletFactor: 1.2, min: 350, max: 500);
+    
+    return SliverAppBar(
+      expandedHeight: appBarHeight,
+      pinned: true,
+      backgroundColor: AppColors.primary,
+      leading: Padding(
+        padding: EdgeInsets.all(m.dp(8)),
+        child: CircleAvatar(
+          backgroundColor: Colors.white.withOpacity(0.9),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+      ),
+      actions: [
+        Padding(
+          padding: EdgeInsets.all(m.dp(8)),
+          child: CircleAvatar(
+            backgroundColor: Colors.white.withOpacity(0.9),
+            child: IconButton(
+              icon: const Icon(Icons.favorite_border, color: AppColors.primary),
+              onPressed: () {
+                // TODO: Ajouter/retirer des favoris
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Fonctionnalité des favoris à venir')),
+                );
+              },
             ),
+          ),
+        ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Image de l'oiseau
+            widget.bird.urlImage.isNotEmpty
+                ? Image.network(
+                    widget.bird.urlImage,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: AppColors.lightGreen.withOpacity(0.3),
+                        child: const Icon(
+                          Icons.image_not_supported,
+                          size: 80,
+                          color: AppColors.secondary,
+                        ),
+                      );
+                    },
+                  )
+                : Container(
+                    color: AppColors.lightGreen.withOpacity(0.3),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      size: 80,
+                      color: AppColors.secondary,
+                    ),
+                  ),
+            
+            // Gradient overlay pour la lisibilité
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.4),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Bouton de lecture audio
+            if (widget.bird.urlMp3.isNotEmpty)
+              Positioned(
+                bottom: m.dp(20),
+                right: m.dp(20),
+                child: FloatingActionButton(
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppColors.primary,
+                  onPressed: _toggleAudio,
+                  child: Icon(_isPlayingAudio ? Icons.pause : Icons.play_arrow),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainContent(ResponsiveMetrics m) {
+    return Container(
+      padding: EdgeInsets.all(m.dp(20, tabletFactor: 1.1)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Nom et titre
+          _buildBirdTitle(m),
+          
+          SizedBox(height: m.gapLarge()),
+          
+          // Informations de base
+          _buildBasicInfo(m),
+          
+          SizedBox(height: m.gapLarge()),
+          
+          // Habitats
+          _buildHabitats(m),
+          
+          SizedBox(height: m.gapLarge()),
+          
+          // Section identification (placeholder)
+          _buildIdentificationSection(m),
+          
+          SizedBox(height: m.gapLarge()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBirdTitle(ResponsiveMetrics m) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.bird.nomFr,
+          style: TextStyle(
+            fontFamily: 'Quicksand',
+            fontSize: m.font(32, tabletFactor: 1.1, min: 24, max: 48),
+            fontWeight: FontWeight.w900,
+            color: AppColors.primary,
+          ),
+        ),
+        SizedBox(height: m.gapSmall()),
+        Text(
+          '${widget.bird.genus} ${widget.bird.species}',
+          style: TextStyle(
+            fontFamily: 'Quicksand',
+            fontSize: m.font(20, tabletFactor: 1.05, min: 16, max: 28),
+            fontWeight: FontWeight.w500,
+            color: AppColors.textDark.withOpacity(0.8),
+            fontStyle: FontStyle.italic,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildHeroSection(BuildContext context, ResponsiveMetrics m) {
-    final double imageHeight = m.isTablet ? 400.0 : 320.0;
-    
-    return SliverAppBar(
-      expandedHeight: imageHeight,
-      floating: false,
-      pinned: true,
-      backgroundColor: AppColors.background,
-      elevation: 0,
-      leading: Container(
-        margin: EdgeInsets.all(m.dp(8)),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: AppColors.textDark,
-            size: m.dp(24),
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      flexibleSpace: FlexibleSpaceBar(
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-                      // Image principale
-          if (widget.bird.nomFr == "Rollier d'Europe")
-            Image.asset(
-              "assets/Rollier d'Europe 1.png",
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return _buildFallbackImage(m);
-              },
-            )
-          else if (widget.bird.urlImage.isNotEmpty)
-            Image.network(
-              widget.bird.urlImage,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return _buildFallbackImage(m);
-              },
-            )
-          else
-            _buildFallbackImage(m),
-            
-          // Contrôles audio en haut à droite
-          Positioned(
-            top: m.dp(60),
-            right: m.dp(20),
-            child: _buildAudioControls(context, m),
-          ),
-            
-            // Gradient overlay au bas
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 100,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      AppColors.background.withOpacity(0.8),
-                      AppColors.background,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoSection(BuildContext context, ResponsiveMetrics m) {
+  Widget _buildBasicInfo(ResponsiveMetrics m) {
     return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: m.dp(20),
-        vertical: m.gapMedium(),
+      padding: EdgeInsets.all(m.dp(20, tabletFactor: 1.1)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(m.dp(16, tabletFactor: 1.05)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Nom français
           Text(
-            widget.bird.nomFr,
+            'Informations générales',
             style: TextStyle(
               fontFamily: 'Quicksand',
-              fontSize: m.font(28, tabletFactor: 1.1),
-              fontWeight: FontWeight.w900,
-              color: AppColors.textDark,
+              fontSize: m.font(22, tabletFactor: 1.05, min: 18, max: 30),
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
             ),
           ),
-          
-          SizedBox(height: m.gapSmall()),
-          
-          // Ligne séparatrice
-          Container(
-            height: 2,
-            width: m.dp(60),
-            decoration: BoxDecoration(
-              color: AppColors.secondary,
-              borderRadius: BorderRadius.circular(1),
-            ),
-          ),
-          
           SizedBox(height: m.gapMedium()),
           
-          // Informations détaillées
-          _buildInfoRow(
-            context, 
-            m, 
-            'Nom', 
-            widget.bird.nomFr,
-          ),
-          
-          SizedBox(height: m.gapSmall()),
-          
-          _buildInfoRow(
-            context, 
-            m, 
-            'Nom scientifique', 
-            '${widget.bird.genus} ${widget.bird.species}',
-          ),
-          
-          SizedBox(height: m.gapSmall()),
-          
-          _buildInfoRow(
-            context, 
-            m, 
-            'Famille', 
-            _getFamilyName(widget.bird.genus),
-          ),
-          
-          if (widget.bird.milieux.isNotEmpty) ...[
-            SizedBox(height: m.gapSmall()),
-            _buildInfoRow(
-              context, 
-              m, 
-              'Milieux', 
-              widget.bird.milieux.join(', '),
-            ),
-          ],
+          _buildInfoRow(m, 'Nom français', widget.bird.nomFr),
+          _buildInfoRow(m, 'Nom scientifique', '${widget.bird.genus} ${widget.bird.species}'),
+          _buildInfoRow(m, 'Genre', widget.bird.genus),
+          _buildInfoRow(m, 'Espèce', widget.bird.species),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(BuildContext context, ResponsiveMetrics m, String label, String value) {
+  Widget _buildInfoRow(ResponsiveMetrics m, String label, String value) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: m.dp(4)),
+      padding: EdgeInsets.symmetric(vertical: m.gapSmall()),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: m.dp(140),
+            width: m.dp(140, tabletFactor: 1.1),
             child: Text(
               '$label :',
               style: TextStyle(
                 fontFamily: 'Quicksand',
-                fontSize: m.font(16, tabletFactor: 1.05),
+                fontSize: m.font(16, tabletFactor: 1.0, min: 14, max: 20),
                 fontWeight: FontWeight.w400,
                 color: AppColors.textDark.withOpacity(0.7),
               ),
@@ -239,7 +255,7 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
               value,
               style: TextStyle(
                 fontFamily: 'Quicksand',
-                fontSize: m.font(16, tabletFactor: 1.05),
+                fontSize: m.font(16, tabletFactor: 1.0, min: 14, max: 20),
                 fontWeight: FontWeight.w600,
                 color: AppColors.textDark,
               ),
@@ -250,121 +266,107 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
     );
   }
 
-  Widget _buildTabsSection(BuildContext context, ResponsiveMetrics m) {
+  Widget _buildHabitats(ResponsiveMetrics m) {
+    if (widget.bird.milieux.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: m.dp(20)),
-      child: Column(
-        children: [
-          // Onglets colorés en haut
-          Row(
-            children: [
-              _buildTabHeader(context, m, 'Identification', true, const Color(0xFFFF98B7)),
-              SizedBox(width: m.dp(8)),
-              _buildTabHeader(context, m, 'Habitat', false, const Color(0xFFFC826A)),
-              SizedBox(width: m.dp(8)),
-              _buildTabHeader(context, m, 'Audio', false, const Color(0xFFFEC868)),
-            ],
+      padding: EdgeInsets.all(m.dp(20, tabletFactor: 1.1)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(m.dp(16, tabletFactor: 1.05)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Habitats',
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontSize: m.font(22, tabletFactor: 1.05, min: 18, max: 30),
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+          ),
+          SizedBox(height: m.gapMedium()),
           
-          SizedBox(height: m.dp(8)),
-          
-          // Contenus des onglets en dessous
-          Row(
-            children: [
-              _buildTabContent(context, m, 'Description', true, "assets/description.png"),
-              SizedBox(width: m.dp(8)),
-              _buildTabContent(context, m, 'Habitat', false, "assets/Habitat.png"),
-              SizedBox(width: m.dp(8)),
-              _buildTabContent(context, m, 'Audio', false, null),
-            ],
+          Wrap(
+            spacing: m.dp(8),
+            runSpacing: m.dp(8),
+            children: widget.bird.milieux.map((milieu) => _buildHabitatChip(m, milieu)).toList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTabHeader(BuildContext context, ResponsiveMetrics m, String title, bool isActive, Color color) {
-    return Expanded(
-      child: Container(
-        height: m.dp(22),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(m.dp(15)),
-            topRight: Radius.circular(m.dp(15)),
-          ),
-        ),
-        child: Center(
-          child: Text(
-            title,
-            style: TextStyle(
-              fontFamily: 'Quicksand',
-              fontSize: m.font(12, tabletFactor: 1.05),
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildHabitatChip(ResponsiveMetrics m, String milieu) {
+    // Couleurs selon le type d'habitat
+    Color chipColor;
+    switch (milieu.toLowerCase()) {
+      case 'forestier':
+        chipColor = const Color(0xFF4CAF50);
+        break;
+      case 'urbain':
+        chipColor = const Color(0xFF9E9E9E);
+        break;
+      case 'agricole':
+        chipColor = const Color(0xFFFF9800);
+        break;
+      case 'humide':
+        chipColor = const Color(0xFF2196F3);
+        break;
+      case 'montagnard':
+        chipColor = const Color(0xFF795548);
+        break;
+      case 'littoral':
+        chipColor = const Color(0xFF00BCD4);
+        break;
+      default:
+        chipColor = AppColors.secondary;
+    }
 
-  Widget _buildTabContent(BuildContext context, ResponsiveMetrics m, String title, bool isActive, String? imagePath) {
-    return Expanded(
-      child: Container(
-        height: m.dp(58),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(m.dp(15)),
-          border: Border.all(
-            color: AppColors.textDark.withOpacity(0.1),
-            width: 1,
-          ),
-        ),
-        child: Center(
-          child: imagePath != null
-              ? Image.asset(
-                  imagePath,
-                  width: m.dp(40),
-                  height: m.dp(40),
-                  errorBuilder: (context, error, stackTrace) {
-                    return Text(
-                      title,
-                      style: TextStyle(
-                        fontFamily: 'Quicksand',
-                        fontSize: m.font(12, tabletFactor: 1.05),
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textDark.withOpacity(0.7),
-                      ),
-                    );
-                  },
-                )
-              : Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: 'Quicksand',
-                    fontSize: m.font(12, tabletFactor: 1.05),
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark.withOpacity(0.7),
-                  ),
-                ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildIdentificationSection(BuildContext context, ResponsiveMetrics m) {
     return Container(
-      margin: EdgeInsets.all(m.dp(20)),
-      padding: EdgeInsets.all(m.dp(20)),
+      padding: EdgeInsets.symmetric(
+        horizontal: m.dp(16, tabletFactor: 1.05),
+        vertical: m.dp(8, tabletFactor: 1.05),
+      ),
+      decoration: BoxDecoration(
+        color: chipColor.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(m.dp(20, tabletFactor: 1.05)),
+        border: Border.all(color: chipColor.withOpacity(0.5)),
+      ),
+      child: Text(
+        milieu.toUpperCase(),
+        style: TextStyle(
+          fontFamily: 'Quicksand',
+          fontSize: m.font(14, tabletFactor: 1.0, min: 12, max: 18),
+          fontWeight: FontWeight.w600,
+          color: chipColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIdentificationSection(ResponsiveMetrics m) {
+    return Container(
+      padding: EdgeInsets.all(m.dp(20, tabletFactor: 1.1)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(m.dp(20)),
+        borderRadius: BorderRadius.circular(m.dp(16, tabletFactor: 1.05)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -375,21 +377,20 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
             'Identification',
             style: TextStyle(
               fontFamily: 'Quicksand',
-              fontSize: m.font(24, tabletFactor: 1.1),
-              fontWeight: FontWeight.w900,
-              color: AppColors.textDark,
+              fontSize: m.font(22, tabletFactor: 1.05, min: 18, max: 30),
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
             ),
           ),
-          
           SizedBox(height: m.gapMedium()),
           
           Text(
-            _getIdentificationText(),
+            'Les informations détaillées d\'identification seront bientôt disponibles.',
             style: TextStyle(
               fontFamily: 'Quicksand',
-              fontSize: m.font(16, tabletFactor: 1.05),
+              fontSize: m.font(16, tabletFactor: 1.0, min: 14, max: 20),
               fontWeight: FontWeight.w500,
-              color: AppColors.textDark.withOpacity(0.8),
+              color: AppColors.textDark.withOpacity(0.7),
               height: 1.5,
             ),
           ),
@@ -398,160 +399,27 @@ class _BirdDetailPageState extends State<BirdDetailPage> {
     );
   }
 
-  String _getFamilyName(String genus) {
-    // Map de quelques genres vers leurs familles
-    final Map<String, String> familyMap = {
-      'Coracias': 'Coraciidés',
-      'Parus': 'Paridés',
-      'Turdus': 'Turdidés',
-      'Falco': 'Falconidés',
-      'Buteo': 'Accipitridés',
-      'Ardea': 'Ardéidés',
-      'Corvus': 'Corvidés',
-      'Hirundo': 'Hirundinidés',
-      'Passer': 'Passéridés',
-    };
+  void _toggleAudio() {
+    if (widget.bird.urlMp3.isEmpty) return;
     
-    return familyMap[genus] ?? 'Non renseigné';
-  }
-
-  String _getIdentificationText() {
-    // Texte générique adapté selon l'espèce
-    if (widget.bird.genus == 'Coracias') {
-      return "Chez nous en Europe, cet oiseau de la taille d'un geai est unique et inconfondable. Quand on observe un Rollier d'Europe, on voit un oiseau bleu. En effet chez lui, la tête, les ailes et toutes les parties inférieures sont d'un bleu aigue-marine, tout au moins chez l'adulte. En vue de profil, le brun fauve façon \"crécerelle mâle\" du dos, du manteau et des scapulaires contraste joliment. Il y a même une touche de bleu azur aux épaules. En vol, c'est le festival de couleurs car s'ajoute au panel le noir ou le bleu des rémiges suivant qu'on l'observe en vol de dessus ou de dessous. La tête est barrée latéralement de noir. Cette barre est formée du bec fort, de la zone lorale, de l'œil et de la zone post-oculaire. Les pattes sont rosées. Les sexes sont semblables.";
+    setState(() {
+      _isPlayingAudio = !_isPlayingAudio;
+    });
+    
+    // TODO: Implémenter la lecture audio
+    if (_isPlayingAudio) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lecture audio en cours...')),
+      );
+      
+      // Simuler l'arrêt automatique après quelques secondes
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _isPlayingAudio = false;
+          });
+        }
+      });
     }
-    
-    return "Cet oiseau présente des caractéristiques distinctives qui permettent son identification en milieu naturel. L'observation attentive de son plumage, de sa silhouette et de son comportement facilitent sa reconnaissance sur le terrain. Les variations saisonnières et les différences entre mâles et femelles peuvent également aider à l'identification précise de l'espèce.";
-  }
-
-  Widget _buildFallbackImage(ResponsiveMetrics m) {
-    return Container(
-      color: AppColors.lightGreen.withOpacity(0.3),
-      child: Center(
-        child: Icon(
-          Icons.image_not_supported,
-          size: m.dp(64),
-          color: AppColors.secondary,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAudioControls(BuildContext context, ResponsiveMetrics m) {
-    return Container(
-      padding: EdgeInsets.all(m.dp(8)),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(m.dp(15)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Bouton audio principal
-          GestureDetector(
-            onTap: () {
-              // TODO: Jouer l'audio principal
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Lecture audio principal")),
-              );
-            },
-            child: Container(
-              padding: EdgeInsets.all(m.dp(8)),
-              decoration: const BoxDecoration(
-                color: Color(0xFF473C33),
-                shape: BoxShape.circle,
-              ),
-              child: Image.asset(
-                "assets/audio.png",
-                width: m.dp(32),
-                height: m.dp(32),
-                color: Colors.white,
-                errorBuilder: (context, error, stackTrace) {
-                  return Icon(
-                    Icons.play_arrow,
-                    color: Colors.white,
-                    size: m.dp(32),
-                  );
-                },
-              ),
-            ),
-          ),
-          
-          SizedBox(height: m.dp(8)),
-          
-          // Bouton audio secondaire
-          GestureDetector(
-            onTap: () {
-              // TODO: Jouer l'audio secondaire
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Lecture audio secondaire")),
-              );
-            },
-            child: Container(
-              padding: EdgeInsets.all(m.dp(6)),
-              decoration: BoxDecoration(
-                color: const Color(0xFF473C33).withOpacity(0.8),
-                shape: BoxShape.circle,
-              ),
-              child: Image.asset(
-                "assets/audio.png",
-                width: m.dp(24),
-                height: m.dp(24),
-                color: Colors.white,
-                errorBuilder: (context, error, stackTrace) {
-                  return Icon(
-                    Icons.play_arrow,
-                    color: Colors.white,
-                    size: m.dp(24),
-                  );
-                },
-              ),
-            ),
-          ),
-          
-          SizedBox(height: m.dp(8)),
-          
-          // Points de navigation
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: m.dp(8),
-                height: m.dp(8),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              SizedBox(width: m.dp(4)),
-              Container(
-                width: m.dp(8),
-                height: m.dp(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xCC473C33),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              SizedBox(width: m.dp(4)),
-              Container(
-                width: m.dp(8),
-                height: m.dp(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xCC473C33),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 }
