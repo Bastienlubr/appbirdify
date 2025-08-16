@@ -227,4 +227,3 @@ extension BirdImageExtension on Bird {
     return const AssetImage('assets/Images/Milieu/placeholder_bird.png');
   }
 } 
-} 
