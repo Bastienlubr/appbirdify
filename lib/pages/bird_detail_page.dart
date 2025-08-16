@@ -587,7 +587,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     );
   }
 
-  // --- Fade d'harmonisation image/panel (visible en mode 2/3-1/3 seulement) ---
+  // --- Fade d'harmonisation image/panel (animation progressive) ---
   Widget _buildImagePanelFade(ResponsiveMetrics m, double screenHeight) {
     return AnimatedBuilder(
       animation: _panelAnimation,
@@ -601,32 +601,34 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         // Position du panel depuis le bas
         final panelTop = screenHeight - currentPanelHeight;
         
-        // Opacité du fade : plus marqué en 2/3-1/3, disparaît en mode étendu
+        // Opacité du fade : transition progressive et fluide
         final fadeOpacity = math.max(0.0, math.min(1.0, (1.0 - _panelAnimation.value) * 1.2));
         
-        // Si complètement étendu, ne pas afficher
-        if (fadeOpacity <= 0.0) return const SizedBox.shrink();
-        
         return Positioned(
-              left: 0,
-              right: 0,
-          top: panelTop - m.dp(140, tabletFactor: 1.1), // Zone encore plus grande
-          height: m.dp(200, tabletFactor: 1.1), // Hauteur fixe pour test
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                    colors: [
-                  Colors.transparent, // Complètement transparent en haut
-                  const Color(0xFFAEB7C2).withValues(alpha: 0.1), // Très léger
-                  const Color(0xFFAEB7C2).withValues(alpha: 0.2), // Subtil
-                  const Color(0xFFAEB7C2).withValues(alpha: 0.4), // Progression douce
-                  const Color(0xFFAEB7C2).withValues(alpha: 0.6), // Plus visible
-                  const Color(0xFFAEB7C2).withValues(alpha: 0.8), // Fort
-                  const Color(0xFFAEB7C2), // Opaque au niveau du panel
-                ],
-                stops: const [0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 1.0], // Transition ultra progressive
+          left: 0,
+          right: 0,
+          top: panelTop - m.dp(140, tabletFactor: 1.1), // Zone étendue
+          height: m.dp(200, tabletFactor: 1.1), // Hauteur pour couvrir la transition
+          child: AnimatedOpacity(
+            opacity: fadeOpacity, // Animation automatique de l'opacité
+            duration: const Duration(milliseconds: 150), // Transition douce
+            curve: Curves.easeOut, // Courbe naturelle
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent, // Complètement transparent en haut
+                    const Color(0xFFAEB7C2).withValues(alpha: 0.1), // Très léger
+                    const Color(0xFFAEB7C2).withValues(alpha: 0.2), // Subtil
+                    const Color(0xFFAEB7C2).withValues(alpha: 0.4), // Progression douce
+                    const Color(0xFFAEB7C2).withValues(alpha: 0.6), // Plus visible
+                    const Color(0xFFAEB7C2).withValues(alpha: 0.8), // Fort
+                    const Color(0xFFAEB7C2), // Opaque au niveau du panel
+                  ],
+                  stops: const [0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 1.0], // Transition ultra progressive
+                ),
               ),
             ),
           ),
