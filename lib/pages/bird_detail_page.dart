@@ -3,6 +3,53 @@ import 'package:flutter/material.dart';
 import '../models/bird.dart';
 import '../ui/responsive/responsive.dart';
 
+// Clipper pour créer la forme arrondie du haut (identique au panel)
+class _RoundedTopClipper extends CustomClipper<Path> {
+  final double radius;
+
+  const _RoundedTopClipper({required this.radius});
+
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    
+    // Commence en bas à gauche
+    path.moveTo(0, size.height);
+    
+    // Monte sur le côté gauche jusqu'au début de la courbe
+    path.lineTo(0, radius);
+    
+    // Arc de cercle pour le coin gauche (identique au BorderRadius du panel)
+    path.arcToPoint(
+      Offset(radius, 0),
+      radius: Radius.circular(radius),
+      clockwise: false,
+    );
+    
+    // Ligne droite en haut (partie arrondie)
+    path.lineTo(size.width - radius, 0);
+    
+    // Arc de cercle pour le coin droit (identique au BorderRadius du panel)
+    path.arcToPoint(
+      Offset(size.width, radius),
+      radius: Radius.circular(radius),
+      clockwise: false,
+    );
+    
+    // Descend sur le côté droit
+    path.lineTo(size.width, size.height);
+    
+    // Ligne droite en bas pour fermer
+    path.lineTo(0, size.height);
+    
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
 // -----------------------------------------------------------------------------
 // Physique personnalisée pour un carrousel stable (limite l'inertie et l'effet
 // ping-pong). On part de PageScrollPhysics pour garder le comportement natif,
@@ -18,22 +65,22 @@ class StableCarouselPhysics extends PageScrollPhysics {
 
     @override
   SpringDescription get spring => const SpringDescription(
-        mass: 8.0,           // Plus lourd pour plus de stabilité
-        stiffness: 1500.0,   // Plus rigide pour arrêt net
-        damping: 8.0,        // Plus d'amortissement pour éviter le rebond
+        mass: 8.0,           // Équilibré pour fluidité constante
+        stiffness: 1800.0,   // Rigidité optimisée pour tous les modes
+        damping: 10.0,       // Amortissement parfait pour la fluidité
        );
 
   @override
   double carriedMomentum(double existingVelocity) {
-    // Élimine presque tout l'élan pour éviter le wiggle
-    return existingVelocity * 0.02;
+    // Momentum ultra-réduit pour des transitions parfaitement contrôlées
+    return existingVelocity * 0.01;
   }
 
   @override
-  double get maxFlingVelocity => 150.0;  // Limite encore plus la vitesse
+  double get maxFlingVelocity => 120.0;  // Vitesse très limitée pour plus de contrôle
 
   @override
-  double get minFlingVelocity => 400.0;  // Seuil plus élevé pour déclencher
+  double get minFlingVelocity => 500.0;  // Seuil élevé pour éviter les micro-mouvements
 }
 
 // -----------------------------------------------------------------------------
@@ -112,6 +159,9 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       curve: Curves.easeInOut,
     );
 
+    // Écouter les changements du panel pour recentrer l'onglet
+    _panelAnimation.addListener(_onPanelPositionChanged);
+
     // Démarre loin pour scroller dans les deux sens
     final seed = _nTabs * 1000;
     _contentController = PageController(initialPage: seed);
@@ -122,16 +172,159 @@ class _BirdDetailPageState extends State<BirdDetailPage>
 
     // Position basse par défaut (panel = 1/3 visible)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _panelController.value = 0.0;
+      if (mounted) {
+        _panelController.value = 0.0;
+        // S'assurer que l'onglet initial est centré
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) {
+            _forceRecenterSelectedTab();
+            
+            // Vérification périodique pour maintenir le centrage
+            _startPeriodicCenteringCheck();
+          }
+        });
+      }
     });
   }
 
   @override
   void dispose() {
+    _panelAnimation.removeListener(_onPanelPositionChanged);
     _panelController.dispose();
     _contentController.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  // Vérification périodique pour maintenir le centrage parfait
+  void _startPeriodicCenteringCheck() {
+    if (!mounted) return;
+    
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted && _tabController.hasClients && !_programmaticAnimating) {
+        final isInBasicMode = _panelAnimation.value < 0.3;
+        final isInExtendedMode = _panelAnimation.value > 0.7;
+        final isInStableMode = isInBasicMode || isInExtendedMode;
+        
+        if (isInStableMode) {
+          final targetPage = _nearestPageForIndex(_tabController, _selectedTabIndex);
+          final currentPage = _tabController.page ?? _tabController.initialPage.toDouble();
+          
+          // Si pas parfaitement centré, correction douce
+          if ((currentPage - targetPage).abs() > 0.15) {
+            _tabController.animateToPage(
+              targetPage,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOutCubic,
+            );
+          }
+        }
+        
+        // Relancer la vérification
+        _startPeriodicCenteringCheck();
+      }
+    });
+  }
+
+  // Variables pour détecter les changements de mode
+  bool _wasInExtendedMode = false;
+  bool _wasInBasicMode = false;
+  bool _isRecenteringScheduled = false;
+
+  // Méthode appelée quand la position du panel change
+  void _onPanelPositionChanged() {
+    final isCurrentlyInBasicMode = _panelAnimation.value < 0.3; // Mode 2/3-1/3
+    final isCurrentlyInExtendedMode = _panelAnimation.value > 0.7; // Mode étendu
+    
+    // Détecter TOUTE transition vers un mode stable (2/3-1/3 OU étendu)
+    final shouldRecenter = (isCurrentlyInBasicMode && !_wasInBasicMode) || 
+                          (isCurrentlyInExtendedMode && !_wasInExtendedMode);
+    
+    if (shouldRecenter && !_isRecenteringScheduled) {
+      _isRecenteringScheduled = true;
+      
+      // Attendre que l'animation du panel soit complètement terminée
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            _forceRecenterSelectedTab();
+            _isRecenteringScheduled = false;
+          }
+        });
+      });
+    }
+    
+    // Mettre à jour les états précédents
+    _wasInExtendedMode = isCurrentlyInExtendedMode;
+    _wasInBasicMode = isCurrentlyInBasicMode;
+  }
+
+  // Recentrer l'onglet sélectionné dans le carousel (version douce)
+  void _recenterSelectedTab() {
+    if (!mounted || !_tabController.hasClients || _programmaticAnimating) return;
+    
+    // Calculer la page cible pour centrer l'onglet sélectionné
+    final targetPage = _nearestPageForIndex(_tabController, _selectedTabIndex);
+    
+    // Vérifier si on a vraiment besoin de recentrer
+    final currentPage = _tabController.page ?? _tabController.initialPage.toDouble();
+    if ((currentPage - targetPage).abs() > 0.3) { // Seuil plus sensible pour recentrer plus souvent
+      _programmaticAnimating = true;
+      
+      // Petit délai pour s'assurer que les autres animations sont terminées
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (mounted && _tabController.hasClients) {
+          _tabController.animateToPage(
+            targetPage,
+            duration: const Duration(milliseconds: 300), // Animation rapide mais douce
+            curve: Curves.easeOutCubic,
+          ).then((_) {
+            if (mounted) _programmaticAnimating = false;
+          });
+        } else {
+          _programmaticAnimating = false;
+        }
+      });
+    }
+  }
+
+  // Forcer le recentrage (version robuste pour les transitions de mode)
+  void _forceRecenterSelectedTab() {
+    if (!mounted || !_tabController.hasClients) return;
+    
+    // Calculer la page cible pour centrer l'onglet sélectionné
+    final targetPage = _nearestPageForIndex(_tabController, _selectedTabIndex);
+    final currentPage = _tabController.page ?? _tabController.initialPage.toDouble();
+    
+    // TOUJOURS recentrer, même si ça semble proche
+    if ((currentPage - targetPage).abs() > 0.1) {
+      _programmaticAnimating = true;
+      
+      // Animation garantie vers la position centrale
+      _tabController.animateToPage(
+        targetPage,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOutCubic,
+      ).then((_) {
+        if (mounted) {
+          _programmaticAnimating = false;
+          
+          // Vérification finale - si toujours pas centré, utiliser jumpToPage
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted && _tabController.hasClients) {
+              final finalPage = _tabController.page ?? _tabController.initialPage.toDouble();
+              final finalTarget = _nearestPageForIndex(_tabController, _selectedTabIndex);
+              if ((finalPage - finalTarget).abs() > 0.2) {
+                _tabController.jumpToPage(finalTarget);
+              }
+            }
+          });
+        }
+      });
+    } else if ((currentPage - targetPage).abs() > 0.05) {
+      // Petite correction avec jumpToPage si très proche mais pas parfait
+      _tabController.jumpToPage(targetPage);
+    }
   }
 
   // ------------------------------ LOGIQUE "NEAREST PAGE" ---------------------
@@ -158,6 +351,19 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       setState(() {
         _previousTabIndex = _selectedTabIndex;
         _selectedTabIndex = newIndex;
+      });
+      
+      // Recentrer l'onglet dans TOUS les modes stables AVEC délai pour éviter conflits
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 50), () {
+          final isInBasicMode = _panelAnimation.value < 0.3;
+          final isInExtendedMode = _panelAnimation.value > 0.7;
+          final isInStableMode = isInBasicMode || isInExtendedMode;
+          
+          if (isInStableMode && mounted && !_programmaticAnimating && !_isRecenteringScheduled) {
+            _forceRecenterSelectedTab(); // Version robuste pour tous les modes
+          }
+        });
       });
     }
   }
@@ -213,8 +419,8 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       _changeSelection(index);
 
       // Animation SIMULTANÉE des deux PageViews vers la même position
-      final duration = const Duration(milliseconds: 180);
-      final curve = Curves.easeOutQuart;
+      final duration = const Duration(milliseconds: 280); // Synchronisé avec les onglets
+      final curve = Curves.easeOutCubic; // Même courbe que les onglets
 
       List<Future> animations = [];
 
@@ -265,16 +471,18 @@ class _BirdDetailPageState extends State<BirdDetailPage>
           final m = buildResponsiveMetrics(context, constraints);
           final screenHeight = constraints.maxHeight;
 
-          return Stack(
-                    children: [
-              // Image full screen
-              _buildBackgroundImage(screenHeight),
+                      return Stack(
+                     children: [
+               // Image full screen
+               _buildBackgroundImage(screenHeight),
 
-              // Bouton retour
-              _buildBackButton(m),
+               // Fade d'harmonisation image/panel (visible en mode 2/3-1/3 seulement)
+               _buildImagePanelFade(m, screenHeight),
 
-              // Dots latéraux (placeholder – à adapter si besoin)
-              _buildSideDots(m, screenHeight),
+               // Bouton retour
+               _buildBackButton(m),
+
+                             
 
               // Panel
               AnimatedBuilder(
@@ -379,44 +587,54 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     );
   }
 
-  // --- Side dots (placeholder décoratif) ------------------------------------
-  Widget _buildSideDots(ResponsiveMetrics m, double screenHeight) {
-    return SafeArea(
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: m.dp(20, tabletFactor: 1.1),
-            bottom: screenHeight * 0.08,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(3, (index) {
-              return Container(
-                width: m.dp(11, tabletFactor: 1.0),
-                height: m.dp(11, tabletFactor: 1.0),
-                margin:
-                    EdgeInsets.symmetric(vertical: m.dp(4, tabletFactor: 1.0)),
+  // --- Fade d'harmonisation image/panel (visible en mode 2/3-1/3 seulement) ---
+  Widget _buildImagePanelFade(ResponsiveMetrics m, double screenHeight) {
+    return AnimatedBuilder(
+      animation: _panelAnimation,
+      builder: (context, _) {
+        // Calculer les positions du panel
+        final initialPanelHeight = screenHeight * 0.33; // Position 2/3-1/3
+        final maxPanelHeight = screenHeight * 0.95; // Position étendue
+        final currentPanelHeight = initialPanelHeight +
+            (_panelAnimation.value * (maxPanelHeight - initialPanelHeight));
+        
+        // Position du panel depuis le bas
+        final panelTop = screenHeight - currentPanelHeight;
+        
+        // Opacité du fade : plus marqué en 2/3-1/3, disparaît en mode étendu
+        final fadeOpacity = math.max(0.0, math.min(1.0, (1.0 - _panelAnimation.value) * 1.2));
+        
+        // Si complètement étendu, ne pas afficher
+        if (fadeOpacity <= 0.0) return const SizedBox.shrink();
+        
+        return Positioned(
+              left: 0,
+              right: 0,
+          top: panelTop - m.dp(140, tabletFactor: 1.1), // Zone encore plus grande
+          height: m.dp(200, tabletFactor: 1.1), // Hauteur fixe pour test
+              child: Container(
                 decoration: BoxDecoration(
-                  color: index == 0 ? Colors.white : const Color(0xCC473C33),
-                  shape: BoxShape.circle,
-                  boxShadow: index == 0
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 4,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
-                      : null,
-                ),
-              );
-            }),
+                  gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                    colors: [
+                  Colors.transparent, // Complètement transparent en haut
+                  const Color(0xFFAEB7C2).withValues(alpha: 0.1), // Très léger
+                  const Color(0xFFAEB7C2).withValues(alpha: 0.2), // Subtil
+                  const Color(0xFFAEB7C2).withValues(alpha: 0.4), // Progression douce
+                  const Color(0xFFAEB7C2).withValues(alpha: 0.6), // Plus visible
+                  const Color(0xFFAEB7C2).withValues(alpha: 0.8), // Fort
+                  const Color(0xFFAEB7C2), // Opaque au niveau du panel
+                ],
+                stops: const [0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 1.0], // Transition ultra progressive
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
+
 
   // --- Panel content ---------------------------------------------------------
   Widget _buildPanelContent(ResponsiveMetrics m) {
@@ -441,19 +659,23 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         Expanded(
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding:
-                EdgeInsets.symmetric(horizontal: m.dp(24, tabletFactor: 1.1)),
+            padding: EdgeInsets.only(
+              left: m.dp(24, tabletFactor: 1.1),
+              right: m.dp(24, tabletFactor: 1.1),
+              top: showBasicInfo ? m.dp(4, tabletFactor: 1.0) : m.dp(16, tabletFactor: 1.0), // Plus d'espace en mode étendu pour les animations
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: m.dp(8, tabletFactor: 1.0)),
+                SizedBox(height: showBasicInfo ? m.dp(2, tabletFactor: 1.0) : m.dp(0, tabletFactor: 1.0)), // Plus d'espace en mode étendu pour les animations
 
                 // Infos de base (nom, famille) – visible en position basse
                 AnimatedOpacity(
                   opacity: showBasicInfo ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 350), // Plus fluide
+                  curve: Curves.easeInOutCubic, // Courbe douce
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
+                    duration: const Duration(milliseconds: 350), // Synchronisé
                     height: showBasicInfo ? null : 0,
                     child: showBasicInfo
                         ? _buildInfoSection(m)
@@ -461,25 +683,31 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                   ),
                 ),
 
-                if (showBasicInfo) SizedBox(height: m.dp(20, tabletFactor: 1.1)),
+                if (showBasicInfo) SizedBox(height: m.dp(16, tabletFactor: 1.1)), // Moins d'espace entre infos et onglets en 2/3-1/3
 
-                // Carrousel d'onglets
-                _buildTabButtons(m),
-
-                // Titre animé de l'onglet sélectionné (collé aux onglets)
+                // Carrousel d'onglets avec remontée en mode étendu
                 Transform.translate(
-                  offset: Offset(0, -m.dp(10, tabletFactor: 1.0)), // Remonte le titre
+                  offset: Offset(0, showBasicInfo ? 0 : -m.dp(0, tabletFactor: 1.1)), // Remonte les onglets en mode étendu
+                  child: _buildTabButtons(m),
+                ),
+
+                // Titre animé de l'onglet sélectionné (suit la remontée des onglets)
+                Transform.translate(
+                  offset: Offset(0, showBasicInfo ? -m.dp(16, tabletFactor: 1.0) : -m.dp(8, tabletFactor: 1.0)), // Ajustement selon le mode
                   child: _buildAnimatedTabTitle(m),
                 ),
 
-                SizedBox(height: m.dp(16, tabletFactor: 1.1)),
+                SizedBox(height: showBasicInfo ? m.dp(12, tabletFactor: 1.1) : m.dp(4, tabletFactor: 1.1)), // Moins d'espace avant séparateur en mode étendu
 
-                // Séparateur visible en mode étendu
-                AnimatedOpacity(
+                // Séparateur visible en mode étendu avec remontée
+                Transform.translate(
+                  offset: Offset(0, showBasicInfo ? 0 : -m.dp(12, tabletFactor: 1.1)), // Remonte la ligne en mode étendu
+                  child: AnimatedOpacity(
                   opacity: showBasicInfo ? 0.0 : 1.0,
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 400), // Plus long pour effet dramatique
+                  curve: Curves.easeInOutQuart, // Courbe plus marquée
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
+                    duration: const Duration(milliseconds: 400), // Synchronisé
                     height: showBasicInfo ? 0 : 3,
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -487,9 +715,10 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                       borderRadius: BorderRadius.circular(1.5),
                     ),
                   ),
+                  ),
                 ),
 
-                SizedBox(height: showBasicInfo ? 0 : m.dp(16, tabletFactor: 1.1)),
+                SizedBox(height: showBasicInfo ? 0 : m.dp(4, tabletFactor: 1.1)), // Moins d'espace avant titre principal en mode étendu
 
                 // Titre principal de l'onglet courant
                 Text(
@@ -588,7 +817,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   // --- Carrousel d'onglets avec effet fade sur les côtés ------------------
   Widget _buildTabButtons(ResponsiveMetrics m) {
     return SizedBox(
-      height: m.dp(80, tabletFactor: 1.1),
+      height: m.dp(90, tabletFactor: 1.1), // Plus de hauteur pour les animations
       child: Stack(
         children: [
           // Le carousel principal
@@ -613,21 +842,20 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                   ? TweenAnimationBuilder<double>(
                       key: ValueKey(
                           '$index-${isSelected ? "select" : "deselect"}'),
-                      duration: const Duration(milliseconds: 180),
-                      curve: Curves.easeOutQuart,
+                      duration: const Duration(milliseconds: 280), // Plus fluide
+                      curve: Curves.easeOutCubic, // Courbe plus naturelle
                       tween: Tween<double>(
                         begin: isSelected ? 0.0 : 1.0,
                         end: isSelected ? 1.0 : 0.0,
                       ),
                       builder: (context, animValue, child) {
-                        // Calcul des valeurs interpolées
-                        final size = 60.0 + (5.0 * animValue); // 60 -> 65
-                        final iconSize =
-                            28.0 + (2.0 * animValue); // 28 -> 30
-                        final yOffset = -3.0 * animValue; // 0 -> -3
-                        final colorAlpha =
-                            0.3 + (0.7 * animValue); // 0.3 -> 1.0
-                        final titleHeight = 6.0 * animValue; // 0 -> 6
+                        // Calcul des valeurs interpolées optimisées pour la fluidité
+                        final size = 60.0 + (6.0 * animValue); // 60 -> 66 simple
+                        final iconSize = 28.0 + (3.0 * animValue); // 28 -> 31 plus modéré
+                        final yOffset = -4.0 * animValue; // Montée simple et fluide
+                        final colorAlpha = 0.3 + (0.7 * animValue); // 0.3 -> 1.0
+                        final titleHeight = 6.0 * animValue; // 0 -> 6 simple
+                        final shadowIntensity = 0.15 * animValue; // Ombre plus douce
 
                         return Column(
                           mainAxisSize: MainAxisSize.min,
@@ -648,9 +876,10 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                                       ? [
                                           BoxShadow(
                                             color: Colors.black.withValues(
-                                                alpha: 0.15 * animValue),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 2),
+                                                alpha: 0.15 * shadowIntensity),
+                                            blurRadius: 4 + (2 * animValue), // Ombre plus douce
+                                            offset: Offset(0, 2 + (1 * animValue)), // Se déplace moins
+                                            spreadRadius: 0.5 * animValue, // S'étend moins
                                           ),
                                         ]
                                       : null,
@@ -769,19 +998,19 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   // Titre animé de l'onglet sélectionné - petit et toujours visible
   Widget _buildAnimatedTabTitle(ResponsiveMetrics m) {
     return SizedBox(
-      height: m.dp(20, tabletFactor: 1.0), // Assez de hauteur pour ne pas couper le texte
+      height: m.dp(25, tabletFactor: 1.0), // Plus de hauteur pour éviter la coupure
       child: Align(
         alignment: Alignment.topCenter, // Colle en haut du conteneur
         child: TweenAnimationBuilder<double>(
           key: ValueKey('title-$_selectedTabIndex-${_previousTabIndex}'),
-          duration: const Duration(milliseconds: 180), // Même durée que les onglets
-          curve: Curves.easeOutQuart, // Même courbe que les onglets
+          duration: const Duration(milliseconds: 280), // Synchronisé avec les onglets
+          curve: Curves.easeOutCubic, // Même courbe que les onglets
           tween: Tween<double>(begin: 0.0, end: 1.0),
           builder: (context, animValue, child) {
-            // Animation entrante pour le nouveau titre
-            final opacity = animValue;
-            final yOffset = 6.0 * (1.0 - animValue); // Descend de 6px vers 0
-            final scale = 0.85 + (0.15 * animValue); // Grandit de 0.85 à 1.0
+            // Animation entrante optimisée pour fluidité maximale
+            final opacity = animValue; // Animation simple et fluide
+            final yOffset = 8.0 * (1.0 - animValue); // Descente simple et douce
+            final scale = 0.85 + (0.15 * animValue); // Scaling modéré
 
             return Transform.translate(
               offset: Offset(0.0, yOffset),
@@ -940,12 +1169,12 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   void _togglePanel() {
     if (_panelController.value < 0.5) {
       _panelController.animateTo(1.0,
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic);
+          duration: const Duration(milliseconds: 420), // Plus fluide
+          curve: Curves.easeOutBack); // Effet rebond élégant
     } else {
       _panelController.animateTo(0.0,
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic);
+          duration: const Duration(milliseconds: 380), // Légèrement plus rapide pour fermer
+          curve: Curves.easeInBack); // Effet d'aspiration
     }
   }
 
@@ -954,22 +1183,22 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     if (velocity.abs() > 500) {
       if (velocity < 0) {
         _panelController.animateTo(1.0,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic);
+            duration: const Duration(milliseconds: 380), // Plus fluide
+            curve: Curves.easeOutBack); // Rebond pour ouverture rapide
       } else {
         _panelController.animateTo(0.0,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic);
+            duration: const Duration(milliseconds: 320), // Plus fluide
+            curve: Curves.easeOutQuart); // Fermeture douce
       }
     } else {
       if (_panelController.value < 0.5) {
         _panelController.animateTo(0.0,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic);
+            duration: const Duration(milliseconds: 350), // Plus fluide
+            curve: Curves.easeInOutCubic); // Transition douce
       } else {
         _panelController.animateTo(1.0,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic);
+            duration: const Duration(milliseconds: 350), // Plus fluide
+            curve: Curves.easeInOutCubic); // Transition douce
       }
     }
   }
