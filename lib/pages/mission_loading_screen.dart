@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:csv/csv.dart';
 import '../models/bird.dart';
-import '../theme/colors.dart';
+// Unused colors import removed
 import '../services/image_cache_service.dart';
 import 'quiz_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -38,8 +38,6 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late AnimationController _progressController;
-  late Animation<double> _pulseAnimation;
-  late Animation<double> _progressAnimation;
   final String _lottiePath = 'assets/PAGE/Chargement/chenille.json';
   final List<String> _funFacts = [];
   int _currentFunFactIndex = 0;
@@ -80,26 +78,14 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    _pulseAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
+    // Removed unused _pulseAnimation tween; controller still drives the repeat
 
     // Animation de progression
     _progressController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _progressAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _progressController,
-      curve: Curves.easeOut,
-    ));
+    // Removed unused _progressAnimation tween; progress is driven directly via controller.animateTo
 
     // Démarrer les animations
     _pulseController.repeat(reverse: true);
@@ -530,7 +516,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
             final Size box = constraints.biggest;
             final double shortest = box.shortestSide;
             final bool isWide = box.aspectRatio >= 0.70;
-            final bool isLarge = s.isMD || s.isLG || s.isXL;
+            // Removed unused isLarge
             final bool isTablet = shortest >= 600;
 
             final double scale = s.textScale();
@@ -603,7 +589,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
                       SizedBox(height: mediumGap),
 
                       Text(
-                        'Chargement en cours...',
+                        _currentStep.isNotEmpty ? _currentStep : 'Chargement en cours...',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: const Color(0xDB606D7C).withValues(alpha: 0.7),
@@ -706,7 +692,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
                             ),
                           ),
                           child: Text(
-                            'Erreur: ${_errorMessage}',
+                            'Erreur: $_errorMessage',
                             style: const TextStyle(
                               fontFamily: 'Quicksand',
                               fontSize: 14,

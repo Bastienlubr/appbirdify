@@ -19,6 +19,16 @@ class _BaseOrnithoPageState extends State<BaseOrnithoPage> {
   bool _dense = false; // bouton temporaire: densité de la grille
   final Set<String> _selectedMilieux = <String>{};
 
+  void _toggleBiomeSelection(String biomeKey, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedMilieux.add(biomeKey);
+      } else {
+        _selectedMilieux.remove(biomeKey);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -59,8 +69,8 @@ class _BaseOrnithoPageState extends State<BaseOrnithoPage> {
         final m = buildResponsiveMetrics(context, constraints);
         final double titleFont = m.font(24, tabletFactor: 1.1, min: 20, max: 40);
         final double subtitleFont = m.font(16, tabletFactor: 1.05, min: 13, max: 22);
-        final double cardRadius = m.dp(14, tabletFactor: 1.05);
-        final double cardPadding = m.dp(8, tabletFactor: 1.1);
+        // final double cardRadius = m.dp(14, tabletFactor: 1.05);
+        // final double cardPadding = m.dp(8, tabletFactor: 1.1);
         final double imageRadius = m.dp(12, tabletFactor: 1.05);
         final double nameFont = m.font(16, tabletFactor: 1.0, min: 13, max: 20);
         final double searchHeight = m.dp(48, tabletFactor: 1.0);
@@ -250,15 +260,7 @@ extension _Filters on _BaseOrnithoPageState {
           padding: EdgeInsets.only(right: m.gapSmall()),
           child: FilterChip(
             selected: _selectedMilieux.contains(biome.toLowerCase()),
-            onSelected: (sel) {
-              setState(() {
-                if (sel) {
-                  _selectedMilieux.add(biome.toLowerCase());
-                } else {
-                  _selectedMilieux.remove(biome.toLowerCase());
-                }
-              });
-            },
+            onSelected: (sel) => _toggleBiomeSelection(biome.toLowerCase(), sel),
             backgroundColor: const Color(0xFF6A994E),
             selectedColor: const Color(0xFF6A994E),
             label: Text(biome,
@@ -324,48 +326,7 @@ bool _birdMatchesSelectedBiomes(Bird b, Set<String> selected) {
   return normalized.any((n) => selected.contains(n));
 }
 
-class _AutoFitTwoLineText extends StatelessWidget {
-  final String text;
-  final double maxFontSize;
-  final double minFontSize;
-  final TextStyle baseStyle;
-
-  const _AutoFitTwoLineText({
-    required this.text,
-    required this.maxFontSize,
-    required this.minFontSize,
-    required this.baseStyle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        double font = maxFontSize;
-        final TextPainter painter = TextPainter(
-          textDirection: TextDirection.ltr,
-          maxLines: 2,
-        );
-
-        // Réduire progressivement jusqu'à tenir sur 2 lignes sans overflow
-        while (font > minFontSize) {
-          painter.text = TextSpan(text: text, style: baseStyle.copyWith(fontSize: font));
-          painter.layout(maxWidth: constraints.maxWidth);
-          if (!painter.didExceedMaxLines) break;
-          font -= 0.5; // pas fin pour un rendu fluide
-        }
-
-        return Text(
-          text,
-          maxLines: 2,
-          overflow: TextOverflow.visible,
-          textAlign: TextAlign.center,
-          style: baseStyle.copyWith(fontSize: font),
-        );
-      },
-    );
-  }
-}
+// (supprimé) _AutoFitTwoLineText non utilisé
 
 /// Auto-fit spécialisé: essaie d'abord en 1 ligne en réduisant jusqu'à 88% max.
 /// Si ça ne rentre pas, passe à 2 lignes et peut réduire jusqu'à 70%.

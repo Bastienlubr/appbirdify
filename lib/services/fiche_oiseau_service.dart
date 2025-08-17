@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../models/fiche_oiseau.dart';
 
 /// Service pour gérer les fiches oiseaux dans Firestore
@@ -23,7 +24,9 @@ class FicheOiseauService {
 			await _auth.signInAnonymously();
 			return _auth.currentUser != null;
 		} catch (e) {
-			print('Erreur authentification anonyme: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur authentification anonyme: $e');
+			}
 			return false;
 		}
 	}
@@ -32,26 +35,34 @@ class FicheOiseauService {
 	static Future<FicheOiseau?> getFicheById(String idOiseau) async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur getFicheById: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur getFicheById: Impossible d\'assurer l\'authentification');
+				}
 				return null;
 			}
 
 			final docSnapshot = await _collection.doc(idOiseau).get();
 			
 			if (!docSnapshot.exists) {
-				print('FicheOiseauService: Document non trouvé pour l\'ID $idOiseau');
+				if (kDebugMode) {
+					debugPrint('FicheOiseauService: Document non trouvé pour l\'ID $idOiseau');
+				}
 				return null;
 			}
 
-			final data = docSnapshot.data() as Map<String, dynamic>?;
+			final data = docSnapshot.data();
 			if (data == null) {
-				print('FicheOiseauService: Données nulles pour la fiche $idOiseau');
+				if (kDebugMode) {
+					debugPrint('FicheOiseauService: Données nulles pour la fiche $idOiseau');
+				}
 				return null;
 			}
 
 			return FicheOiseau.fromFirestore(data);
 		} catch (e) {
-			print('Erreur lors de la récupération de la fiche $idOiseau: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de la récupération de la fiche $idOiseau: $e');
+			}
 			return null;
 		}
 	}
@@ -60,7 +71,9 @@ class FicheOiseauService {
 	static Future<FicheOiseau?> getFicheByNomScientifique(String nomScientifique) async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur getFicheByNomScientifique: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur getFicheByNomScientifique: Impossible d\'assurer l\'authentification');
+				}
 				return null;
 			}
 
@@ -72,7 +85,9 @@ class FicheOiseauService {
 			final data = query.docs.first.data();
 			return FicheOiseau.fromFirestore(data);
 		} catch (e) {
-			print('Erreur getFicheByNomScientifique($nomScientifique): $e');
+			if (kDebugMode) {
+				debugPrint('Erreur getFicheByNomScientifique($nomScientifique): $e');
+			}
 			return null;
 		}
 	}
@@ -84,23 +99,82 @@ class FicheOiseauService {
 				return null;
 			}
 
-			final data = docSnapshot.data() as Map<String, dynamic>?;
+			final data = docSnapshot.data();
 			if (data == null) {
 				return null;
 			}
 
 			return FicheOiseau.fromFirestore(data);
 		}).handleError((error) {
-			print('Erreur watchFicheById: $error');
+			if (kDebugMode) {
+				debugPrint('Erreur watchFicheById: $error');
+			}
 			return null;
 		});
+	}
+
+	/// Écoute les changements d'une fiche par nom scientifique exact
+	static Stream<FicheOiseau?> watchFicheByNomScientifique(String nomScientifique) {
+		// Les lectures publiques sont autorisées par les règles; pas d'auth stricte ici
+		return _collection
+			.where('nomScientifique', isEqualTo: nomScientifique)
+			.limit(1)
+			.snapshots()
+			.map((querySnapshot) {
+				if (querySnapshot.docs.isEmpty) return null;
+				final data = querySnapshot.docs.first.data();
+				return FicheOiseau.fromFirestore(data);
+			}).handleError((error) {
+				if (kDebugMode) {
+					debugPrint('Erreur watchFicheByNomScientifique($nomScientifique): $error');
+				}
+				return null;
+			});
+	}
+
+	/// Écoute les changements d'une fiche par nom français exact
+	static Stream<FicheOiseau?> watchFicheByNomFrancais(String nomFrancais) {
+		return _collection
+			.where('nomFrancais', isEqualTo: nomFrancais)
+			.limit(1)
+			.snapshots()
+			.map((querySnapshot) {
+				if (querySnapshot.docs.isEmpty) return null;
+				final data = querySnapshot.docs.first.data();
+				return FicheOiseau.fromFirestore(data);
+			}).handleError((error) {
+				if (kDebugMode) {
+					debugPrint('Erreur watchFicheByNomFrancais($nomFrancais): $error');
+				}
+				return null;
+			});
+	}
+
+	/// Écoute par appId (id interne app: genus_species)
+	static Stream<FicheOiseau?> watchFicheByAppId(String appId) {
+		return _collection
+			.where('appId', isEqualTo: appId)
+			.limit(1)
+			.snapshots()
+			.map((querySnapshot) {
+				if (querySnapshot.docs.isEmpty) return null;
+				final data = querySnapshot.docs.first.data();
+				return FicheOiseau.fromFirestore(data);
+			}).handleError((error) {
+				if (kDebugMode) {
+					debugPrint('Erreur watchFicheByAppId($appId): $error');
+				}
+				return null;
+			});
 	}
 
 	/// Récupère toutes les fiches oiseaux
 	static Future<List<FicheOiseau>> getAllFiches() async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur getAllFiches: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur getAllFiches: Impossible d\'assurer l\'authentification');
+				}
 				return [];
 			}
 
@@ -109,18 +183,22 @@ class FicheOiseauService {
 
 			for (final doc in querySnapshot.docs) {
 				try {
-					final data = doc.data() as Map<String, dynamic>;
+					final data = doc.data();
 					final fiche = FicheOiseau.fromFirestore(data);
 					fiches.add(fiche);
 				} catch (e) {
-					print('Erreur lors du parsing de la fiche ${doc.id}: $e');
+					if (kDebugMode) {
+						debugPrint('Erreur lors du parsing de la fiche ${doc.id}: $e');
+					}
 					// Continue avec les autres fiches
 				}
 			}
 
 			return fiches;
 		} catch (e) {
-			print('Erreur lors de la récupération de toutes les fiches: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de la récupération de toutes les fiches: $e');
+			}
 			return [];
 		}
 	}
@@ -128,15 +206,17 @@ class FicheOiseauService {
 	/// Récupère les fiches oiseaux avec pagination
 	static Future<List<FicheOiseau>> getFichesPaginated({
 		required int limit,
-		DocumentSnapshot? startAfter,
+		DocumentSnapshot<Map<String, dynamic>>? startAfter,
 	}) async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur getFichesPaginated: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur getFichesPaginated: Impossible d\'assurer l\'authentification');
+				}
 				return [];
 			}
 
-			Query query = _collection.orderBy('nomFrancais').limit(limit);
+			Query<Map<String, dynamic>> query = _collection.orderBy('nomFrancais').limit(limit);
 			
 			if (startAfter != null) {
 				query = query.startAfterDocument(startAfter);
@@ -147,18 +227,22 @@ class FicheOiseauService {
 
 			for (final doc in querySnapshot.docs) {
 				try {
-					final data = doc.data() as Map<String, dynamic>;
+					final data = doc.data();
 					final fiche = FicheOiseau.fromFirestore(data);
 					fiches.add(fiche);
 				} catch (e) {
-					print('Erreur lors du parsing de la fiche ${doc.id}: $e');
+					if (kDebugMode) {
+						debugPrint('Erreur lors du parsing de la fiche ${doc.id}: $e');
+					}
 					// Continue avec les autres fiches
 				}
 			}
 
 			return fiches;
 		} catch (e) {
-			print('Erreur lors de la récupération des fiches paginées: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de la récupération des fiches paginées: $e');
+			}
 			return [];
 		}
 	}
@@ -167,7 +251,9 @@ class FicheOiseauService {
 	static Future<List<FicheOiseau>> searchFichesByName(String searchTerm) async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur searchFichesByName: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur searchFichesByName: Impossible d\'assurer l\'authentification');
+				}
 				return [];
 			}
 
@@ -180,7 +266,7 @@ class FicheOiseauService {
 			
 			final querySnapshot = await _collection
 					.where('nomFrancais', isGreaterThanOrEqualTo: searchTermLower)
-					.where('nomFrancais', isLessThan: searchTermLower + '\uf8ff')
+					.where('nomFrancais', isLessThan: '$searchTermLower\uf8ff')
 					.limit(20)
 					.get();
 
@@ -188,7 +274,7 @@ class FicheOiseauService {
 
 			for (final doc in querySnapshot.docs) {
 				try {
-					final data = doc.data() as Map<String, dynamic>;
+					final data = doc.data();
 					final fiche = FicheOiseau.fromFirestore(data);
 					
 					// Filtre supplémentaire côté client pour plus de précision
@@ -197,14 +283,18 @@ class FicheOiseauService {
 						fiches.add(fiche);
 					}
 				} catch (e) {
-					print('Erreur lors du parsing de la fiche ${doc.id}: $e');
+					if (kDebugMode) {
+						debugPrint('Erreur lors du parsing de la fiche ${doc.id}: $e');
+					}
 					// Continue avec les autres fiches
 				}
 			}
 
 			return fiches;
 		} catch (e) {
-			print('Erreur lors de la recherche des fiches: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de la recherche des fiches: $e');
+			}
 			return [];
 		}
 	}
@@ -213,7 +303,9 @@ class FicheOiseauService {
 	static Future<List<FicheOiseau>> getFichesByHabitat(String habitat) async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur getFichesByHabitat: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur getFichesByHabitat: Impossible d\'assurer l\'authentification');
+				}
 				return [];
 			}
 
@@ -230,18 +322,22 @@ class FicheOiseauService {
 
 			for (final doc in querySnapshot.docs) {
 				try {
-					final data = doc.data() as Map<String, dynamic>;
+					final data = doc.data();
 					final fiche = FicheOiseau.fromFirestore(data);
 					fiches.add(fiche);
 				} catch (e) {
-					print('Erreur lors du parsing de la fiche ${doc.id}: $e');
+					if (kDebugMode) {
+						debugPrint('Erreur lors du parsing de la fiche ${doc.id}: $e');
+					}
 					// Continue avec les autres fiches
 				}
 			}
 
 			return fiches;
 		} catch (e) {
-			print('Erreur lors de la récupération des fiches par habitat: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de la récupération des fiches par habitat: $e');
+			}
 			return [];
 		}
 	}
@@ -250,15 +346,21 @@ class FicheOiseauService {
 	static Future<bool> createFiche(FicheOiseau fiche) async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur createFiche: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur createFiche: Impossible d\'assurer l\'authentification');
+				}
 				return false;
 			}
 
 			await _collection.doc(fiche.idOiseau).set(fiche.toFirestore());
-			print('Fiche oiseau créée avec succès: ${fiche.idOiseau}');
+			if (kDebugMode) {
+				debugPrint('Fiche oiseau créée avec succès: ${fiche.idOiseau}');
+			}
 			return true;
 		} catch (e) {
-			print('Erreur lors de la création de la fiche ${fiche.idOiseau}: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de la création de la fiche ${fiche.idOiseau}: $e');
+			}
 			return false;
 		}
 	}
@@ -267,15 +369,21 @@ class FicheOiseauService {
 	static Future<bool> updateFiche(FicheOiseau fiche) async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur updateFiche: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur updateFiche: Impossible d\'assurer l\'authentification');
+				}
 				return false;
 			}
 
 			await _collection.doc(fiche.idOiseau).update(fiche.toFirestore());
-			print('Fiche oiseau mise à jour avec succès: ${fiche.idOiseau}');
+			if (kDebugMode) {
+				debugPrint('Fiche oiseau mise à jour avec succès: ${fiche.idOiseau}');
+			}
 			return true;
 		} catch (e) {
-			print('Erreur lors de la mise à jour de la fiche ${fiche.idOiseau}: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de la mise à jour de la fiche ${fiche.idOiseau}: $e');
+			}
 			return false;
 		}
 	}
@@ -284,15 +392,21 @@ class FicheOiseauService {
 	static Future<bool> deleteFiche(String idOiseau) async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur deleteFiche: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur deleteFiche: Impossible d\'assurer l\'authentification');
+				}
 				return false;
 			}
 
 			await _collection.doc(idOiseau).delete();
-			print('Fiche oiseau supprimée avec succès: $idOiseau');
+			if (kDebugMode) {
+				debugPrint('Fiche oiseau supprimée avec succès: $idOiseau');
+			}
 			return true;
 		} catch (e) {
-			print('Erreur lors de la suppression de la fiche $idOiseau: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de la suppression de la fiche $idOiseau: $e');
+			}
 			return false;
 		}
 	}
@@ -301,15 +415,21 @@ class FicheOiseauService {
 	static Future<bool> upsertFiche(FicheOiseau fiche) async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur upsertFiche: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur upsertFiche: Impossible d\'assurer l\'authentification');
+				}
 				return false;
 			}
 
 			await _collection.doc(fiche.idOiseau).set(fiche.toFirestore(), SetOptions(merge: true));
-			print('Fiche oiseau upsertée avec succès: ${fiche.idOiseau}');
+			if (kDebugMode) {
+				debugPrint('Fiche oiseau upsertée avec succès: ${fiche.idOiseau}');
+			}
 			return true;
 		} catch (e) {
-			print('Erreur lors de l\'upsert de la fiche ${fiche.idOiseau}: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de l\'upsert de la fiche ${fiche.idOiseau}: $e');
+			}
 			return false;
 		}
 	}
@@ -318,12 +438,16 @@ class FicheOiseauService {
 	static Future<bool> importFichesBatch(List<FicheOiseau> fiches) async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur importFichesBatch: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur importFichesBatch: Impossible d\'assurer l\'authentification');
+				}
 				return false;
 			}
 
 			if (fiches.isEmpty) {
-				print('Aucune fiche à importer');
+				if (kDebugMode) {
+					debugPrint('Aucune fiche à importer');
+				}
 				return true;
 			}
 
@@ -345,17 +469,25 @@ class FicheOiseauService {
 				try {
 					await batch.commit();
 					successCount += endIndex - i;
-					print('Lot ${(i ~/ batchSize) + 1} importé avec succès: ${endIndex - i} fiches');
+					if (kDebugMode) {
+						debugPrint('Lot ${(i ~/ batchSize) + 1} importé avec succès: ${endIndex - i} fiches');
+					}
 				} catch (e) {
 					errorCount += endIndex - i;
-					print('Erreur lors de l\'import du lot ${(i ~/ batchSize) + 1}: $e');
+					if (kDebugMode) {
+						debugPrint('Erreur lors de l\'import du lot ${(i ~/ batchSize) + 1}: $e');
+					}
 				}
 			}
 
-			print('Import terminé: $successCount succès, $errorCount erreurs');
+			if (kDebugMode) {
+				debugPrint('Import terminé: $successCount succès, $errorCount erreurs');
+			}
 			return errorCount == 0;
 		} catch (e) {
-			print('Erreur lors de l\'import en lot: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de l\'import en lot: $e');
+			}
 			return false;
 		}
 	}
@@ -364,14 +496,18 @@ class FicheOiseauService {
 	static Future<int> getFichesCount() async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur getFichesCount: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur getFichesCount: Impossible d\'assurer l\'authentification');
+				}
 				return 0;
 			}
 
 			final querySnapshot = await _collection.count().get();
 			return querySnapshot.count ?? 0;
 		} catch (e) {
-			print('Erreur lors du comptage des fiches: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors du comptage des fiches: $e');
+			}
 			return 0;
 		}
 	}
@@ -380,14 +516,18 @@ class FicheOiseauService {
 	static Future<bool> ficheExists(String idOiseau) async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur ficheExists: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur ficheExists: Impossible d\'assurer l\'authentification');
+				}
 				return false;
 			}
 
 			final docSnapshot = await _collection.doc(idOiseau).get();
 			return docSnapshot.exists;
 		} catch (e) {
-			print('Erreur lors de la vérification de l\'existence de la fiche $idOiseau: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de la vérification de l\'existence de la fiche $idOiseau: $e');
+			}
 			return false;
 		}
 	}
@@ -396,7 +536,9 @@ class FicheOiseauService {
 	static Future<Map<String, dynamic>> getFichesStats() async {
 		try {
 			if (!await _ensureUserAuthenticated()) {
-				print('Erreur getFichesStats: Impossible d\'assurer l\'authentification');
+				if (kDebugMode) {
+					debugPrint('Erreur getFichesStats: Impossible d\'assurer l\'authentification');
+				}
 				return {};
 			}
 
@@ -424,7 +566,9 @@ class FicheOiseauService {
 				'dateMiseAJour': DateTime.now().toIso8601String(),
 			};
 		} catch (e) {
-			print('Erreur lors de la récupération des statistiques: $e');
+			if (kDebugMode) {
+				debugPrint('Erreur lors de la récupération des statistiques: $e');
+			}
 			return {};
 		}
 	}

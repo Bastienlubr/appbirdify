@@ -43,8 +43,6 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late AnimationController _progressController;
-  late Animation<double> _pulseAnimation;
-  late Animation<double> _progressAnimation;
   final String _lottiePath = 'assets/PAGE/Chargement/chenille.json';
   final List<String> _funFacts = [];
   int _currentFunFactIndex = 0;
@@ -55,7 +53,7 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
 
   String _currentStep = '';
   String? _errorMessage;
-  bool _isCompleted = false;
+  // Removed unused _isCompleted; visual completion reflected by navigation
 
   @override
   void initState() {
@@ -82,9 +80,7 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
     });
     await Future.delayed(const Duration(milliseconds: 500));
 
-    setState(() {
-      _isCompleted = true;
-    });
+    // Design mode: nothing more to do here
   }
 
   @override
@@ -102,26 +98,14 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    _pulseAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
+    // No explicit tween needed for pulse; controller repeats
 
     // Animation de progression
     _progressController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _progressAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _progressController,
-      curve: Curves.easeOut,
-    ));
+    // Progress controlled via animateTo on controller
 
     // Démarrer les animations
     _pulseController.repeat(reverse: true);
@@ -225,10 +209,6 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
-        setState(() {
-          _isCompleted = true;
-        });
-
         // Attendre un peu pour que l'utilisateur voie la finalisation
         await Future.delayed(const Duration(milliseconds: 800));
 
@@ -378,7 +358,7 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
             final Size box = constraints.biggest;
             final double shortest = box.shortestSide;
             final bool isWide = box.aspectRatio >= 0.70;
-            final bool isLarge = s.isMD || s.isLG || s.isXL;
+            // isLarge not used
             final bool isTablet = shortest >= 600;
 
             final double scale = s.textScale();
@@ -451,7 +431,7 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
                       SizedBox(height: mediumGap),
 
                       Text(
-                        'Déchargement en cours...',
+                        _currentStep.isNotEmpty ? _currentStep : 'Déchargement en cours...',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: const Color(0xDB606D7C).withValues(alpha: 0.7),
@@ -554,7 +534,7 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
                             ),
                           ),
                           child: Text(
-                            'Erreur: ${_errorMessage}',
+                            'Erreur: $_errorMessage',
                             style: const TextStyle(
                               fontFamily: 'Quicksand',
                               fontSize: 14,

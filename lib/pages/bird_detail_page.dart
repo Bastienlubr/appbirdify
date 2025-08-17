@@ -1,56 +1,12 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/bird.dart';
 import '../ui/responsive/responsive.dart';
 import '../models/fiche_oiseau.dart';
 import '../services/fiche_oiseau_service.dart';
 
-// Clipper pour créer la forme arrondie du haut (identique au panel)
-class _RoundedTopClipper extends CustomClipper<Path> {
-  final double radius;
-
-  const _RoundedTopClipper({required this.radius});
-
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    
-    // Commence en bas à gauche
-    path.moveTo(0, size.height);
-    
-    // Monte sur le côté gauche jusqu'au début de la courbe
-    path.lineTo(0, radius);
-    
-    // Arc de cercle pour le coin gauche (identique au BorderRadius du panel)
-    path.arcToPoint(
-      Offset(radius, 0),
-      radius: Radius.circular(radius),
-      clockwise: false,
-    );
-    
-    // Ligne droite en haut (partie arrondie)
-    path.lineTo(size.width - radius, 0);
-    
-    // Arc de cercle pour le coin droit (identique au BorderRadius du panel)
-    path.arcToPoint(
-      Offset(size.width, radius),
-      radius: Radius.circular(radius),
-      clockwise: false,
-    );
-    
-    // Descend sur le côté droit
-    path.lineTo(size.width, size.height);
-    
-    // Ligne droite en bas pour fermer
-    path.lineTo(0, size.height);
-    
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
-}
+// (supprimé) _RoundedTopClipper non utilisé
 
 // -----------------------------------------------------------------------------
 // Physique personnalisée pour un carrousel stable (limite l'inertie et l'effet
@@ -115,6 +71,9 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   // Données Firestore (fiche)
   FicheOiseau? _fiche;
   bool _ficheLoading = false;
+  StreamSubscription<FicheOiseau?>? _ficheSubscription;
+  StreamSubscription<FicheOiseau?>? _ficheFrSubscription;
+  StreamSubscription<FicheOiseau?>? _ficheAppIdSubscription;
 
   // Onglets (id, titre, icône, couleur)
   static const List<Map<String, dynamic>> _tabs = [
@@ -144,8 +103,8 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     },
     {
       'id': 'repartition',
-      'title': 'Répartition',
-      'icon': Icons.public,
+      'title': 'Protection et état actuel',
+      'icon': Icons.security,
       'color': Color(0xFFFEC868),
     },
   ];
@@ -186,25 +145,102 @@ class _BirdDetailPageState extends State<BirdDetailPage>
           _forceRecenterSelectedTab();
           _startPeriodicCenteringCheck();
 
-          // Charger la fiche Firestore par nom scientifique
-          await _loadFiche();
+          // Écouter la fiche Firestore via appId (prioritaire) puis noms
+          _startWatchingFiche();
         });
       }
     });
   }
 
-  Future<void> _loadFiche() async {
+  // (supprimé) _loadFiche non utilisé
+
+  void _startWatchingFiche() {
     if (_ficheLoading) return;
     setState(() => _ficheLoading = true);
-    try {
-      final nomScientifique = '${widget.bird.genus} ${widget.bird.species}';
-      final fiche = await FicheOiseauService.getFicheByNomScientifique(nomScientifique);
-      if (mounted) setState(() => _fiche = fiche);
-    } catch (_) {
-      // silent
-    } finally {
-      if (mounted) setState(() => _ficheLoading = false);
-    }
+
+    final nomScientifique = '${widget.bird.genus} ${widget.bird.species}';
+    final nomFrancais = widget.bird.nomFr;
+    final appId = '${widget.bird.genus.toLowerCase()}_${widget.bird.species.toLowerCase()}';
+
+    _ficheSubscription?.cancel();
+    _ficheFrSubscription?.cancel();
+    _ficheAppIdSubscription?.cancel();
+
+    bool received = false;
+
+    // 1) appId prioritaire
+    _ficheAppIdSubscription = FicheOiseauService
+        .watchFicheByAppId(appId)
+        .listen((fiche) {
+      if (!mounted || fiche == null) return;
+      // Debug: log réception fiche par appId
+      try {
+        final idLen = fiche.identification.description?.length ?? 0;
+        final habLen = fiche.habitat.description?.length ?? 0;
+        final alimLen = fiche.alimentation.description?.length ?? 0;
+        final reproLen = fiche.reproduction.description?.length ?? 0;
+        final repLen = fiche.protectionEtatActuel?.description?.length ?? 0;
+        // ignore: avoid_print
+        print('📥 Fiche reçue (appId=$appId): id=$idLen, hab=$habLen, alim=$alimLen, repro=$reproLen, prot=$repLen');
+      } catch (_) {}
+      if (!received) received = true;
+      setState(() {
+        _fiche = fiche;
+        _ficheLoading = false;
+      });
+    }, onError: (_) {
+      if (!mounted) return;
+      setState(() => _ficheLoading = false);
+    });
+
+    // 2) Fallbacks par noms
+    _ficheSubscription = FicheOiseauService
+        .watchFicheByNomScientifique(nomScientifique)
+        .listen((fiche) {
+      if (!mounted || fiche == null || received) return;
+      // Debug: log réception fiche par nom scientifique
+      try {
+        final idLen = fiche.identification.description?.length ?? 0;
+        final habLen = fiche.habitat.description?.length ?? 0;
+        final alimLen = fiche.alimentation.description?.length ?? 0;
+        final reproLen = fiche.reproduction.description?.length ?? 0;
+        final repLen = fiche.protectionEtatActuel?.description?.length ?? 0;
+        // ignore: avoid_print
+        print('📥 Fiche reçue (nomSci=$nomScientifique): id=$idLen, hab=$habLen, alim=$alimLen, repro=$reproLen, prot=$repLen');
+      } catch (_) {}
+      received = true;
+      setState(() {
+        _fiche = fiche;
+        _ficheLoading = false;
+      });
+    }, onError: (_) {
+      if (!mounted) return;
+      setState(() => _ficheLoading = false);
+    });
+
+    _ficheFrSubscription = FicheOiseauService
+        .watchFicheByNomFrancais(nomFrancais)
+        .listen((fiche) {
+      if (!mounted || fiche == null || received) return;
+      // Debug: log réception fiche par nom français
+      try {
+        final idLen = fiche.identification.description?.length ?? 0;
+        final habLen = fiche.habitat.description?.length ?? 0;
+        final alimLen = fiche.alimentation.description?.length ?? 0;
+        final reproLen = fiche.reproduction.description?.length ?? 0;
+        final repLen = fiche.protectionEtatActuel?.description?.length ?? 0;
+        // ignore: avoid_print
+        print('📥 Fiche reçue (nomFr=$nomFrancais): id=$idLen, hab=$habLen, alim=$alimLen, repro=$reproLen, prot=$repLen');
+      } catch (_) {}
+      received = true;
+      setState(() {
+        _fiche = fiche;
+        _ficheLoading = false;
+      });
+    }, onError: (_) {
+      if (!mounted) return;
+      setState(() => _ficheLoading = false);
+    });
   }
 
   @override
@@ -213,6 +249,9 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     _panelController.dispose();
     _contentController.dispose();
     _tabController.dispose();
+    _ficheSubscription?.cancel();
+    _ficheFrSubscription?.cancel();
+    _ficheAppIdSubscription?.cancel();
     super.dispose();
   }
 
@@ -247,11 +286,25 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   bool _wasInExtendedMode = false;
   bool _wasInBasicMode = false;
   bool _isRecenteringScheduled = false;
+  bool _miniTitleHidden = false;
 
   // Méthode appelée quand la position du panel change
   void _onPanelPositionChanged() {
     final isCurrentlyInBasicMode = _panelAnimation.value < 0.3; // Mode 2/3-1/3
     final isCurrentlyInExtendedMode = _panelAnimation.value > 0.7; // Mode étendu
+    // Disparition progressive du petit titre après 5s en mode étendu
+    if (isCurrentlyInExtendedMode && !_wasInExtendedMode) {
+      _miniTitleHidden = false;
+      Future.delayed(const Duration(seconds: 3), () {
+        if (!mounted) return;
+        if (_panelAnimation.value > 0.7) {
+          setState(() => _miniTitleHidden = true);
+        }
+      });
+    }
+    if (!isCurrentlyInExtendedMode && _miniTitleHidden) {
+      setState(() => _miniTitleHidden = false);
+    }
     
     // Détecter TOUTE transition vers un mode stable (2/3-1/3 OU étendu)
     final shouldRecenter = (isCurrentlyInBasicMode && !_wasInBasicMode) || 
@@ -277,33 +330,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   }
 
   // Recentrer l'onglet sélectionné dans le carousel (version douce)
-  void _recenterSelectedTab() {
-    if (!mounted || !_tabController.hasClients || _programmaticAnimating) return;
-    
-    // Calculer la page cible pour centrer l'onglet sélectionné
-    final targetPage = _nearestPageForIndex(_tabController, _selectedTabIndex);
-    
-    // Vérifier si on a vraiment besoin de recentrer
-    final currentPage = _tabController.page ?? _tabController.initialPage.toDouble();
-    if ((currentPage - targetPage).abs() > 0.3) { // Seuil plus sensible pour recentrer plus souvent
-      _programmaticAnimating = true;
-      
-      // Petit délai pour s'assurer que les autres animations sont terminées
-      Future.delayed(const Duration(milliseconds: 50), () {
-        if (mounted && _tabController.hasClients) {
-          _tabController.animateToPage(
-            targetPage,
-            duration: const Duration(milliseconds: 300), // Animation rapide mais douce
-            curve: Curves.easeOutCubic,
-          ).then((_) {
-            if (mounted) _programmaticAnimating = false;
-          });
-        } else {
-          _programmaticAnimating = false;
-        }
-      });
-    }
-  }
+  // (supprimé) _recenterSelectedTab non utilisé
 
   // Forcer le recentrage (version robuste pour les transitions de mode)
   void _forceRecenterSelectedTab() {
@@ -349,7 +376,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   int _nearestPageForIndex(PageController controller, int desiredIndex) {
     final double current =
         controller.hasClients ? (controller.page ?? controller.initialPage.toDouble())
-                              : controller.initialPage?.toDouble() ?? 0.0;
+                              : controller.initialPage.toDouble();
 
     final int currentRound = current.round();
     final int currentMod = ((currentRound % _nTabs) + _nTabs) % _nTabs;
@@ -368,7 +395,19 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       setState(() {
         _previousTabIndex = _selectedTabIndex;
         _selectedTabIndex = newIndex;
+        // Réaffiche le petit titre à chaque switch d'onglet; il sera masqué à nouveau au bout de 5s en mode étendu
+        _miniTitleHidden = false;
       });
+
+      // Si on est déjà en mode étendu, reprogrammer la disparition du petit titre après 3s
+      if (_panelAnimation.value > 0.7) {
+        Future.delayed(const Duration(seconds: 3), () {
+          if (!mounted) return;
+          if (_panelAnimation.value > 0.7) {
+            setState(() => _miniTitleHidden = true);
+          }
+        });
+      }
       
       // Recentrer l'onglet dans TOUS les modes stables AVEC délai pour éviter conflits
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -484,8 +523,8 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     return Scaffold(
       backgroundColor: const Color(0xFFF2F5F8),
       body: LayoutBuilder(
-        builder: (context, constraints) {
-          final m = buildResponsiveMetrics(context, constraints);
+      builder: (context, constraints) {
+        final m = buildResponsiveMetrics(context, constraints);
           final screenHeight = constraints.maxHeight;
 
                       return Stack(
@@ -499,7 +538,9 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                // Bouton retour
                _buildBackButton(m),
 
-                             
+               // (Titre overlay supprimé, le titre revient dans le panel)
+
+                              
 
               // Panel
               AnimatedBuilder(
@@ -522,7 +563,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                         _panelController.value = newValue;
                       },
                       onPanEnd: _onPanelPanEnd,
-                      child: Container(
+                    child: Container(
                         width: double.infinity,
                         height: currentPanelHeight,
                         decoration: const BoxDecoration(
@@ -531,8 +572,8 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                             topLeft: Radius.circular(65),
                             topRight: Radius.circular(65),
                           ),
-                          boxShadow: [
-                            BoxShadow(
+                        boxShadow: [
+                          BoxShadow(
                               color: Color(0x1A000000),
                               blurRadius: 10,
                               offset: Offset(0, -5),
@@ -545,10 +586,10 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                     ),
                   );
                 },
-              ),
-            ],
-          );
-        },
+            ),
+          ],
+        );
+      },
       ),
     );
   }
@@ -560,14 +601,18 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       height: screenHeight,
         decoration: BoxDecoration(
         image: DecorationImage(
-          image: widget.bird.urlImage.isNotEmpty
-              ? NetworkImage(widget.bird.urlImage)
-              : const NetworkImage("https://placehold.co/400x600"),
+          image: (_fiche?.medias.imagePrincipale != null && _fiche!.medias.imagePrincipale!.isNotEmpty)
+              ? NetworkImage(_fiche!.medias.imagePrincipale!)
+              : (widget.bird.urlImage.isNotEmpty
+                  ? NetworkImage(widget.bird.urlImage)
+                  : const NetworkImage("https://placehold.co/400x600")),
           fit: BoxFit.cover,
         ),
       ),
     );
   }
+
+  // _buildCenteredHeroTitle supprimé (titre géré dans le panel)
 
   // --- Back button -----------------------------------------------------------
   Widget _buildBackButton(ResponsiveMetrics m) {
@@ -662,7 +707,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     final showBasicInfo = _panelAnimation.value < 0.3; // infos visibles en bas
 
     return Column(
-      children: [
+          children: [
         // Poignée
         Container(
           width: m.dp(40, tabletFactor: 1.1),
@@ -726,8 +771,8 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 400),
                     height: showBasicInfo ? 0 : 3,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
+              width: double.infinity,
+              decoration: BoxDecoration(
                       color: const Color(0x70344356),
                       borderRadius: BorderRadius.circular(1.5),
                     ),
@@ -737,19 +782,20 @@ class _BirdDetailPageState extends State<BirdDetailPage>
 
                 SizedBox(height: showBasicInfo ? 0 : m.dp(4, tabletFactor: 1.1)),
 
-                // Titre principal de l'onglet courant
-                Text(
-                  _tabs[_selectedTabIndex]['title'],
-                  textAlign: TextAlign.left,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize:
-                        m.font(32, tabletFactor: 1.1, min: 24, max: 40),
-                    fontFamily: 'Quicksand',
-                    fontWeight: FontWeight.w900,
+                // Titre principal de l'onglet courant (dans le panel, en haut)
+                Align(
+                  alignment: _panelAnimation.value > 0.7 ? Alignment.center : Alignment.centerLeft,
+                        child: Text(
+                    _tabs[_selectedTabIndex]['title'],
+                    textAlign: _panelAnimation.value > 0.7 ? TextAlign.center : TextAlign.left,
+                          style: TextStyle(
+                      color: textColor,
+                      fontSize: m.font(32, tabletFactor: 1.1, min: 24, max: 40),
+                            fontFamily: 'Quicksand',
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
-
                 SizedBox(height: m.dp(16, tabletFactor: 1.1)),
 
                 // Contenu principal (PageView synchronisé)
@@ -758,22 +804,22 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                 SizedBox(height: m.dp(40, tabletFactor: 1.1)),
               ],
             ),
-          ),
-          ),
-      ],
+              ),
+            ),
+          ],
     );
   }
 
   Widget _buildInfoSection(ResponsiveMetrics m) {
     return Column(
-      children: [
+        children: [
         _buildInfoRow(m, 'Nom', _fiche?.nomFrancais.isNotEmpty == true ? _fiche!.nomFrancais : widget.bird.nomFr),
         SizedBox(height: m.dp(8, tabletFactor: 1.0)),
         _buildInfoRow(
             m, 'N. Scientifique', _fiche?.nomScientifique.isNotEmpty == true ? _fiche!.nomScientifique : '${widget.bird.genus} ${widget.bird.species}'),
         SizedBox(height: m.dp(8, tabletFactor: 1.0)),
         _buildInfoRow(m, 'Famille', _fiche?.famille.isNotEmpty == true ? _fiche!.famille : _familyName),
-        SizedBox(height: m.dp(16, tabletFactor: 1.1)),
+            SizedBox(height: m.dp(16, tabletFactor: 1.1)),
         Container(
           height: 3,
       width: double.infinity,
@@ -791,8 +837,8 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     const valueColor = Color(0xFF606D7C);
 
     return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         SizedBox(
           width: m.dp(125, tabletFactor: 1.1),
           child: Text(
@@ -817,7 +863,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
           ),
         ),
         Expanded(
-          child: Text(
+      child: Text(
             value,
             style: TextStyle(
               color: valueColor,
@@ -858,7 +904,8 @@ class _BirdDetailPageState extends State<BirdDetailPage>
               child: shouldAnimate
                   ? TweenAnimationBuilder<double>(
                       key: ValueKey(
-                          '$index-${isSelected ? "select" : "deselect"}'),
+                          '$index-${isSelected ? "select" : "deselect"}')
+,
                       duration: const Duration(milliseconds: 280), // Plus fluide
                       curve: Curves.easeOutCubic, // Courbe plus naturelle
                       tween: Tween<double>(
@@ -873,10 +920,10 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                         final colorAlpha = 0.3 + (0.7 * animValue); // 0.3 -> 1.0
                         final titleHeight = 6.0 * animValue; // 0 -> 6 simple
                         final shadowIntensity = 0.15 * animValue; // Ombre plus douce
-
-                        return Column(
+    
+    return Column(
                           mainAxisSize: MainAxisSize.min,
-                          children: [
+        children: [
                             Transform.translate(
                               offset: Offset(
                                   0.0, yOffset * m.dp(1, tabletFactor: 1.0)),
@@ -917,7 +964,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                                           top: m.dp(6, tabletFactor: 1.0)),
                                       child: Opacity(
                                         opacity: animValue,
-                                        child: Text(
+        child: Text(
                                           tab['title'],
             style: TextStyle(
                                             color: const Color(0x7F606D7C),
@@ -941,7 +988,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                   // Onglets non impliqués : état statique
                   Column(
                     mainAxisSize: MainAxisSize.min,
-                    children: [
+            children: [
           Container(
                         width: m.dp(60, tabletFactor: 1.1),
                         height: m.dp(60, tabletFactor: 1.1),
@@ -959,9 +1006,9 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                         ),
                       ),
                       const SizedBox.shrink(),
-                    ],
-                  ),
-            ),
+                  ],
+                ),
+              ),
           );
         },
       ),
@@ -982,9 +1029,9 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                     const Color(0xFFF3F5F9).withValues(alpha: 0.0),
                   ],
                   stops: const [0.0, 0.2],
-                ),
-              ),
-            ),
+          ),
+        ),
+      ),
           ),
           
           // Masque fade droite - couleur panel pour effet naturel
@@ -994,7 +1041,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
             bottom: 0,
             child: Container(
               width: m.dp(40, tabletFactor: 1.1),
-              decoration: BoxDecoration(
+      decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.centerRight,
                   end: Alignment.centerLeft,
@@ -1012,14 +1059,14 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     );
   }
 
-  // Titre animé de l'onglet sélectionné - petit et toujours visible
+  // Titre animé de l'onglet sélectionné - petit et toujours visible (disparaît après un délai en mode étendu)
   Widget _buildAnimatedTabTitle(ResponsiveMetrics m) {
     return SizedBox(
       height: m.dp(25, tabletFactor: 1.0), // Plus de hauteur pour éviter la coupure
       child: Align(
         alignment: Alignment.topCenter, // Colle en haut du conteneur
         child: TweenAnimationBuilder<double>(
-          key: ValueKey('title-$_selectedTabIndex-${_previousTabIndex}'),
+          key: ValueKey('title-$_selectedTabIndex-$_previousTabIndex'),
           duration: const Duration(milliseconds: 280), // Synchronisé avec les onglets
           curve: Curves.easeOutCubic, // Même courbe que les onglets
           tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -1028,24 +1075,29 @@ class _BirdDetailPageState extends State<BirdDetailPage>
             final opacity = animValue; // Animation simple et fluide
             final yOffset = 8.0 * (1.0 - animValue); // Descente simple et douce
             final scale = 0.85 + (0.15 * animValue); // Scaling modéré
-
-            return Transform.translate(
-              offset: Offset(0.0, yOffset),
-              child: Transform.scale(
-                scale: scale,
-                child: Opacity(
-                  opacity: opacity,
-                  child: Text(
-                    _tabs[_selectedTabIndex]['title'],
-                    textAlign: TextAlign.center,
-      style: TextStyle(
-                      color: const Color(0x7F606D7C), // Même couleur que sous les onglets
-                      fontSize: m.font(12, tabletFactor: 1.0, min: 10, max: 16), // Plus petit
-        fontFamily: 'Quicksand',
-                      fontWeight: FontWeight.w900, // Même poids que sous les onglets
-                      letterSpacing: 0.3,
-                    ),
-                  ),
+ 
+            return AnimatedOpacity(
+              opacity: _miniTitleHidden ? 0.0 : 1.0,
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeInOut,
+              child: Transform.translate(
+                offset: Offset(0.0, yOffset),
+                child: Transform.scale(
+                  scale: scale,
+                  child: Opacity(
+                    opacity: opacity,
+          child: Text(
+                      _tabs[_selectedTabIndex]['title'],
+                      textAlign: TextAlign.center,
+            style: TextStyle(
+                        color: const Color(0x7F606D7C), // Même couleur que sous les onglets
+                        fontSize: m.font(12, tabletFactor: 1.0, min: 10, max: 16), // Plus petit
+              fontFamily: 'Quicksand',
+                        fontWeight: FontWeight.w900, // Même poids que sous les onglets
+                        letterSpacing: 0.3,
+            ),
+          ),
+        ),
                 ),
               ),
             );
@@ -1059,7 +1111,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   Widget _buildMainContent(ResponsiveMetrics m) {
     final showBasicInfo = _panelAnimation.value < 0.3;
     final baseHeight =
-        showBasicInfo ? m.dp(300, tabletFactor: 1.2) : m.dp(400, tabletFactor: 1.2);
+        showBasicInfo ? m.dp(360, tabletFactor: 1.2) : m.dp(520, tabletFactor: 1.2);
 
     return SizedBox(
       height: baseHeight,
@@ -1115,17 +1167,94 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     Widget content;
     switch (_tabs[index]['id']) {
       case 'identification':
-        final texteId = _fiche?.identification.description ??
-            "Informations d'identification à venir pour ${widget.bird.nomFr}.";
-        content = Text(texteId, style: _contentTextStyle(m));
+        final id = _fiche?.identification;
+        final mesures = id?.mesures;
+        final ressemblantes = id?.especesRessemblantes;
+        final tiles = <Widget>[];
+        if ((mesures?.poids?.isNotEmpty ?? false) || (mesures?.taille?.isNotEmpty ?? false) || (mesures?.envergure?.isNotEmpty ?? false)) {
+          tiles.add(
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  if (mesures?.poids?.isNotEmpty ?? false)
+                    _miniInfoCard(title: 'Poids', value: mesures!.poids!, m: m),
+                  if (mesures?.taille?.isNotEmpty ?? false)
+                    _miniInfoCard(title: 'Taille', value: mesures!.taille!, m: m),
+                  if (mesures?.envergure?.isNotEmpty ?? false)
+                    _miniInfoCard(title: 'Envergure', value: mesures!.envergure!, m: m),
+                ],
+              ),
+            ),
+          );
+        }
+        if ((ressemblantes?.exemples.isNotEmpty ?? false) || (ressemblantes?.differenciation?.isNotEmpty ?? false)) {
+          tiles.add(
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Espèces ressemblantes', style: _subtitleTextStyle(m)),
+                const SizedBox(height: 6),
+                if (ressemblantes?.exemples.isNotEmpty ?? false)
+                  Text('Exemples: ${ressemblantes!.exemples.join(', ')}', style: _contentTextStyle(m)),
+                if (ressemblantes?.differenciation?.isNotEmpty ?? false)
+                  Text('À ne pas confondre: ${ressemblantes!.differenciation}', style: _contentTextStyle(m)),
+              ]),
+            ),
+          );
+        }
+        content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Classification', style: _subtitleTextStyle(m)),
+          const SizedBox(height: 6),
+          Text(_buildClassificationSentence(), style: _contentTextStyle(m)),
+          const SizedBox(height: 12),
+          Text('Morphologie', style: _subtitleTextStyle(m)),
+          if ((id?.morphologie?.isNotEmpty ?? false))
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(id!.morphologie!, style: _contentTextStyle(m)),
+            ),
+          if (!(id?.morphologie?.isNotEmpty ?? false))
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text('Description morphologique à venir.', style: _contentTextStyle(m)),
+            ),
+          ...tiles,
+        ]);
         break;
       case 'habitat':
-        final habitats = _fiche?.habitat.milieux ?? const <String>[];
-        final descriptionHab = _fiche?.habitat.description ?? '';
-        content = Text(
-          (habitats.isNotEmpty ? 'Milieux: ${habitats.join(', ')}. ' : '') + descriptionHab,
-          style: _contentTextStyle(m),
-        );
+        final h = _fiche?.habitat;
+        final milieux = h?.milieux ?? const <String>[];
+        final descriptionHab = h?.description ?? '';
+        final zones = h?.zonesObservation ?? '';
+        final mig = h?.migration;
+        final mois = mig?.mois;
+        final migTiles = <Widget>[];
+        if ((mois?.debut?.isNotEmpty ?? false) || (mois?.fin?.isNotEmpty ?? false)) {
+          migTiles.add(
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Wrap(spacing: 10, runSpacing: 10, children: [
+                if (mois?.debut?.isNotEmpty ?? false) _miniInfoCard(title: 'Début', value: mois!.debut!, m: m),
+                if (mois?.fin?.isNotEmpty ?? false) _miniInfoCard(title: 'Fin', value: mois!.fin!, m: m),
+              ]),
+            ),
+          );
+        }
+        content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Type de milieu', style: _subtitleTextStyle(m)),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(_buildTypeMilieuText(milieux, descriptionHab, h?.altitude), style: _contentTextStyle(m)),
+          ),
+          if (zones.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Text('Où l\'observer', style: _subtitleTextStyle(m))),
+          if (zones.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(zones, style: _contentTextStyle(m))),
+          if ((mig?.description?.isNotEmpty ?? false)) Padding(padding: const EdgeInsets.only(top: 12), child: Text('Migration', style: _subtitleTextStyle(m))),
+          if ((mig?.description?.isNotEmpty ?? false)) Padding(padding: const EdgeInsets.only(top: 6), child: Text(mig!.description!, style: _contentTextStyle(m))),
+          ...migTiles,
+        ]);
         break;
       case 'alimentation':
         final alim = _fiche?.alimentation;
@@ -1142,29 +1271,34 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         content = Text(parts.isNotEmpty ? parts.join('. ') : 'Données d\'alimentation à venir.', style: _contentTextStyle(m));
         break;
       case 'reproduction':
-        final repro = _fiche?.reproduction;
-        final partsR = <String>[];
-        if (repro?.saisonReproduction != null && repro!.saisonReproduction!.isNotEmpty) {
-          partsR.add('Saison: ${repro.saisonReproduction}');
+        final r = _fiche?.reproduction;
+        final desc = r?.description ?? '';
+        final periode = r?.periode;
+        final tiles = <Widget>[];
+        if ((periode?.debutMois?.isNotEmpty ?? false) || (periode?.finMois?.isNotEmpty ?? false)) {
+          tiles.add(_miniInfoCard(title: 'Période', value: [periode?.debutMois, periode?.finMois].where((e) => (e ?? '').isNotEmpty).join(' → '), m: m));
         }
-        if (repro?.nombreOeufs != null && repro!.nombreOeufs!.isNotEmpty) {
-          partsR.add('Œufs: ${repro.nombreOeufs}');
-        }
-        if (repro?.description != null && repro!.description!.isNotEmpty) {
-          partsR.add(repro.description!);
-        }
-        content = Text(partsR.isNotEmpty ? partsR.join('. ') : 'Données de reproduction à venir.', style: _contentTextStyle(m));
+        if (r?.nbOeufsParPondee?.isNotEmpty ?? false) tiles.add(_miniInfoCard(title: 'Œufs', value: r!.nbOeufsParPondee!, m: m));
+        if (r?.incubationJours?.isNotEmpty ?? false) tiles.add(_miniInfoCard(title: 'Incubation', value: r!.incubationJours!, m: m));
+        content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (desc.isNotEmpty) Text(desc, style: _contentTextStyle(m)),
+          if (tiles.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Wrap(spacing: 10, runSpacing: 10, children: tiles)),
+          if (desc.isEmpty && tiles.isEmpty) Text('Données de reproduction à venir.', style: _contentTextStyle(m)),
+        ]);
         break;
       case 'repartition':
-        final rep = _fiche?.repartition;
-        final partsRp = <String>[];
-        if (rep?.statutPresence != null && rep!.statutPresence!.isNotEmpty) {
-          partsRp.add('Statut: ${rep.statutPresence}');
-        }
-        if (rep?.description != null && rep!.description!.isNotEmpty) {
-          partsRp.add(rep.description!);
-        }
-        content = Text(partsRp.isNotEmpty ? partsRp.join('. ') : 'Données de répartition à venir.', style: _contentTextStyle(m));
+        final p = _fiche?.protectionEtatActuel;
+        final tiles = <Widget>[];
+        if (p?.statutFrance?.isNotEmpty ?? false) tiles.add(_miniInfoCard(title: 'France', value: p!.statutFrance!, m: m));
+        if (p?.statutMonde?.isNotEmpty ?? false) tiles.add(_miniInfoCard(title: 'Monde', value: p!.statutMonde!, m: m));
+        final hasTiles = tiles.isNotEmpty;
+        final desc = p?.description ?? '';
+        content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (hasTiles) Wrap(spacing: 10, runSpacing: 10, children: tiles),
+          if (p?.actions?.isNotEmpty ?? false) Padding(padding: const EdgeInsets.only(top: 12), child: Text('Actions: ${p!.actions!}', style: _contentTextStyle(m))),
+          if (desc.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Text(desc, style: _contentTextStyle(m))),
+          if (!hasTiles && desc.isEmpty) Text('Données de protection à venir.', style: _contentTextStyle(m)),
+        ]);
         break;
       default:
         content = Text(
@@ -1177,7 +1311,11 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     if (showBasicInfo) {
       return content; // pas de scroll interne, panel gère le scroll
     } else {
-      return SingleChildScrollView(child: content);
+      // Assure un scroll jusqu'au bas de l'écran pour éviter la frustration
+      return SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: m.dp(40, tabletFactor: 1.0)),
+        child: content,
+      );
     }
   }
 
@@ -1185,10 +1323,69 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     return TextStyle(
       color: const Color(0xFF606D7C),
       fontSize: m.font(16, tabletFactor: 1.0, min: 14, max: 20),
-      fontFamily: 'Quicksand',
-      fontWeight: FontWeight.w500,
+            fontFamily: 'Quicksand',
+            fontWeight: FontWeight.w500,
       decoration: underline ? TextDecoration.underline : null,
       height: 1.4,
+    );
+  }
+
+  TextStyle _subtitleTextStyle(ResponsiveMetrics m) {
+    return TextStyle(
+      color: const Color(0xFF606D7C),
+      fontSize: m.font(15, tabletFactor: 1.0, min: 13, max: 18),
+      fontFamily: 'Quicksand',
+      fontWeight: FontWeight.w700,
+      height: 1.3,
+    );
+  }
+
+  String _buildClassificationSentence() {
+    final nom = _fiche?.nomFrancais.isNotEmpty == true ? _fiche!.nomFrancais : widget.bird.nomFr;
+    final sci = _fiche?.nomScientifique.isNotEmpty == true ? _fiche!.nomScientifique : '${widget.bird.genus} ${widget.bird.species}';
+    final fam = _fiche?.famille.isNotEmpty == true ? _fiche!.famille : _familyName;
+    final ordre = _fiche?.ordre.isNotEmpty == true ? _fiche!.ordre : '';
+    final parts = <String>[
+      nom,
+      sci,
+      if (fam.isNotEmpty) 'famille $fam',
+      if (ordre.isNotEmpty) 'ordre $ordre',
+    ];
+    return '${parts.join(', ')}.';
+  }
+
+  String _buildTypeMilieuText(List<String> milieux, String descriptionHab, String? altitude) {
+    final items = <String>[];
+    if (milieux.isNotEmpty) {
+      items.add('Milieux: ${milieux.join(', ')}');
+    }
+    if ((altitude != null && altitude.trim().isNotEmpty) || descriptionHab.toLowerCase().contains('altitude')) {
+      // Essaie d'inclure l'altitude ou un indice d'altitude trouvé dans la description
+      items.add('Altitude: ${altitude?.trim().isNotEmpty == true ? altitude!.trim() : 'hautes altitudes'}');
+    }
+    if (descriptionHab.trim().isNotEmpty) {
+      // Ajoute un court extrait descriptif sans dupliquer l'information "Où l'observer"
+      items.add(descriptionHab.trim());
+    }
+    return items.isNotEmpty ? items.join('. ') : '';
+  }
+
+  Widget _miniInfoCard({required String title, required String value, required ResponsiveMetrics m}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: _contentTextStyle(m, underline: true)),
+          const SizedBox(height: 4),
+          Text(value, style: _contentTextStyle(m)),
+        ],
+      ),
     );
   }
 

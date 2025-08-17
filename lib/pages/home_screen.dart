@@ -40,30 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    // Conservé pour compatibilité si besoin, non utilisé car remplacé par HomeBottomNavBar
-    final bool isSelected = _currentIndex == index;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isSelected ? const Color(0xFFFEC868) : Colors.white,
-          size: 24,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Quicksand',
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
+  // (supprimé) _buildNavItem non utilisé (remplacé par HomeBottomNavBar)
 }
 
 class HomeContent extends StatefulWidget {
@@ -419,8 +396,7 @@ class _HomeContentState extends State<HomeContent> {
         final double subtitleFontSize = isTablet
             ? (14.0 * scale * 1.10).clamp(13.0, 22.0).toDouble()
             : 14.0 * phoneScaleUp;
-        final double navIconSize = isTablet ? 28.0 : 24.0;
-        final double navLabelSize = isTablet ? 13.0 : 12.0;
+        // Removed unused navIconSize/navLabelSize
 
         final double livesSize = isTablet
             ? (shortest * (isWide ? 0.15 : 0.18)).clamp(150.0, 230.0).toDouble()

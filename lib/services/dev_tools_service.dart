@@ -105,7 +105,7 @@ class DevToolsService {
       if (user == null) return;
 
       if (kDebugMode) {
-        debugPrint('♾️ Mise à jour du mode vies infinies=${enabled} pour ${user.uid}');
+        debugPrint('♾️ Mise à jour du mode vies infinies=$enabled pour ${user.uid}');
       }
 
       await _firestore

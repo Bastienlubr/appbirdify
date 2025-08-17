@@ -13,7 +13,7 @@ import '../ui/responsive/responsive.dart';
 import '../models/mission.dart';
 import '../models/bird.dart';
 import '../models/answer_recap.dart';
-import 'quiz_end_page.dart';
+// removed unused import
 import 'mission_unloading_screen.dart';
 
 class QuizPage extends StatefulWidget {
@@ -240,8 +240,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             // Mobile: conserver le rendu d'origine (3:4, 195x260). Tablette: 4:3 agrandi
             // Exiger un format portrait 3:4 (vertical) sur tous les écrans
             final double imageAspect = (3.0 / 4.0); // width / height
-            final double imageBaseHeight = 260.0 * ui;
-            final double imageBaseWidth = 195.0 * ui;
+            // Removed unused imageBaseHeight/imageBaseWidth (kept explicit sizes where needed)
             // Sur mobile (A54): conserver base 260x195 (3:4 portrait).
             // Sur tablette: viser 4:3, dimensionné principalement par la largeur pour un rendu "plein" sans letterbox.
             // Mobile: conserver strictement l'emplacement et la taille d'origine (195x260, 3:4)
@@ -283,9 +282,9 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             if (_showFeedback)
               Positioned.fill(
                 child: AnimatedBuilder(
-                  animation: _glowAnimation!,
+                  animation: _glowController!,
                   builder: (context, child) {
-                    final double t = _glowAnimation?.value ?? 0.0;
+                    final double t = _glowAnimation?.value ?? _glowController!.value;
                     // Intensité lumineuse progressive, plus douce au départ
                     final double intensity = Curves.easeIn.transform(t).clamp(0.0, 1.0);
                     final bool isCorrect = _selectedAnswer == question.correctAnswer;
@@ -646,7 +645,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                           textColor = Colors.white;
                         }
                       } else if (isCorrectAnswer) {
-                        backgroundColor = const Color.fromRGBO(106, 153, 78, 0.2);
+                        backgroundColor = const Color(0xFF6A994E).withValues(alpha: 0.2);
                         borderColor = const Color(0xFF6A994E);
                       }
                     }
@@ -1471,7 +1470,7 @@ class _DropletPainter extends CustomPainter {
       final double sideFactor = dx < 0 ? 0.7 : 1.0; // côté gauche moins pénalisé
       final double alpha = (baseAlpha * sideFactor).clamp(0.0, 1.0);
       final paint = Paint()
-        ..color = d.color.withOpacity(1.0 * alpha)
+        ..color = d.color.withValues(alpha: alpha)
         ..style = PaintingStyle.fill;
 
       // Taille décroissante et légère ovalisation au cours du temps

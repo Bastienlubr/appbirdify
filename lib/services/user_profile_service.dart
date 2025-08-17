@@ -22,7 +22,7 @@ class UserProfileService {
       final userRef = _firestore.collection('utilisateurs').doc(uid);
       // Lire l'état actuel pour ne pas écraser les champs "créés le"
       final existingDoc = await userRef.get();
-      final existingData = existingDoc.data() as Map<String, dynamic>?;
+      final existingData = existingDoc.data();
 
       final now = DateTime.now();
       final todayMidnight = DateTime(now.year, now.month, now.day);

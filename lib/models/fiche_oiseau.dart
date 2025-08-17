@@ -16,6 +16,7 @@ class FicheOiseau {
   final Alimentation alimentation;
   final Reproduction reproduction;
   final Repartition repartition;
+  final ProtectionEtatActuel? protectionEtatActuel;
   final Vocalisations vocalisations;
   final Comportement comportement;
   final Conservation conservation;
@@ -38,6 +39,7 @@ class FicheOiseau {
     required this.alimentation,
     required this.reproduction,
     required this.repartition,
+    this.protectionEtatActuel,
     required this.vocalisations,
     required this.comportement,
     required this.conservation,
@@ -63,6 +65,9 @@ class FicheOiseau {
       alimentation: Alimentation.fromFirestore(data['alimentation'] as Map<String, dynamic>? ?? {}),
       reproduction: Reproduction.fromFirestore(data['reproduction'] as Map<String, dynamic>? ?? {}),
       repartition: Repartition.fromFirestore(data['repartition'] as Map<String, dynamic>? ?? {}),
+      protectionEtatActuel: (data['protectionEtatActuel'] is Map<String, dynamic>)
+          ? ProtectionEtatActuel.fromFirestore(data['protectionEtatActuel'] as Map<String, dynamic>)
+          : null,
       vocalisations: Vocalisations.fromFirestore(data['vocalisations'] as Map<String, dynamic>? ?? {}),
       comportement: Comportement.fromFirestore(data['comportement'] as Map<String, dynamic>? ?? {}),
       conservation: Conservation.fromFirestore(data['conservation'] as Map<String, dynamic>? ?? {}),
@@ -89,6 +94,7 @@ class FicheOiseau {
       'alimentation': alimentation.toFirestore(),
       'reproduction': reproduction.toFirestore(),
       'repartition': repartition.toFirestore(),
+      if (protectionEtatActuel != null) 'protectionEtatActuel': protectionEtatActuel!.toFirestore(),
       'vocalisations': vocalisations.toFirestore(),
       'comportement': comportement.toFirestore(),
       'conservation': conservation.toFirestore(),
@@ -115,6 +121,9 @@ class FicheOiseau {
       alimentation: Alimentation.fromJson(json['alimentation'] as Map<String, dynamic>? ?? {}),
       reproduction: Reproduction.fromJson(json['reproduction'] as Map<String, dynamic>? ?? {}),
       repartition: Repartition.fromJson(json['repartition'] as Map<String, dynamic>? ?? {}),
+      protectionEtatActuel: (json['protectionEtatActuel'] is Map<String, dynamic>)
+          ? ProtectionEtatActuel.fromJson(json['protectionEtatActuel'] as Map<String, dynamic>)
+          : null,
       vocalisations: Vocalisations.fromJson(json['vocalisations'] as Map<String, dynamic>? ?? {}),
       comportement: Comportement.fromJson(json['comportement'] as Map<String, dynamic>? ?? {}),
       conservation: Conservation.fromJson(json['conservation'] as Map<String, dynamic>? ?? {}),
@@ -141,6 +150,7 @@ class FicheOiseau {
       'alimentation': alimentation.toJson(),
       'reproduction': reproduction.toJson(),
       'repartition': repartition.toJson(),
+      if (protectionEtatActuel != null) 'protectionEtatActuel': protectionEtatActuel!.toJson(),
       'vocalisations': vocalisations.toJson(),
       'comportement': comportement.toJson(),
       'conservation': conservation.toJson(),
@@ -208,7 +218,7 @@ class Poids {
   final String? poidsMoyen;
   final String? variation;
   final String? description;
-
+  
   Poids({
     this.poidsMoyen,
     this.variation,
@@ -258,62 +268,88 @@ class Poids {
 /// Classe pour l'identification de l'oiseau
 class Identification {
   final String? description;
+  final String? morphologie;
   final String? dimorphismeSexuel;
   final String? plumageEte;
   final String? plumageHiver;
   final String? especesSimilaires;
   final String? caracteristiques;
+  final Mesures? mesures; // nouveau schéma minimal
+  final EspecesRessemblantes? especesRessemblantes; // nouveau schéma minimal
 
   Identification({
     this.description,
+    this.morphologie,
     this.dimorphismeSexuel,
     this.plumageEte,
     this.plumageHiver,
     this.especesSimilaires,
     this.caracteristiques,
+    this.mesures,
+    this.especesRessemblantes,
   });
 
   factory Identification.fromFirestore(Map<String, dynamic> data) {
     return Identification(
       description: _convertToString(data['description']),
+      morphologie: _convertToString(data['morphologie']),
       dimorphismeSexuel: _convertToString(data['dimorphismeSexuel']),
       plumageEte: _convertToString(data['plumageEte']),
       plumageHiver: _convertToString(data['plumageHiver']),
       especesSimilaires: _convertToString(data['especesSimilaires']),
       caracteristiques: _convertToString(data['caracteristiques']),
+      mesures: (data['mesures'] is Map<String, dynamic>)
+          ? Mesures.fromFirestore(data['mesures'] as Map<String, dynamic>)
+          : null,
+      especesRessemblantes: (data['especesRessemblantes'] is Map<String, dynamic>)
+          ? EspecesRessemblantes.fromFirestore(data['especesRessemblantes'] as Map<String, dynamic>)
+          : null,
     );
   }
 
   factory Identification.fromJson(Map<String, dynamic> json) {
     return Identification(
       description: _convertToString(json['description']),
+      morphologie: _convertToString(json['morphologie']),
       dimorphismeSexuel: _convertToString(json['dimorphismeSexuel']),
       plumageEte: _convertToString(json['plumageEte']),
       plumageHiver: _convertToString(json['plumageHiver']),
       especesSimilaires: _convertToString(json['especesSimilaires']),
       caracteristiques: _convertToString(json['caracteristiques']),
+      mesures: (json['mesures'] is Map<String, dynamic>)
+          ? Mesures.fromJson(json['mesures'] as Map<String, dynamic>)
+          : null,
+      especesRessemblantes: (json['especesRessemblantes'] is Map<String, dynamic>)
+          ? EspecesRessemblantes.fromJson(json['especesRessemblantes'] as Map<String, dynamic>)
+          : null,
     );
   }
 
   Map<String, dynamic> toFirestore() {
     return {
       'description': description,
+      'morphologie': morphologie,
       'dimorphismeSexuel': dimorphismeSexuel,
       'plumageEte': plumageEte,
       'plumageHiver': plumageHiver,
       'especesSimilaires': especesSimilaires,
       'caracteristiques': caracteristiques,
+      if (mesures != null) 'mesures': mesures!.toFirestore(),
+      if (especesRessemblantes != null) 'especesRessemblantes': especesRessemblantes!.toFirestore(),
     };
   }
 
   Map<String, dynamic> toJson() {
     return {
       'description': description,
+      'morphologie': morphologie,
       'dimorphismeSexuel': dimorphismeSexuel,
       'plumageEte': plumageEte,
       'plumageHiver': plumageHiver,
       'especesSimilaires': especesSimilaires,
       'caracteristiques': caracteristiques,
+      if (mesures != null) 'mesures': mesures!.toJson(),
+      if (especesRessemblantes != null) 'especesRessemblantes': especesRessemblantes!.toJson(),
     };
   }
 
@@ -325,6 +361,93 @@ class Identification {
   }
 }
 
+class Mesures {
+  final String? poids;
+  final String? taille;
+  final String? envergure;
+
+  Mesures({this.poids, this.taille, this.envergure});
+
+  factory Mesures.fromFirestore(Map<String, dynamic> data) {
+    return Mesures(
+      poids: Identification._convertToString(data['poids']),
+      taille: Identification._convertToString(data['taille']),
+      envergure: Identification._convertToString(data['envergure']),
+    );
+  }
+
+  factory Mesures.fromJson(Map<String, dynamic> json) {
+    return Mesures(
+      poids: Identification._convertToString(json['poids']),
+      taille: Identification._convertToString(json['taille']),
+      envergure: Identification._convertToString(json['envergure']),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'poids': poids,
+      'taille': taille,
+      'envergure': envergure,
+    };
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'poids': poids,
+      'taille': taille,
+      'envergure': envergure,
+    };
+  }
+}
+
+class EspecesRessemblantes {
+  final List<String> exemples;
+  final String? differenciation;
+
+  EspecesRessemblantes({required this.exemples, this.differenciation});
+
+  factory EspecesRessemblantes.fromFirestore(Map<String, dynamic> data) {
+    return EspecesRessemblantes(
+      exemples: _convertToList(data['exemples']),
+      differenciation: Identification._convertToString(data['differenciation']),
+    );
+  }
+
+  factory EspecesRessemblantes.fromJson(Map<String, dynamic> json) {
+    return EspecesRessemblantes(
+      exemples: _convertToList(json['exemples']),
+      differenciation: Identification._convertToString(json['differenciation']),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'exemples': exemples,
+      'differenciation': differenciation,
+    };
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'exemples': exemples,
+      'differenciation': differenciation,
+    };
+  }
+
+  static List<String> _convertToList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value
+          .map((e) => Identification._convertToString(e) ?? '')
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    if (value is String) return [value];
+    return [];
+  }
+}
+
 /// Classe pour l'habitat de l'oiseau
 class Habitat {
   final List<String> milieux;
@@ -332,6 +455,8 @@ class Habitat {
   final String? vegetation;
   final String? saisonnalite;
   final String? description;
+  final String? zonesObservation; // nouveau
+  final Migration? migration; // nouveau
 
   Habitat({
     required this.milieux,
@@ -339,6 +464,8 @@ class Habitat {
     this.vegetation,
     this.saisonnalite,
     this.description,
+    this.zonesObservation,
+    this.migration,
   });
 
   factory Habitat.fromFirestore(Map<String, dynamic> data) {
@@ -348,6 +475,10 @@ class Habitat {
       vegetation: _convertToString(data['vegetation']),
       saisonnalite: _convertToString(data['saisonnalite']),
       description: _convertToString(data['description']),
+      zonesObservation: _convertToString(data['zonesObservation']),
+      migration: (data['migration'] is Map<String, dynamic>)
+          ? Migration.fromFirestore(data['migration'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -358,6 +489,10 @@ class Habitat {
       vegetation: _convertToString(json['vegetation']),
       saisonnalite: _convertToString(json['saisonnalite']),
       description: _convertToString(json['description']),
+      zonesObservation: _convertToString(json['zonesObservation']),
+      migration: (json['migration'] is Map<String, dynamic>)
+          ? Migration.fromJson(json['migration'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -368,6 +503,8 @@ class Habitat {
       'vegetation': vegetation,
       'saisonnalite': saisonnalite,
       'description': description,
+      'zonesObservation': zonesObservation,
+      if (migration != null) 'migration': migration!.toFirestore(),
     };
   }
 
@@ -378,6 +515,8 @@ class Habitat {
       'vegetation': vegetation,
       'saisonnalite': saisonnalite,
       'description': description,
+      'zonesObservation': zonesObservation,
+      if (migration != null) 'migration': migration!.toJson(),
     };
   }
 
@@ -395,6 +534,76 @@ class Habitat {
     if (value is bool) return value ? 'Oui' : 'Non';
     if (value is String) return value;
     return value.toString();
+  }
+}
+
+class Migration {
+  final String? description;
+  final Mois? mois;
+
+  Migration({this.description, this.mois});
+
+  factory Migration.fromFirestore(Map<String, dynamic> data) {
+    return Migration(
+      description: Habitat._convertToString(data['description']),
+      mois: (data['mois'] is Map<String, dynamic>) ? Mois.fromFirestore(data['mois'] as Map<String, dynamic>) : null,
+    );
+  }
+
+  factory Migration.fromJson(Map<String, dynamic> json) {
+    return Migration(
+      description: Habitat._convertToString(json['description']),
+      mois: (json['mois'] is Map<String, dynamic>) ? Mois.fromJson(json['mois'] as Map<String, dynamic>) : null,
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'description': description,
+      if (mois != null) 'mois': mois!.toFirestore(),
+    };
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'description': description,
+      if (mois != null) 'mois': mois!.toJson(),
+    };
+  }
+}
+
+class Mois {
+  final String? debut;
+  final String? fin;
+
+  Mois({this.debut, this.fin});
+
+  factory Mois.fromFirestore(Map<String, dynamic> data) {
+    return Mois(
+      debut: Habitat._convertToString(data['debut']),
+      fin: Habitat._convertToString(data['fin']),
+    );
+  }
+
+  factory Mois.fromJson(Map<String, dynamic> json) {
+    return Mois(
+      debut: Habitat._convertToString(json['debut']),
+      fin: Habitat._convertToString(json['fin']),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'debut': debut,
+      'fin': fin,
+    };
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'debut': debut,
+      'fin': fin,
+    };
   }
 }
 
@@ -478,6 +687,10 @@ class Reproduction {
   final String? nombreOeufs;
   final String? dureeIncubation;
   final String? description;
+  final Periode? periode; // nouveau
+  final String? nbPontes; // nouveau
+  final String? nbOeufsParPondee; // nouveau
+  final String? incubationJours; // nouveau
 
   Reproduction({
     this.saisonReproduction,
@@ -485,6 +698,10 @@ class Reproduction {
     this.nombreOeufs,
     this.dureeIncubation,
     this.description,
+    this.periode,
+    this.nbPontes,
+    this.nbOeufsParPondee,
+    this.incubationJours,
   });
 
   factory Reproduction.fromFirestore(Map<String, dynamic> data) {
@@ -494,6 +711,10 @@ class Reproduction {
       nombreOeufs: _convertToString(data['nombreOeufs']),
       dureeIncubation: _convertToString(data['dureeIncubation']),
       description: _convertToString(data['description']),
+      periode: (data['periode'] is Map<String, dynamic>) ? Periode.fromFirestore(data['periode'] as Map<String, dynamic>) : null,
+      nbPontes: _convertToString(data['nbPontes']),
+      nbOeufsParPondee: _convertToString(data['nbOeufsParPondee']),
+      incubationJours: _convertToString(data['incubationJours']),
     );
   }
 
@@ -504,6 +725,10 @@ class Reproduction {
       nombreOeufs: _convertToString(json['nombreOeufs']),
       dureeIncubation: _convertToString(json['dureeIncubation']),
       description: _convertToString(json['description']),
+      periode: (json['periode'] is Map<String, dynamic>) ? Periode.fromJson(json['periode'] as Map<String, dynamic>) : null,
+      nbPontes: _convertToString(json['nbPontes']),
+      nbOeufsParPondee: _convertToString(json['nbOeufsParPondee']),
+      incubationJours: _convertToString(json['incubationJours']),
     );
   }
 
@@ -514,6 +739,10 @@ class Reproduction {
       'nombreOeufs': nombreOeufs,
       'dureeIncubation': dureeIncubation,
       'description': description,
+      if (periode != null) 'periode': periode!.toFirestore(),
+      'nbPontes': nbPontes,
+      'nbOeufsParPondee': nbOeufsParPondee,
+      'incubationJours': incubationJours,
     };
   }
 
@@ -524,6 +753,10 @@ class Reproduction {
       'nombreOeufs': nombreOeufs,
       'dureeIncubation': dureeIncubation,
       'description': description,
+      if (periode != null) 'periode': periode!.toJson(),
+      'nbPontes': nbPontes,
+      'nbOeufsParPondee': nbOeufsParPondee,
+      'incubationJours': incubationJours,
     };
   }
 
@@ -532,6 +765,41 @@ class Reproduction {
     if (value is bool) return value ? 'Oui' : 'Non';
     if (value is String) return value;
     return value.toString();
+  }
+}
+
+class Periode {
+  final String? debutMois;
+  final String? finMois;
+
+  Periode({this.debutMois, this.finMois});
+
+  factory Periode.fromFirestore(Map<String, dynamic> data) {
+    return Periode(
+      debutMois: Reproduction._convertToString(data['debutMois']),
+      finMois: Reproduction._convertToString(data['finMois']),
+    );
+  }
+
+  factory Periode.fromJson(Map<String, dynamic> json) {
+    return Periode(
+      debutMois: Reproduction._convertToString(json['debutMois']),
+      finMois: Reproduction._convertToString(json['finMois']),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'debutMois': debutMois,
+      'finMois': finMois,
+    };
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'debutMois': debutMois,
+      'finMois': finMois,
+    };
   }
 }
 
@@ -582,6 +850,64 @@ class Repartition {
       'periodes': periodes.toJson(),
       'noteMigration': noteMigration,
       'description': description,
+    };
+  }
+
+  static String? _convertToString(dynamic value) {
+    if (value == null) return null;
+    if (value is bool) return value ? 'Oui' : 'Non';
+    if (value is String) return value;
+    return value.toString();
+  }
+}
+
+/// Classe pour Protection / État actuel
+class ProtectionEtatActuel {
+  final String? description;
+  final String? statutFrance;
+  final String? statutMonde;
+  final String? actions;
+
+  ProtectionEtatActuel({
+    this.description,
+    this.statutFrance,
+    this.statutMonde,
+    this.actions,
+  });
+
+  factory ProtectionEtatActuel.fromFirestore(Map<String, dynamic> data) {
+    return ProtectionEtatActuel(
+      description: _convertToString(data['description']),
+      statutFrance: _convertToString(data['statutFrance']),
+      statutMonde: _convertToString(data['statutMonde']),
+      actions: _convertToString(data['actions']),
+    );
+  }
+
+  factory ProtectionEtatActuel.fromJson(Map<String, dynamic> json) {
+    return ProtectionEtatActuel(
+      description: _convertToString(json['description']),
+      statutFrance: _convertToString(json['statutFrance']),
+      statutMonde: _convertToString(json['statutMonde']),
+      actions: _convertToString(json['actions']),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'description': description,
+      'statutFrance': statutFrance,
+      'statutMonde': statutMonde,
+      'actions': actions,
+    };
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'description': description,
+      'statutFrance': statutFrance,
+      'statutMonde': statutMonde,
+      'actions': actions,
     };
   }
 
