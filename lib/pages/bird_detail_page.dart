@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/bird.dart';
 import '../ui/responsive/responsive.dart';
+import '../models/fiche_oiseau.dart';
+import '../services/fiche_oiseau_service.dart';
 
 // Clipper pour créer la forme arrondie du haut (identique au panel)
 class _RoundedTopClipper extends CustomClipper<Path> {
@@ -110,6 +112,10 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   int _previousTabIndex = 0; // Pour animer la désélection
   bool _programmaticAnimating = false; // bloque les callbacks concurrents
 
+  // Données Firestore (fiche)
+  FicheOiseau? _fiche;
+  bool _ficheLoading = false;
+
   // Onglets (id, titre, icône, couleur)
   static const List<Map<String, dynamic>> _tabs = [
     {
@@ -175,16 +181,30 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       if (mounted) {
         _panelController.value = 0.0;
         // S'assurer que l'onglet initial est centré
-        Future.delayed(const Duration(milliseconds: 200), () {
-          if (mounted) {
-            _forceRecenterSelectedTab();
-            
-            // Vérification périodique pour maintenir le centrage
-            _startPeriodicCenteringCheck();
-          }
+        Future.delayed(const Duration(milliseconds: 200), () async {
+          if (!mounted) return;
+          _forceRecenterSelectedTab();
+          _startPeriodicCenteringCheck();
+
+          // Charger la fiche Firestore par nom scientifique
+          await _loadFiche();
         });
       }
     });
+  }
+
+  Future<void> _loadFiche() async {
+    if (_ficheLoading) return;
+    setState(() => _ficheLoading = true);
+    try {
+      final nomScientifique = '${widget.bird.genus} ${widget.bird.species}';
+      final fiche = await FicheOiseauService.getFicheByNomScientifique(nomScientifique);
+      if (mounted) setState(() => _fiche = fiche);
+    } catch (_) {
+      // silent
+    } finally {
+      if (mounted) setState(() => _ficheLoading = false);
+    }
   }
 
   @override
@@ -210,7 +230,6 @@ class _BirdDetailPageState extends State<BirdDetailPage>
           final targetPage = _nearestPageForIndex(_tabController, _selectedTabIndex);
           final currentPage = _tabController.page ?? _tabController.initialPage.toDouble();
           
-          // Si pas parfaitement centré, correction douce
           if ((currentPage - targetPage).abs() > 0.15) {
             _tabController.animateToPage(
               targetPage,
@@ -219,8 +238,6 @@ class _BirdDetailPageState extends State<BirdDetailPage>
             );
           }
         }
-        
-        // Relancer la vérification
         _startPeriodicCenteringCheck();
       }
     });
@@ -664,20 +681,20 @@ class _BirdDetailPageState extends State<BirdDetailPage>
             padding: EdgeInsets.only(
               left: m.dp(24, tabletFactor: 1.1),
               right: m.dp(24, tabletFactor: 1.1),
-              top: showBasicInfo ? m.dp(4, tabletFactor: 1.0) : m.dp(16, tabletFactor: 1.0), // Plus d'espace en mode étendu pour les animations
+              top: showBasicInfo ? m.dp(4, tabletFactor: 1.0) : m.dp(16, tabletFactor: 1.0),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: showBasicInfo ? m.dp(2, tabletFactor: 1.0) : m.dp(0, tabletFactor: 1.0)), // Plus d'espace en mode étendu pour les animations
+                SizedBox(height: showBasicInfo ? m.dp(2, tabletFactor: 1.0) : m.dp(0, tabletFactor: 1.0)),
 
-                // Infos de base (nom, famille) – visible en position basse
+                // Infos de base (nom, famille)
                 AnimatedOpacity(
                   opacity: showBasicInfo ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 350), // Plus fluide
-                  curve: Curves.easeInOutCubic, // Courbe douce
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeInOutCubic,
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 350), // Synchronisé
+                    duration: const Duration(milliseconds: 350),
                     height: showBasicInfo ? null : 0,
                     child: showBasicInfo
                         ? _buildInfoSection(m)
@@ -685,31 +702,29 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                   ),
                 ),
 
-                if (showBasicInfo) SizedBox(height: m.dp(16, tabletFactor: 1.1)), // Moins d'espace entre infos et onglets en 2/3-1/3
+                if (showBasicInfo) SizedBox(height: m.dp(16, tabletFactor: 1.1)),
 
-                // Carrousel d'onglets avec remontée en mode étendu
+                // Carrousel d'onglets
                 Transform.translate(
-                  offset: Offset(0, showBasicInfo ? 0 : -m.dp(0, tabletFactor: 1.1)), // Remonte les onglets en mode étendu
+                  offset: Offset(0, showBasicInfo ? 0 : -m.dp(0, tabletFactor: 1.1)),
                   child: _buildTabButtons(m),
                 ),
 
-                // Titre animé de l'onglet sélectionné (suit la remontée des onglets)
                 Transform.translate(
-                  offset: Offset(0, showBasicInfo ? -m.dp(16, tabletFactor: 1.0) : -m.dp(8, tabletFactor: 1.0)), // Ajustement selon le mode
+                  offset: Offset(0, showBasicInfo ? -m.dp(16, tabletFactor: 1.0) : -m.dp(8, tabletFactor: 1.0)),
                   child: _buildAnimatedTabTitle(m),
                 ),
 
-                SizedBox(height: showBasicInfo ? m.dp(12, tabletFactor: 1.1) : m.dp(4, tabletFactor: 1.1)), // Moins d'espace avant séparateur en mode étendu
+                SizedBox(height: showBasicInfo ? m.dp(12, tabletFactor: 1.1) : m.dp(4, tabletFactor: 1.1)),
 
-                // Séparateur visible en mode étendu avec remontée
                 Transform.translate(
-                  offset: Offset(0, showBasicInfo ? 0 : -m.dp(12, tabletFactor: 1.1)), // Remonte la ligne en mode étendu
+                  offset: Offset(0, showBasicInfo ? 0 : -m.dp(12, tabletFactor: 1.1)),
                   child: AnimatedOpacity(
                   opacity: showBasicInfo ? 0.0 : 1.0,
-                  duration: const Duration(milliseconds: 400), // Plus long pour effet dramatique
-                  curve: Curves.easeInOutQuart, // Courbe plus marquée
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeInOutQuart,
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 400), // Synchronisé
+                    duration: const Duration(milliseconds: 400),
                     height: showBasicInfo ? 0 : 3,
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -720,7 +735,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                   ),
                 ),
 
-                SizedBox(height: showBasicInfo ? 0 : m.dp(4, tabletFactor: 1.1)), // Moins d'espace avant titre principal en mode étendu
+                SizedBox(height: showBasicInfo ? 0 : m.dp(4, tabletFactor: 1.1)),
 
                 // Titre principal de l'onglet courant
                 Text(
@@ -752,12 +767,12 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   Widget _buildInfoSection(ResponsiveMetrics m) {
     return Column(
       children: [
-        _buildInfoRow(m, 'Nom', widget.bird.nomFr),
+        _buildInfoRow(m, 'Nom', _fiche?.nomFrancais.isNotEmpty == true ? _fiche!.nomFrancais : widget.bird.nomFr),
         SizedBox(height: m.dp(8, tabletFactor: 1.0)),
         _buildInfoRow(
-            m, 'N. Scientifique', '${widget.bird.genus} ${widget.bird.species}'),
+            m, 'N. Scientifique', _fiche?.nomScientifique.isNotEmpty == true ? _fiche!.nomScientifique : '${widget.bird.genus} ${widget.bird.species}'),
         SizedBox(height: m.dp(8, tabletFactor: 1.0)),
-        _buildInfoRow(m, 'Famille', _familyName),
+        _buildInfoRow(m, 'Famille', _fiche?.famille.isNotEmpty == true ? _fiche!.famille : _familyName),
         SizedBox(height: m.dp(16, tabletFactor: 1.1)),
         Container(
           height: 3,
@@ -1100,50 +1115,60 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     Widget content;
     switch (_tabs[index]['id']) {
       case 'identification':
-        content = Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text:
-                    'Chez nous en Europe, cet oiseau de la taille d\'un geai est unique et inconfondable. '
-                    'Quand on observe un ${widget.bird.nomFr}, on voit un oiseau bleu. En effet chez lui, la tête, les ',
-                style: _contentTextStyle(m),
-              ),
-              TextSpan(
-                text: 'ailes',
-                style: _contentTextStyle(m, underline: true),
-              ),
-              TextSpan(
-                text:
-                    ' et toutes les parties inférieures sont d\'un bleu aigue-marine, tout au moins chez l\'adulte. '
-                    'En vol, c\'est le festival de couleurs car s\'ajoute au panel le noir ou le bleu des ',
-                style: _contentTextStyle(m),
-              ),
-              TextSpan(
-                text: 'rémiges',
-                style: _contentTextStyle(m, underline: true),
-              ),
-              TextSpan(
-                text:
-                    ' suivant qu\'on l\'observe en vol de dessus ou de dessous. La tête est barrée latéralement de noir. Les ',
-                style: _contentTextStyle(m),
-              ),
-              TextSpan(
-                text: 'pattes',
-                style: _contentTextStyle(m, underline: true),
-              ),
-              TextSpan(
-                text: ' sont rosées. Les sexes sont semblables.',
-                style: _contentTextStyle(m),
-              ),
-            ],
-          ),
+        final texteId = _fiche?.identification.description ??
+            "Informations d'identification à venir pour ${widget.bird.nomFr}.";
+        content = Text(texteId, style: _contentTextStyle(m));
+        break;
+      case 'habitat':
+        final habitats = _fiche?.habitat.milieux ?? const <String>[];
+        final descriptionHab = _fiche?.habitat.description ?? '';
+        content = Text(
+          (habitats.isNotEmpty ? 'Milieux: ${habitats.join(', ')}. ' : '') + descriptionHab,
+          style: _contentTextStyle(m),
         );
+        break;
+      case 'alimentation':
+        final alim = _fiche?.alimentation;
+        final parts = <String>[];
+        if (alim?.regimePrincipal != null && alim!.regimePrincipal!.isNotEmpty) {
+          parts.add('Régime: ${alim.regimePrincipal}');
+        }
+        if (alim?.proiesPrincipales.isNotEmpty == true) {
+          parts.add('Proies: ${alim!.proiesPrincipales.join(', ')}');
+        }
+        if (alim?.description != null && alim!.description!.isNotEmpty) {
+          parts.add(alim.description!);
+        }
+        content = Text(parts.isNotEmpty ? parts.join('. ') : 'Données d\'alimentation à venir.', style: _contentTextStyle(m));
+        break;
+      case 'reproduction':
+        final repro = _fiche?.reproduction;
+        final partsR = <String>[];
+        if (repro?.saisonReproduction != null && repro!.saisonReproduction!.isNotEmpty) {
+          partsR.add('Saison: ${repro.saisonReproduction}');
+        }
+        if (repro?.nombreOeufs != null && repro!.nombreOeufs!.isNotEmpty) {
+          partsR.add('Œufs: ${repro.nombreOeufs}');
+        }
+        if (repro?.description != null && repro!.description!.isNotEmpty) {
+          partsR.add(repro.description!);
+        }
+        content = Text(partsR.isNotEmpty ? partsR.join('. ') : 'Données de reproduction à venir.', style: _contentTextStyle(m));
+        break;
+      case 'repartition':
+        final rep = _fiche?.repartition;
+        final partsRp = <String>[];
+        if (rep?.statutPresence != null && rep!.statutPresence!.isNotEmpty) {
+          partsRp.add('Statut: ${rep.statutPresence}');
+        }
+        if (rep?.description != null && rep!.description!.isNotEmpty) {
+          partsRp.add(rep.description!);
+        }
+        content = Text(partsRp.isNotEmpty ? partsRp.join('. ') : 'Données de répartition à venir.', style: _contentTextStyle(m));
         break;
       default:
         content = Text(
-          'Informations sur ${_tabs[index]['title'].toString().toLowerCase()} du ${widget.bird.nomFr}. '
-          'Ces données seront complétées avec les informations spécifiques à chaque espèce.',
+          'Informations sur ${_tabs[index]['title'].toString().toLowerCase()} du ${widget.bird.nomFr}. ',
           style: _contentTextStyle(m),
         );
         break;

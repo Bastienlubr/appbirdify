@@ -14,7 +14,7 @@ service cloud.firestore {
     // Certains jeux de données ont "approuvee", d'autres "publiée"
     function isApproved() {
       return
-        (('statut' in resource.data) &&
+        (("statut" in resource.data) &&
          (resource.data.statut == "approuvee" || resource.data.statut == "publiée"));
     }
 
@@ -36,6 +36,12 @@ service cloud.firestore {
     // Banque de sons : lecture réservée aux utilisateurs connectés (comme la version Cursor)
     match /sons_oiseaux/{id} {
       allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ---- FICHES OISEAUX (lecture publique pour l'app) ----
+    match /fiches_oiseaux/{id} {
+      allow read: if true;
       allow write: if false;
     }
 
