@@ -19,7 +19,26 @@ jobs:
         run: flutter pub get
 
       - name: Build IPA (release)
-        run: flutter build ipa --release
+        env:
+          IOS_CERT_P12: ${{ secrets.IOS_CERT_P12 }}
+          IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          # Install provisioning profile
+          PP_PATH="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PP_PATH"
+          echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > "$PP_PATH/appstore.mobileprovision"
+
+          # Install signing certificate
+          echo "$IOS_CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p temp build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p temp build.keychain
+          security import cert.p12 -k build.keychain -P "$IOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k temp build.keychain
+
+          # Build IPA (manual signing is configured in Xcode project)
+          flutter build ipa --release
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
