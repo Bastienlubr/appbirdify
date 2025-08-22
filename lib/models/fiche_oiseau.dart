@@ -691,6 +691,7 @@ class Reproduction {
   final String? nbPontes; // nouveau
   final String? nbOeufsParPondee; // nouveau
   final String? incubationJours; // nouveau
+  final Map<String, String>? details; // nouveau: sous-éléments détaillés
 
   Reproduction({
     this.saisonReproduction,
@@ -702,9 +703,12 @@ class Reproduction {
     this.nbPontes,
     this.nbOeufsParPondee,
     this.incubationJours,
+    this.details,
   });
 
   factory Reproduction.fromFirestore(Map<String, dynamic> data) {
+    final detailsFromField = _convertToStringMap(data['details']);
+    final extracted = _extractDetailsFromMap(data);
     return Reproduction(
       saisonReproduction: _convertToString(data['saisonReproduction']),
       typeNid: _convertToString(data['typeNid']),
@@ -715,10 +719,13 @@ class Reproduction {
       nbPontes: _convertToString(data['nbPontes']),
       nbOeufsParPondee: _convertToString(data['nbOeufsParPondee']),
       incubationJours: _convertToString(data['incubationJours']),
+      details: detailsFromField ?? extracted,
     );
   }
 
   factory Reproduction.fromJson(Map<String, dynamic> json) {
+    final detailsFromField = _convertToStringMap(json['details']);
+    final extracted = _extractDetailsFromMap(json);
     return Reproduction(
       saisonReproduction: _convertToString(json['saisonReproduction']),
       typeNid: _convertToString(json['typeNid']),
@@ -729,6 +736,7 @@ class Reproduction {
       nbPontes: _convertToString(json['nbPontes']),
       nbOeufsParPondee: _convertToString(json['nbOeufsParPondee']),
       incubationJours: _convertToString(json['incubationJours']),
+      details: detailsFromField ?? extracted,
     );
   }
 
@@ -743,6 +751,7 @@ class Reproduction {
       'nbPontes': nbPontes,
       'nbOeufsParPondee': nbOeufsParPondee,
       'incubationJours': incubationJours,
+      if (details != null) 'details': details,
     };
   }
 
@@ -757,6 +766,7 @@ class Reproduction {
       'nbPontes': nbPontes,
       'nbOeufsParPondee': nbOeufsParPondee,
       'incubationJours': incubationJours,
+      if (details != null) 'details': details,
     };
   }
 
@@ -765,6 +775,65 @@ class Reproduction {
     if (value is bool) return value ? 'Oui' : 'Non';
     if (value is String) return value;
     return value.toString();
+  }
+
+  static Map<String, String>? _convertToStringMap(dynamic value) {
+    if (value == null) return null;
+    if (value is Map) {
+      final Map<String, String> result = {};
+      value.forEach((key, v) {
+        final k = key?.toString();
+        final s = _convertToString(v);
+        if (k != null && s != null && s.trim().isNotEmpty) {
+          result[k] = s.trim();
+        }
+      });
+      return result.isEmpty ? null : result;
+    }
+    return null;
+  }
+
+  static Map<String, String>? _extractDetailsFromMap(Map value) {
+    // Récupère certaines clés connues soit à la racine, soit sous 'etapes'
+    final Map sourceRoot = value;
+    final Map sourceEtapes = (value['etapes'] is Map) ? (value['etapes'] as Map) : {};
+
+    String? readFirst(List<String> keys) {
+      for (final k in keys) {
+        if (sourceRoot.containsKey(k)) {
+          final s = _convertToString(sourceRoot[k]);
+          if (s != null && s.trim().isNotEmpty) return s.trim();
+        }
+        if (sourceEtapes.containsKey(k)) {
+          final s = _convertToString(sourceEtapes[k]);
+          if (s != null && s.trim().isNotEmpty) return s.trim();
+        }
+      }
+      return null;
+    }
+
+    final aliases = <String, List<String>>{
+      'paradeNuptiale': ['paradeNuptiale', 'parade', 'periodeNuptiale'],
+      'accouplement': ['accouplement'],
+      'nidification': ['nidification'],
+      'materiauxNid': ['materiauxNid', 'materiauxDuNid', 'materiaux'],
+      'emplacementNid': ['emplacementNid', 'siteNid', 'emplacement'],
+      'ponte': ['ponte', 'periodePonte'],
+      'incubation': ['incubation'],
+      'incubationParents': ['incubationMale', 'incubationMâle', 'incubationFemelle', 'incubationParents'],
+      'nourrissage': ['nourrissage', 'nourrissageParents', 'dureeNourrissage'],
+      'envol': ['ageEnvol', 'envolJeunes', 'envol'],
+      'emancipation': ['ageEmancipation', 'émancipation', 'emancipation'],
+    };
+
+    final Map<String, String> result = {};
+    for (final entry in aliases.entries) {
+      final v = readFirst(entry.value);
+      if (v != null && v.isNotEmpty) {
+        result[entry.key] = v;
+      }
+    }
+    return result.isEmpty ? null : result;
   }
 }
 

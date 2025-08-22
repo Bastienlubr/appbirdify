@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import '../services/asset_preloader_service.dart';
-import '../services/local_image_service.dart';
+import '../services/Mission/communs/commun_gestionnaire_assets.dart';
+import '../services/Mission/communs/commun_cache_images.dart';
 import '../theme/colors.dart';
 
 /// Widget spécialisé pour afficher les images préchargées
@@ -39,8 +39,7 @@ class _PreloadedImageWidgetState extends State<PreloadedImageWidget>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   
-  final AssetPreloaderService _preloaderService = AssetPreloaderService();
-  final LocalImageService _localImageService = LocalImageService();
+  final ImageCacheService _imageCacheService = ImageCacheService();
   
   ImageProvider? _imageProvider;
   bool _isLoading = true;
@@ -85,28 +84,26 @@ class _PreloadedImageWidgetState extends State<PreloadedImageWidget>
         _errorMessage = null;
       });
 
-      // Vérifier si l'image est préchargée
-      if (_preloaderService.isImagePreloaded(widget.birdName)) {
-        if (kDebugMode) debugPrint('✅ Image préchargée trouvée: ${widget.birdName}');
-        
-        _imageProvider = _preloaderService.getPreloadedImage(widget.birdName);
-        
+      // 1) Si une image réseau a été préchargée via le cache global, l'utiliser
+      final bird = MissionPreloader.getBirdData(widget.birdName);
+      final String networkUrl = bird?.urlImage ?? '';
+      if (networkUrl.isNotEmpty && _imageCacheService.isImageCached(networkUrl)) {
+        if (kDebugMode) debugPrint('✅ Image réseau en cache: ${widget.birdName}');
+        _imageProvider = _imageCacheService.getCachedImage(networkUrl);
         if (_imageProvider != null && mounted) {
           setState(() {
             _isLoading = false;
           });
-          
-          // Démarrer l'animation de fade-in
           _fadeController.forward();
           return;
         }
       }
 
       // Fallback: essayer l'image locale
-      if (_localImageService.hasLocalImage(widget.birdName)) {
+      if (_imageCacheService.hasLocalImage(widget.birdName)) {
         if (kDebugMode) debugPrint('📸 Image locale trouvée: ${widget.birdName}');
         
-        _imageProvider = _localImageService.getImageProvider(widget.birdName);
+        _imageProvider = _imageCacheService.getImageProvider(widget.birdName);
         
         if (_imageProvider != null && mounted) {
           setState(() {
@@ -119,18 +116,16 @@ class _PreloadedImageWidgetState extends State<PreloadedImageWidget>
         }
       }
 
-      // Fallback: essayer l'image Firebase depuis les données Birdify
-      if (kDebugMode) debugPrint('⚠️ Image non préchargée, tentative chargement Firebase: ${widget.birdName}');
-      
-      // Ici on pourrait implémenter un fallback pour charger l'image depuis Birdify
-      // Pour l'instant, on affiche une erreur
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _hasError = true;
-          _errorMessage = 'Image non disponible';
-        });
-      }
+      // 3) Fallback: provider optimisé (local > réseau > placeholder)
+      if (kDebugMode) debugPrint('ℹ️ Fallback provider optimisé: ${widget.birdName}');
+      _imageProvider = _imageCacheService.getOptimizedImageProvider(
+        birdName: widget.birdName,
+        networkUrl: networkUrl,
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      _fadeController.forward();
       
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur chargement image ${widget.birdName}: $e');

@@ -7,14 +7,14 @@ import 'package:flutter/services.dart';
 import 'package:csv/csv.dart';
 import '../models/bird.dart';
 // Unused colors import removed
-import '../services/image_cache_service.dart';
-import 'quiz_page.dart';
+import '../services/Mission/communs/commun_cache_images.dart';
+import 'MissionHabitat/quiz_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/mission.dart';
-import '../services/mission_loader_service.dart';
-import '../services/life_sync_service.dart';
+import '../services/Mission/communs/commun_chargeur_missions.dart';
+import '../services/Users/user_orchestra_service.dart';
 import 'package:lottie/lottie.dart';
-import '../services/quiz_generator.dart';
+import '../services/Mission/communs/commun_generateur_quiz.dart';
 import '../ui/responsive/responsive.dart';
 
 /// Écran de chargement temporaire pour précharger les images des bonnes réponses
@@ -716,7 +716,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
   /// Récupère l'objet Mission depuis HomeScreen via MissionLoaderService
   Future<Mission?> _getMissionFromHomeScreen() async {
     try {
-      final uid = LifeSyncService.getCurrentUserId();
+      final uid = UserOrchestra.currentUserId;
       if (uid == null) {
         if (kDebugMode) debugPrint('⚠️ Aucun utilisateur connecté pour récupérer la mission');
         return null;

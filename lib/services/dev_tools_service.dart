@@ -75,19 +75,30 @@ class DevToolsService {
         debugPrint('💚 Restauration des vies pour ${user.uid}...');
       }
 
-      // Utiliser la même structure que LifeSyncService
+      // Nouveau schéma unifié
       await _firestore
           .collection('utilisateurs')
           .doc(user.uid)
           .set({
-        'livesRemaining': 5,
-        'dailyResetDate': DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
+        'vie': {
+          'vieRestante': 5,
+          'vieMaximum': 5,
+          'prochaineRecharge': DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1),
+        },
         'lastUpdated': FieldValue.serverTimestamp(),
+        // Nettoyage anciens schémas
+        'Vie restante': FieldValue.delete(),
+        'livesRemaining': FieldValue.delete(),
+        'vies.compte': FieldValue.delete(),
+        'vies.max': FieldValue.delete(),
+        'vies.Vie restante': FieldValue.delete(),
+        'vies.prochaineRecharge': FieldValue.delete(),
+        'vie.Vie restante': FieldValue.delete(),
       }, SetOptions(merge: true));
 
       if (kDebugMode) {
-        debugPrint('✅ Vies restaurées à 5 (structure harmonisée)');
-        debugPrint('   📍 Champ utilisé: livesRemaining (comme LifeSyncService)');
+        debugPrint('✅ Vies restaurées à 5 (schéma unifié)');
+        debugPrint('   📍 Champ utilisé: "vie.vieRestante"');
         debugPrint('   🔄 Synchronisation Firestore terminée, vies mises à jour');
       }
     } catch (e) {

@@ -5,11 +5,11 @@ import 'package:flutter/foundation.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter/services.dart';
 import '../ui/responsive/responsive.dart';
-import '../services/life_sync_service.dart';
-import '../services/mission_preloader.dart';
+import '../services/Users/user_orchestra_service.dart';
+import '../services/Mission/communs/commun_gestionnaire_assets.dart';
 import '../models/mission.dart';
 import '../models/answer_recap.dart';
-import 'quiz_end_page.dart';
+import 'score_final_habitat.dart';
 import 'home_screen.dart';
 
 /// Écran de déchargement pour synchroniser les vies et libérer les ressources
@@ -264,32 +264,32 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
   /// Synchronise les vies restantes avec Firestore
   Future<void> _syncLivesWithFirestore() async {
     try {
-      final uid = LifeSyncService.getCurrentUserId();
-      if (kDebugMode) debugPrint('🔍 Vérification utilisateur: UID=$uid, Connecté=${LifeSyncService.isUserLoggedIn}');
+      final uid = UserOrchestra.currentUserId;
+      if (kDebugMode) debugPrint('🔍 Vérification utilisateur: UID=$uid, Connecté=${UserOrchestra.isUserLoggedIn}');
       
       if (uid != null) {
         if (kDebugMode) debugPrint('🔄 Début synchronisation vies: ${widget.livesRemaining} vies pour utilisateur $uid');
         
         // Étape 1: Vérifier la cohérence des vies actuelles
         await _updateProgress('Vérification de la cohérence des vies...', 0.25);
-        final verifiedLives = await LifeSyncService.verifyAndFixLives(uid);
+        final verifiedLives = await UserOrchestra.verifyAndFixLives(uid);
         if (kDebugMode) debugPrint('📊 Vies vérifiées dans Firestore: $verifiedLives');
         
         // Étape 2: Vérifier les vies actuelles avant synchronisation
-        final currentLives = await LifeSyncService.getCurrentLives(uid);
+        final currentLives = await UserOrchestra.getCurrentLives(uid);
         if (kDebugMode) debugPrint('📊 Vies actuelles dans Firestore: $currentLives');
         
         // Étape 3: Synchroniser avec les vies restantes du quiz
         await _updateProgress('Synchronisation des vies restantes...', 0.3);
-        await LifeSyncService.syncLivesAfterQuiz(uid, widget.livesRemaining);
+        await UserOrchestra.syncLivesAfterQuiz(uid, widget.livesRemaining);
         
         // Étape 4: Vérifier les vies après synchronisation
-        final updatedLives = await LifeSyncService.getCurrentLives(uid);
+        final updatedLives = await UserOrchestra.getCurrentLives(uid);
         if (kDebugMode) debugPrint('✅ Vies synchronisées: ${widget.livesRemaining} → Firestore: $updatedLives');
         
         // Étape 5: Vérification finale de cohérence
         await _updateProgress('Vérification finale...', 0.35);
-        final finalLives = await LifeSyncService.verifyAndFixLives(uid);
+        final finalLives = await UserOrchestra.verifyAndFixLives(uid);
         if (kDebugMode) debugPrint('✅ Vérification finale: $finalLives vies');
         
       } else {
@@ -301,10 +301,10 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
       
       // En cas d'erreur, essayer une réinitialisation forcée
       try {
-        final uid = LifeSyncService.getCurrentUserId();
+        final uid = UserOrchestra.currentUserId;
         if (uid != null) {
           if (kDebugMode) debugPrint('🔄 Tentative de réinitialisation forcée des vies');
-          await LifeSyncService.forceResetLives(uid);
+          await UserOrchestra.forceResetLives(uid);
           if (kDebugMode) debugPrint('✅ Réinitialisation forcée réussie');
         }
       } catch (resetError) {

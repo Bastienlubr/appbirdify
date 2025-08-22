@@ -3,14 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 import '../widgets/biome_carousel_enhanced.dart';
 import '../widgets/home_bottom_nav_bar.dart';
-import 'base_ornitho_page.dart';
+import 'Perchoir/base_ornitho_page.dart';
 import '../data/milieu_data.dart';
 import '../models/mission.dart';
 import '../pages/mission_loading_screen.dart';
-import '../services/life_sync_service.dart';
-import '../services/mission_loader_service.dart';
-import '../services/mission_persistence_service.dart';
-import '../services/mission_progression_init_service.dart';
+import '../services/Users/user_orchestra_service.dart';
+import '../services/Mission/communs/commun_chargeur_missions.dart';
+import '../services/Mission/communs/commun_persistance_consultation.dart';
+import '../services/Mission/communs/commun_strategie_progression.dart';
 import '../widgets/dev_tools_menu.dart';
 import '../ui/responsive/responsive.dart';
 
@@ -27,17 +27,42 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 1; // 0: Quiz, 1: Accueil, 2: Profil, 3: Bibliothèque
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_currentIndex == 3) {
+          setState(() => _currentIndex = 1);
+        } else {
+          Navigator.maybePop(context);
+        }
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
-      body: _currentIndex == 3 ? const BaseOrnithoPage() : const HomeContent(),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final slide = Tween<Offset>(begin: const Offset(0.06, 0.0), end: Offset.zero)
+              .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(position: slide, child: child),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey(_currentIndex),
+          child: _currentIndex == 3 ? const BaseOrnithoPage() : const HomeContent(),
+        ),
+      ),
       bottomNavigationBar: HomeBottomNavBar(
         currentIndex: _currentIndex,
         onTabSelected: (idx) {
           setState(() => _currentIndex = idx);
-          // TODO: Brancher la navigation vers pages quand elles seront prêtes
         },
       ),
-    );
+    ));
   }
 
   // (supprimé) _buildNavItem non utilisé (remplacé par HomeBottomNavBar)
@@ -91,17 +116,17 @@ class _HomeContentState extends State<HomeContent> {
   /// Charge les vies actuelles depuis Firestore et vérifie la réinitialisation quotidienne
   Future<void> _loadCurrentLives() async {
     try {
-      final uid = LifeSyncService.getCurrentUserId();
-      if (kDebugMode) debugPrint('🔍 Vérification utilisateur (HomeScreen): UID=$uid, Connecté=${LifeSyncService.isUserLoggedIn}');
+      final uid = UserOrchestra.currentUserId;
+      if (kDebugMode) debugPrint('🔍 Vérification utilisateur (HomeScreen): UID=$uid, Connecté=${UserOrchestra.isUserLoggedIn}');
       
       if (uid != null) {
         if (kDebugMode) debugPrint('🔄 Chargement des vies depuis Firestore pour utilisateur $uid');
         
         // Vérifier les vies avant checkAndResetLives
-        final livesBefore = await LifeSyncService.getCurrentLives(uid);
+        final livesBefore = await UserOrchestra.getCurrentLives(uid);
         if (kDebugMode) debugPrint('📊 Vies dans Firestore avant checkAndResetLives: $livesBefore');
         
-        final lives = await LifeSyncService.checkAndResetLives(uid);
+        final lives = await UserOrchestra.checkAndResetLives(uid);
         
         if (mounted) {
           setState(() {
@@ -160,7 +185,7 @@ class _HomeContentState extends State<HomeContent> {
       }
       
       // Charger les missions depuis le CSV avec progression Firestore
-      final uid = LifeSyncService.getCurrentUserId();
+      final uid = UserOrchestra.currentUserId;
       List<Mission> allMissions;
       
       if (uid != null) {
@@ -250,7 +275,7 @@ class _HomeContentState extends State<HomeContent> {
         for (final biomeName in _biomeUnlockOrder) {
           if (biomeName != currentBiome && !_missionsCache.containsKey(biomeName)) {
             try {
-              final uid = LifeSyncService.getCurrentUserId();
+              final uid = UserOrchestra.currentUserId;
               List<Mission> missions;
               
               if (uid != null) {

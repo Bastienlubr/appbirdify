@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../services/dev_tools_service.dart';
 import '../theme/colors.dart';
-import '../services/mission_persistence_service.dart'; // Added import for MissionPersistenceService
+import '../services/Mission/communs/commun_persistance_consultation.dart';
 import '../pages/auth/login_screen.dart';
 
 class DevToolsMenu extends StatefulWidget {
@@ -354,7 +354,10 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           _buildInfoRow('👤 Email', widget.userInfo?['profil']?['email'] ?? 'N/A'),
           _buildInfoRow('🎯 Missions déverrouillées', '${widget.unlockedMissions}'),
           _buildInfoRow('⭐ Total étoiles', '${widget.totalStars}'),
-          _buildInfoRow('💚 Vies actuelles', '${widget.userInfo?['vies']?['compte'] ?? 'N/A'}'),
+          _buildInfoRow(
+            '💚 Vies restantes',
+            '${widget.userInfo?['vie']?['vieRestante'] ?? 'N/A'}',
+          ),
         ],
       ),
     );
