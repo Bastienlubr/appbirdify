@@ -4,19 +4,26 @@ import '../ui/responsive/responsive.dart';
 
 class BiomeCarouselEnhanced extends StatefulWidget {
   final Function(Biome)? onBiomeSelected;
+  final Function(String)? isBiomeUnlocked; // Fonction pour vérifier si un biome est déverrouillé
 
   const BiomeCarouselEnhanced({
     super.key,
     this.onBiomeSelected,
+    this.isBiomeUnlocked,
   });
 
   @override
   State<BiomeCarouselEnhanced> createState() => _BiomeCarouselEnhancedState();
 }
 
-class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced> {
+class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced> 
+    with TickerProviderStateMixin {
   final PageController _pageController = PageController(viewportFraction: 0.55);
   int _currentPage = 0;
+  double _currentPageFloat = 0.0;
+  late AnimationController _scaleController;
+  late AnimationController _opacityController;
+  
   final List<Biome> biomes = [
     Biome(
       name: 'Urbain',
@@ -47,9 +54,22 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced> {
   @override
   void initState() {
     super.initState();
+    
+    // Contrôleurs d'animation pour des transitions fluides
+    _scaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _opacityController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    
     _pageController.addListener(() {
+      final page = _pageController.page ?? 0.0;
       setState(() {
-        _currentPage = _pageController.page?.round() ?? 0;
+        _currentPageFloat = page;
+        _currentPage = page.round();
       });
     });
   }
@@ -57,6 +77,8 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced> {
   @override
   void dispose() {
     _pageController.dispose();
+    _scaleController.dispose();
+    _opacityController.dispose();
     super.dispose();
   }
 
@@ -91,6 +113,9 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced> {
               child: PageView.builder(
                 controller: _pageController,
                 itemCount: biomes.length,
+                physics: const BouncingScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
                 onPageChanged: (index) {
                   setState(() {
                     _currentPage = index;
@@ -99,91 +124,151 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced> {
                 },
                 itemBuilder: (context, index) {
                   final biome = biomes[index];
-                  final isCenter = index == _currentPage;
-
+                  
                   if (_currentPage == 0 && index == biomes.length - 1) {
                     return const SizedBox.shrink();
                   }
 
-                  final double scale = isTablet ? (isCenter ? 1.0 : 0.82) : (isCenter ? 1.0 : (0.75 + (phoneScaleUp - 1.0) * 0.2));
+                  // Vérifier si le biome est déverrouillé
+                  final isUnlocked = widget.isBiomeUnlocked?.call(biome.name) ?? true;
+                  
+                  // Animation fluide basée sur la distance par rapport à la page courante
+                  final distance = (_currentPageFloat - index).abs();
+                  final baseOpacity = (1.0 - (distance * 0.4)).clamp(0.3, 1.0);
+                  // Réduire l'opacité pour les biomes verrouillés
+                  final opacity = isUnlocked ? baseOpacity : (baseOpacity * 0.5);
+                  
+                  // Échelle progressive selon la distance (même pour les verrouillés)
+                  final baseScale = isTablet ? 0.82 : (0.75 + (phoneScaleUp - 1.0) * 0.2);
+                  final maxScale = 1.0;
+                  final scale = baseScale + ((maxScale - baseScale) * (1.0 - distance.clamp(0.0, 1.0)));
 
                   return Padding(
                     padding: EdgeInsets.symmetric(horizontal: padH),
-                    child: Transform.scale(
-                      scale: scale,
-                      child: GestureDetector(
-                        onTap: () {
-                          _pageController.animateToPage(
-                            index,
-                            duration: const Duration(milliseconds: 300),
+                    child: TweenAnimationBuilder<double>(
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOutCubic,
+                      tween: Tween<double>(begin: 0.0, end: scale),
+                      builder: (context, animatedScale, child) {
+                        return Transform.scale(
+                          scale: animatedScale,
+                          child: AnimatedOpacity(
+                            opacity: opacity,
+                            duration: const Duration(milliseconds: 100),
                             curve: Curves.easeInOut,
-                          );
-                        },
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: itemSize,
-                              height: itemSize,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(radius),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.15),
-                                    blurRadius: blur,
-                                    offset: Offset(0, offsetY),
-                                  ),
-                                ],
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(radius),
-                                child: Image.asset(
-                                  biome.imageAsset,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: const Color(0xFFF2E8CF),
-                                      child: const Icon(
-                                        Icons.image_not_supported,
-                                        color: Color(0xFF6A994E),
-                                        size: 60,
+                            child: GestureDetector(
+                            onTap: () {
+                              _pageController.animateToPage(
+                                index,
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOutCubic,
+                              );
+                            },
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Stack(
+                                  children: [
+                                    Container(
+                                      width: itemSize,
+                                      height: itemSize,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(radius),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.15 * opacity),
+                                            blurRadius: blur,
+                                            offset: Offset(0, offsetY),
+                                            spreadRadius: distance < 1.0 ? 2.0 : 0.0,
+                                          ),
+                                        ],
                                       ),
-                                    );
-                                  },
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(radius),
+                                        child: ColorFiltered(
+                                          colorFilter: isUnlocked 
+                                            ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply)
+                                            : const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+                                          child: Image.asset(
+                                            biome.imageAsset,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Container(
+                                                color: const Color(0xFFF2E8CF),
+                                                child: const Icon(
+                                                  Icons.image_not_supported,
+                                                  color: Color(0xFF6A994E),
+                                                  size: 60,
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Overlay gris pour les biomes verrouillés
+                                    if (!isUnlocked)
+                                      Container(
+                                        width: itemSize,
+                                        height: itemSize,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.withValues(alpha: 0.6),
+                                          borderRadius: BorderRadius.circular(radius),
+                                        ),
+                                        child: Center(
+                                          child: Icon(
+                                            Icons.lock,
+                                            color: Colors.white,
+                                            size: itemSize * 0.2,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                      );
+                      },
                     ),
                   );
                 },
               ),
             ),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(biomes.length, (index) {
-                final isActive = index == _currentPage;
-                return Row(
-                  children: [
-                    Container(
-                      width: isActive ? dotsActive : dotsInactive,
-                      height: isActive ? dotsActive : dotsInactive,
-                      decoration: BoxDecoration(
-                        color: isActive 
-                          ? const Color(0xFF6A994E)
-                          : const Color(0xFF344356).withValues(alpha: 0.3),
-                        shape: BoxShape.circle,
+            // Indicateurs de page avec animations fluides
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(biomes.length, (index) {
+                  final distance = (_currentPageFloat - index).abs();
+                  final isActive = distance < 0.5;
+                  final dotScale = isActive ? 1.0 : (1.0 - distance.clamp(0.0, 1.0) * 0.3);
+                  final dotOpacity = (1.0 - distance.clamp(0.0, 1.0) * 0.7).clamp(0.3, 1.0);
+                  
+                  return Row(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 100),
+                        curve: Curves.easeOutCubic,
+                        width: (isActive ? dotsActive : dotsInactive) * dotScale,
+                        height: (isActive ? dotsActive : dotsInactive) * dotScale,
+                        decoration: BoxDecoration(
+                          color: (isActive 
+                            ? const Color(0xFF6A994E)
+                            : const Color(0xFF344356).withValues(alpha: 0.3)).withValues(alpha: dotOpacity),
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                    if (index < biomes.length - 1)
-                      SizedBox(width: dotsGap),
-                  ],
-                );
-              }),
+                      if (index < biomes.length - 1)
+                        SizedBox(width: dotsGap),
+                    ],
+                  );
+                }),
+              ),
             ),
           ],
         );

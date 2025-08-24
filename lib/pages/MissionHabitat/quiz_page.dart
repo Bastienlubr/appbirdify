@@ -47,6 +47,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   final List<_ProgressDroplet> _droplets = [];
   AnimationController? _glowController;
   Animation<double>? _glowAnimation;
+  AnimationController? _shineController;
   
   final List<String> _wrongBirds = []; // Nouvelle liste pour stocker les noms des oiseaux manqués
   final List<AnswerRecap> _recapEntries = [];
@@ -61,6 +62,11 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   
   bool _showCorrectAnswerImage = false;
   String _correctAnswerImageUrl = '';
+  
+  // Système de préchargement de la prochaine question
+  String _nextAudioUrl = '';
+  String _nextImageUrl = '';
+  bool _isPreloadingNext = false;
   
   
 
@@ -89,6 +95,10 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       parent: _glowController!,
       curve: Curves.easeOutCubic,
     );
+    _shineController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 6000),
+    )..repeat();
     // Si des questions sont préchargées, les utiliser immédiatement pour éviter tout écran de chargement
     if (widget.preloadedQuestions != null && widget.preloadedQuestions!.isNotEmpty) {
       _questions = widget.preloadedQuestions!;
@@ -135,6 +145,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       });
       if (_questions.isNotEmpty) {
         _loadAndPlayAudio(_questions[0].audioUrl);
+        // Précharger la question suivante dès le début
+        Future.microtask(() => _preloadNextQuestion());
       }
       return;
     }
@@ -204,6 +216,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     _audioPlayer.dispose();
     _progressBurstController?.dispose();
     _glowController?.dispose();
+    _shineController?.dispose();
     super.dispose();
   }
 
@@ -236,7 +249,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             final double progressHeight = (14.0 * ui).toDouble();
             final double baseAudioSize = m.isTablet ? (m.shortest * 0.30).clamp(220.0, 300.0) : (160.0 * ui);
             final double audioSize = baseAudioSize;
-            final double audioTop = m.isTablet ? 240.0 * ui : 200.0;
+            final double audioTop = m.isTablet ? 230.0 * ui : 185.0;
             // Mobile: conserver le rendu d'origine (3:4, 195x260). Tablette: 4:3 agrandi
             // Exiger un format portrait 3:4 (vertical) sur tous les écrans
             final double imageAspect = (3.0 / 4.0); // width / height
@@ -248,17 +261,17 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             final double imageHeight;
             if (m.isTablet) {
               // Déterminer la hauteur d'abord (portrait), puis calculer la largeur via 3:4
-              final double targetHeight = math.min(m.box.height * 0.40, m.shortest * 0.78)
-                  .clamp(360.0, 700.0);
+              final double targetHeight = math.min(m.box.height * 0.42, m.shortest * 0.80)
+                  .clamp(380.0, 720.0);
               imageHeight = targetHeight;
               imageWidth = (imageHeight * imageAspect);
             } else {
-              // Mobile A54: taille d'origine
-              imageWidth = 195.0;
-              imageHeight = 260.0;
+              // Mobile A54: taille optimisée
+              imageWidth = 220.0;
+              imageHeight = 290.0;
             }
             final double titleFont = m.isTablet ? m.font(28, tabletFactor: 1.2, min: 24, max: 40) : 28.0;
-            final double titleTopSpacer = m.isTablet ? 40.0 * ui : 16.0 * ui;
+            final double titleTopSpacer = m.isTablet ? 35.0 * ui : 13.0 * ui;
             final int optionCount = question.options.length;
             final double approxAnswersHeight = (optionCount * (50.0 * ui)) + ((optionCount - 1) * (12.0 * ui));
             // Espace souhaité sous le bloc 3 (juste milieu)
@@ -271,13 +284,55 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                 : 320.0 * ui;
             final double answerHeight = 50.0 * ui;
             final double answerFont = 22.0 * ui;
-            // Rayon des coins proportionnel à la taille de l'image
+            // Rayon des coins proportionnel à la taille de l'image - juste milieu
             final double imageRadius = m.isTablet
-                ? (imageWidth * 0.045).clamp(18.0, 32.0)
-                : 15.0;
+                ? (imageWidth * 0.055).clamp(21.0, 38.0)
+                : 18.0;
 
             return Stack(
               children: [
+            // Boutons de test discrets (à enlever en production)
+            if (kDebugMode) ...[
+              Positioned(
+                top: 180,
+                left: 20,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 45,
+                      child: ElevatedButton(
+                        onPressed: () => _testCorrectAnswer(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFABC270),
+                          padding: EdgeInsets.all(8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('✓', style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 60,
+                      height: 45,
+                      child: ElevatedButton(
+                        onPressed: () => _testWrongAnswer(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFC27070),
+                          padding: EdgeInsets.all(8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('✗', style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             // Effet d'auréole animé: se révèle du bas vers le haut
             if (_showFeedback)
               Positioned.fill(
@@ -540,27 +595,224 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
               left: 0,
               right: 0,
               child: Center(
-                child: Builder(
+                                  child: Builder(
                   builder: (context) {
                     return IgnorePointer(
                       ignoring: !_showCorrectAnswerImage, // Ignorer les interactions quand l'image n'est pas visible
                       child: _showCorrectAnswerImage
-                          ? TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0.0, end: 1.0),
-                              duration: const Duration(milliseconds: 500),
-                              curve: Curves.easeOutBack,
-                              builder: (context, scale, child) {
-                                return Transform.scale(
-                                  scale: scale,
-                                   child: SizedBox(
-                                     width: imageWidth,
-                                     height: imageHeight,
-                                     child: ClipRRect(
-                                       borderRadius: BorderRadius.circular(imageRadius),
-                                       clipBehavior: Clip.antiAliasWithSaveLayer,
-                                       child: _buildCachedImage(fit: BoxFit.cover),
-                                     ),
-                                   ),
+                          ? Builder(
+                              builder: (context) {
+                                // Déterminer la couleur du cadre selon la réponse
+                                final bool isCorrect = _selectedAnswer == _questions[_currentQuestionIndex].correctAnswer;
+                                final Color borderColor = isCorrect 
+                                    ? const Color(0xFFABC270) // Vert pour bonne réponse
+                                    : const Color(0xFFC27070); // Rouge pour mauvaise réponse
+                                
+                                // Widget complet préparé d'avance pour apparition instantanée
+                                final Widget fullElement = SizedBox(
+                                  width: imageWidth,
+                                  height: imageHeight,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      // Contour en arrière-plan - positionné précisément
+                                      Positioned.fill(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(imageRadius),
+                                            border: Border.all(
+                                              color: borderColor,
+                                              width: 10.0,
+                                            ),
+                                            // Ombre subtile pour les mauvaises réponses (flat design)
+                                            boxShadow: !isCorrect ? [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.1),
+                                                offset: const Offset(3, 3),
+                                                blurRadius: 8,
+                                                spreadRadius: 1,
+                                              ),
+                                              BoxShadow(
+                                                color: borderColor.withValues(alpha: 0.2),
+                                                offset: const Offset(1, 1),
+                                                blurRadius: 3,
+                                                spreadRadius: 0,
+                                              ),
+                                            ] : null,
+                                          ),
+                                          // Effet d'ombrage flat design pour les mauvaises réponses
+                                          child: !isCorrect ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(imageRadius),
+                                            child: Stack(
+                                              children: [
+                                                // Ombrage général subtil
+                                                AnimatedBuilder(
+                                                  animation: _shineController!,
+                                                  builder: (context, child) {
+                                                    final progress = _shineController!.value;
+                                                    // Mouvement cyclique très subtil
+                                                    final offset = math.sin(progress * math.pi * 2) * 0.5;
+                                                    
+                                                    return Positioned.fill(
+                                                      child: Container(
+                                                        decoration: BoxDecoration(
+                                                          borderRadius: BorderRadius.circular(imageRadius - 10),
+                                                          gradient: LinearGradient(
+                                                            begin: Alignment.topLeft,
+                                                            end: Alignment.bottomRight,
+                                                            colors: [
+                                                              Colors.transparent,
+                                                              const Color(0xFFC87E7E).withValues(alpha: 0.25 + offset * 0.1),
+                                                              const Color(0xFFC87E7E).withValues(alpha: 0.4 + offset * 0.15),
+                                                              const Color(0xFFC87E7E).withValues(alpha: 0.2 + offset * 0.08),
+                                                            ],
+                                                            stops: const [0.0, 0.3, 0.6, 1.0],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                                // Ligne courbe dans le coin haut-droite
+                                                Positioned(
+                                                  top: 12,
+                                                  right: 12,
+                                                  child: AnimatedBuilder(
+                                                    animation: _shineController!,
+                                                    builder: (context, child) {
+                                                      final progress = _shineController!.value;
+                                                      final shimmer = math.sin(progress * math.pi * 2) * 0.4 + 0.6;
+                                                      
+                                                      return CustomPaint(
+                                                        size: Size(40, 40),
+                                                        painter: _CurvedLinePainter(
+                                                          color: const Color(0xFFC87E7E).withValues(alpha: shimmer),
+                                                          radius: imageRadius * 0.3,
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                                // Point décoratif
+                                                Positioned(
+                                                  top: 22,
+                                                  right: 18,
+                                                  child: AnimatedBuilder(
+                                                    animation: _shineController!,
+                                                    builder: (context, child) {
+                                                      final progress = _shineController!.value;
+                                                      final shimmer = math.sin(progress * math.pi * 2 + 1) * 0.3 + 0.7;
+                                                      
+                                                      return Container(
+                                                        width: 6,
+                                                        height: 6,
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFFC87E7E).withValues(alpha: shimmer),
+                                                          shape: BoxShape.circle,
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: const Color(0xFFC87E7E).withValues(alpha: shimmer * 0.5),
+                                                              blurRadius: 3,
+                                                              spreadRadius: 1,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ) : null,
+                                        ),
+                                      ),
+                                      // Effet de brillance UNIQUEMENT pour les bonnes réponses - 2 bandes
+                                      if (isCorrect)
+                                        Positioned.fill(
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(imageRadius),
+                                            child: AnimatedBuilder(
+                                              animation: _shineController!,
+                                              builder: (context, child) {
+                                                final progress = _shineController!.value;
+                                                
+                                                // Bande 1 - première bande verte simple
+                                                final band1Start = 0.0;
+                                                final band1End = 0.6;
+                                                final band1Progress = ((progress - band1Start) / (band1End - band1Start)).clamp(0.0, 1.0);
+                                                final position1 = Tween<double>(begin: -0.8, end: 1.8)
+                                                    .transform(Curves.easeInOut.transform(band1Progress));
+                                                
+                                                // Bande 2 - deuxième bande avec décalage
+                                                final band2Start = 0.2; // Décalage de 20%
+                                                final band2End = 0.8;
+                                                final band2Progress = ((progress - band2Start) / (band2End - band2Start)).clamp(0.0, 1.0);
+                                                final position2 = Tween<double>(begin: -0.8, end: 1.8)
+                                                    .transform(Curves.easeInOut.transform(band2Progress));
+                                                
+                                                return Stack(
+                                                  children: [
+                                                    // Bande 1 - De haut-gauche à bas-droite
+                                                    if (band1Progress > 0)
+                                                      Positioned(
+                                                        left: -imageWidth * 0.3 + (position1 * (imageWidth + imageWidth * 0.6)),
+                                                        top: -imageHeight * 0.3 + (position1 * (imageHeight + imageHeight * 0.6)),
+                                                        child: Transform.rotate(
+                                                          angle: math.atan2(imageHeight, imageWidth), // Angle exact de la diagonale
+                                                          child: Container(
+                                                            width: imageWidth * 0.15,
+                                                            height: math.sqrt(imageWidth * imageWidth + imageHeight * imageHeight),
+                                                            color: const Color(0xFFD2DBB2).withValues(alpha: 0.7),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    // Bande 2 - Même trajectoire avec décalage
+                                                    if (band2Progress > 0)
+                                                      Positioned(
+                                                        left: -imageWidth * 0.3 + (position2 * (imageWidth + imageWidth * 0.6)),
+                                                        top: -imageHeight * 0.3 + (position2 * (imageHeight + imageHeight * 0.6)),
+                                                        child: Transform.rotate(
+                                                          angle: math.atan2(imageHeight, imageWidth), // Même angle exact
+                                                          child: Container(
+                                                            width: imageWidth * 0.12,
+                                                            height: math.sqrt(imageWidth * imageWidth + imageHeight * imageHeight),
+                                                            color: const Color(0xFFD2DBB2).withValues(alpha: 0.6),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      // Image au-dessus du contour - positionnée précisément
+                                      Positioned(
+                                        left: 10.0,
+                                        top: 10.0,
+                                        right: 10.0,
+                                        bottom: 10.0,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(imageRadius - 10.0),
+                                          clipBehavior: Clip.antiAliasWithSaveLayer,
+                                          child: _buildCachedImage(fit: BoxFit.cover),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                
+                                // Animation d'apparition sur l'élément complet
+                                return TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0.0, end: 1.0),
+                                  duration: const Duration(milliseconds: 500),
+                                  curve: Curves.easeOutBack,
+                                  builder: (context, scale, child) {
+                                    return Transform.scale(
+                                      scale: scale,
+                                      child: fullElement,
+                                    );
+                                  },
                                 );
                               },
                             )
@@ -853,16 +1105,76 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     } catch (_) {}
   }
 
+  // Préchargement de la prochaine question
+  Future<void> _preloadNextQuestion() async {
+    if (_isPreloadingNext || _questions.isEmpty) return;
+    
+    final nextIndex = _currentQuestionIndex + 1;
+    if (nextIndex >= _questions.length) return; // Pas de question suivante
+    
+    _isPreloadingNext = true;
+    
+    try {
+      final nextQuestion = _questions[nextIndex];
+      
+      // 1. Précharger l'audio de la prochaine question
+      if (nextQuestion.audioUrl.isNotEmpty) {
+        _nextAudioUrl = nextQuestion.audioUrl;
+        // Précharger l'audio sans le jouer
+        try {
+          final tempPlayer = AudioPlayer();
+          await tempPlayer.setUrl(_nextAudioUrl);
+          await tempPlayer.dispose();
+        } catch (_) {}
+      }
+      
+      // 2. Précharger l'image de la bonne réponse de la prochaine question
+      String nextImageUrl = '';
+      try {
+        final birdData = MissionPreloader.getBirdData(nextQuestion.correctAnswer)
+            ?? MissionPreloader.findBirdByName(nextQuestion.correctAnswer);
+        if (birdData != null && birdData.urlImage.isNotEmpty) {
+          nextImageUrl = birdData.urlImage;
+        }
+      } catch (_) {}
+      
+      if (nextImageUrl.isNotEmpty) {
+        _nextImageUrl = nextImageUrl;
+        // Précharger l'image
+        await _precacheAnswerImage(_nextImageUrl);
+      }
+      
+    } catch (e) {
+      // Gérer silencieusement les erreurs de préchargement
+    } finally {
+      _isPreloadingNext = false;
+    }
+  }
+
   Future<void> _setAnswerImageSafely(String url) async {
     if (!mounted) return;
-    // Afficher immédiatement l'image; précache en arrière-plan pour les prochaines fois
-    setState(() {
-      _correctAnswerImageUrl = _normalizeImageUrl(url);
-      // Toujours afficher le conteneur image; _buildCachedImage gère les cas vides/erreurs
-      _showCorrectAnswerImage = true;
-    });
-    // Lancer le précache sans bloquer ni re-set l'état ensuite
-    _precacheAnswerImage(_correctAnswerImageUrl);
+    
+    final normalizedUrl = _normalizeImageUrl(url);
+    
+    // Utiliser l'image préchargée si disponible
+    if (_nextImageUrl == normalizedUrl && _nextImageUrl.isNotEmpty) {
+      // L'image est déjà préchargée, affichage instantané
+      setState(() {
+        _correctAnswerImageUrl = normalizedUrl;
+        _showCorrectAnswerImage = true;
+      });
+      // Reset l'image préchargée après utilisation
+      _nextImageUrl = '';
+    } else {
+      // Afficher immédiatement l'image; précache en arrière-plan pour les prochaines fois
+      setState(() {
+        _correctAnswerImageUrl = normalizedUrl;
+        // Toujours afficher le conteneur image; _buildCachedImage gère les cas vides/erreurs
+        _showCorrectAnswerImage = true;
+      });
+      // Lancer le précache sans bloquer ni re-set l'état ensuite
+      _precacheAnswerImage(_correctAnswerImageUrl);
+    }
   }
 
   Future<void> _restartAudioAtRandomPosition() async {
@@ -1081,6 +1393,22 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     }
   }
 
+  // Méthodes de test pour les animations (à enlever en production)
+  void _testCorrectAnswer() {
+    if (_questions.isEmpty || _currentQuestionIndex >= _questions.length) return;
+    final currentQuestion = _questions[_currentQuestionIndex];
+    _onAnswerSelected(currentQuestion.correctAnswer);
+  }
+
+  void _testWrongAnswer() {
+    if (_questions.isEmpty || _currentQuestionIndex >= _questions.length) return;
+    final currentQuestion = _questions[_currentQuestionIndex];
+    final wrongAnswers = currentQuestion.options.where((option) => option != currentQuestion.correctAnswer).toList();
+    if (wrongAnswers.isNotEmpty) {
+      _onAnswerSelected(wrongAnswers.first);
+    }
+  }
+
 
 
   Widget _buildCachedImage({BoxFit fit = BoxFit.cover}) {
@@ -1198,6 +1526,9 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     });
     _glowController?.stop();
     _glowController?.value = 0.0;
+    
+    // Déclencher le préchargement de la prochaine question
+    Future.microtask(() => _preloadNextQuestion());
   }
 
   void _exitQuiz() async {
@@ -1428,6 +1759,49 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       ),
     );
   }
+}
+
+// CustomPainter pour la ligne courbe décorative
+class _CurvedLinePainter extends CustomPainter {
+  final Color color;
+  final double radius;
+  
+  _CurvedLinePainter({required this.color, required this.radius});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    
+    final path = Path();
+    
+    // Ligne qui épouse la courbure du coin haut-droite
+    // Commence du coin et suit la courbe
+    path.moveTo(size.width * 0.7, 0);
+    path.quadraticBezierTo(
+      size.width, 0, // Point de contrôle au coin exact
+      size.width, size.height * 0.3, // Point final suivant la courbe
+    );
+    
+    // Deuxième courbe pour plus de richesse
+    path.moveTo(size.width * 0.5, size.height * 0.05);
+    path.quadraticBezierTo(
+      size.width * 0.85, size.height * 0.05,
+      size.width * 0.9, size.height * 0.15,
+    );
+    
+    // Petite ligne supplémentaire pour plus de détail
+    path.moveTo(size.width * 0.6, size.height * 0.2);
+    path.lineTo(size.width * 0.8, size.height * 0.12);
+    
+    canvas.drawPath(path, paint);
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ProgressDroplet {

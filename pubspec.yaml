@@ -57,6 +57,7 @@ dependencies:
   
   # Shared preferences for persistent storage
   shared_preferences: ^2.2.2
+  cached_network_image: ^3.4.1
   
 
 

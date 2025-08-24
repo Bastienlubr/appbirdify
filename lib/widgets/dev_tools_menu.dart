@@ -492,6 +492,18 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           label: '🔓 Déverrouiller TOUTES les missions',
           onPressed: () => _executeAction(DevToolsService.unlockAllMissions),
         ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐ Déverrouiller TOUTES les étoiles (3★ partout)',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.unlockAllStars();
+            // Appeler le callback pour forcer le rechargement des étoiles
+            if (widget.onStarsReset != null) {
+              if (kDebugMode) debugPrint('🔄 Appel du callback de rechargement des étoiles...');
+              widget.onStarsReset!();
+            }
+          }),
+        ),
       ],
     );
   }

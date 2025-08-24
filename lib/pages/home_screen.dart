@@ -13,6 +13,7 @@ import '../services/Mission/communs/commun_persistance_consultation.dart';
 import '../services/Mission/communs/commun_strategie_progression.dart';
 import '../widgets/dev_tools_menu.dart';
 import '../ui/responsive/responsive.dart';
+// import '../ui/animations/transitions.dart'; // (désactivé) Animations centralisées
 
 
 
@@ -25,6 +26,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 1; // 0: Quiz, 1: Accueil, 2: Profil, 3: Bibliothèque
+  int _previousIndex = 1;
+  
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -39,33 +42,21 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          final slide = Tween<Offset>(begin: const Offset(0.06, 0.0), end: Offset.zero)
-              .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(position: slide, child: child),
-          );
-        },
-        child: KeyedSubtree(
-          key: ValueKey(_currentIndex),
-          child: _currentIndex == 3 ? const BaseOrnithoPage() : const HomeContent(),
-        ),
-      ),
+      body: (_currentIndex == 3 ? const BaseOrnithoPage() : const HomeContent()),
       bottomNavigationBar: HomeBottomNavBar(
         currentIndex: _currentIndex,
         onTabSelected: (idx) {
-          setState(() => _currentIndex = idx);
+          setState(() {
+            _previousIndex = _currentIndex;
+            _currentIndex = idx;
+          });
         },
       ),
     ));
   }
 
-  // (supprimé) _buildNavItem non utilisé (remplacé par HomeBottomNavBar)
+  // ✅ Transitions gérées par AppTransitions.smartTransitionBuilder
+  // Anciennes méthodes supprimées pour simplicité et performance
 }
 
 class HomeContent extends StatefulWidget {
@@ -493,14 +484,14 @@ class _HomeContentState extends State<HomeContent> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(height: spacing * 0.5),
+                        SizedBox(height: spacing * 0.3),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: spacing),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _buildTitleSection(titleFontSize, subtitleFontSize),
-                              SizedBox(height: spacing * 0.15),
+                              SizedBox(height: spacing * 0.1),
                             ],
                           ),
                         ),
@@ -511,6 +502,7 @@ class _HomeContentState extends State<HomeContent> {
                             });
                             _loadMissionsForBiome(biome.name);
                           },
+                          isBiomeUnlocked: (biomeName) => _isBiomeUnlocked(biomeName),
                         ),
                         Expanded(
                           child: Padding(
@@ -518,7 +510,7 @@ class _HomeContentState extends State<HomeContent> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                SizedBox(height: spacing * 0.5),
+                                SizedBox(height: spacing * 0.2),
                                 Expanded(
                                   child: Stack(
                                     children: [
