@@ -4,6 +4,8 @@ import '../services/dev_tools_service.dart';
 import '../theme/colors.dart';
 import '../services/Mission/communs/commun_persistance_consultation.dart';
 import '../pages/auth/login_screen.dart';
+import '../pages/RecompensesUtiles/test_recompenses_access.dart';
+import '../services/Users/recompenses_utiles_service.dart';
 
 class DevToolsMenu extends StatefulWidget {
   final VoidCallback? onLivesRestored;
@@ -438,6 +440,50 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           onPressed: () {
             widget.onAction();
             Navigator.of(context).pop();
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '🏆 Tester page Récompenses',
+          onPressed: () {
+            Navigator.of(context).pop(); // Fermer le popup d'abord
+            TestRecompensesAccess.showRecompensesPage(context);
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐ Simuler 1 étoile',
+          onPressed: () async {
+            Navigator.of(context).pop(); // Fermer le popup d'abord
+            final service = RecompensesUtilesService();
+            await service.simulerEtoiles(TypeEtoile.uneEtoile);
+            if (kDebugMode) debugPrint('🌟 Simulation 1 étoile terminée');
+            // Ouvrir la page de récompenses avec la simulation
+            TestRecompensesAccess.showRecompensesPage(context);
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐⭐ Simuler 2 étoiles',
+          onPressed: () async {
+            Navigator.of(context).pop(); // Fermer le popup d'abord
+            final service = RecompensesUtilesService();
+            await service.simulerEtoiles(TypeEtoile.deuxEtoiles);
+            if (kDebugMode) debugPrint('🌟 Simulation 2 étoiles terminée');
+            // Ouvrir la page de récompenses avec la simulation
+            TestRecompensesAccess.showRecompensesPage(context);
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐⭐⭐ Simuler 3 étoiles',
+          onPressed: () async {
+            Navigator.of(context).pop(); // Fermer le popup d'abord
+            final service = RecompensesUtilesService();
+            await service.simulerEtoiles(TypeEtoile.troisEtoiles);
+            if (kDebugMode) debugPrint('🌟 Simulation 3 étoiles terminée');
+            // Ouvrir la page de récompenses avec la simulation
+            TestRecompensesAccess.showRecompensesPage(context);
           },
         ),
       ],
