@@ -3,16 +3,18 @@ import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 import '../widgets/biome_carousel_enhanced.dart';
 import '../widgets/home_bottom_nav_bar.dart';
-import 'base_ornitho_page.dart';
+import 'Perchoir/base_ornitho_page.dart';
+import 'Profil/profil_page.dart';
 import '../data/milieu_data.dart';
 import '../models/mission.dart';
-import '../pages/mission_loading_screen.dart';
-import '../services/life_sync_service.dart';
-import '../services/mission_loader_service.dart';
-import '../services/mission_persistence_service.dart';
-import '../services/mission_progression_init_service.dart';
+import 'MissionHabitat/mission_loading_screen.dart';
+import '../services/Users/user_orchestra_service.dart';
+import '../services/Mission/communs/commun_chargeur_missions.dart';
+import '../services/Mission/communs/commun_persistance_consultation.dart';
+import '../services/Mission/communs/commun_strategie_progression.dart';
 import '../widgets/dev_tools_menu.dart';
 import '../ui/responsive/responsive.dart';
+// import '../ui/animations/transitions.dart'; // (désactivé) Animations centralisées
 
 
 
@@ -25,45 +27,43 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 1; // 0: Quiz, 1: Accueil, 2: Profil, 3: Bibliothèque
+  // int _previousIndex = 1; // plus utilisé
+  
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_currentIndex == 3) {
+          setState(() => _currentIndex = 1);
+        } else {
+          Navigator.maybePop(context);
+        }
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
-      body: _currentIndex == 3 ? const BaseOrnithoPage() : const HomeContent(),
+      body: (
+        _currentIndex == 3 
+          ? const BaseOrnithoPage() 
+          : _currentIndex == 2 
+            ? const ProfilPage() 
+            : const HomeContent()
+      ),
       bottomNavigationBar: HomeBottomNavBar(
         currentIndex: _currentIndex,
         onTabSelected: (idx) {
-          setState(() => _currentIndex = idx);
-          // TODO: Brancher la navigation vers pages quand elles seront prêtes
+          setState(() {
+            // _previousIndex = _currentIndex;
+            _currentIndex = idx;
+          });
         },
       ),
-    );
+    ));
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    // Conservé pour compatibilité si besoin, non utilisé car remplacé par HomeBottomNavBar
-    final bool isSelected = _currentIndex == index;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isSelected ? const Color(0xFFFEC868) : Colors.white,
-          size: 24,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Quicksand',
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
+  // ✅ Transitions gérées par AppTransitions.smartTransitionBuilder
+  // Anciennes méthodes supprimées pour simplicité et performance
 }
 
 class HomeContent extends StatefulWidget {
@@ -114,17 +114,17 @@ class _HomeContentState extends State<HomeContent> {
   /// Charge les vies actuelles depuis Firestore et vérifie la réinitialisation quotidienne
   Future<void> _loadCurrentLives() async {
     try {
-      final uid = LifeSyncService.getCurrentUserId();
-      if (kDebugMode) debugPrint('🔍 Vérification utilisateur (HomeScreen): UID=$uid, Connecté=${LifeSyncService.isUserLoggedIn}');
+      final uid = UserOrchestra.currentUserId;
+      if (kDebugMode) debugPrint('🔍 Vérification utilisateur (HomeScreen): UID=$uid, Connecté=${UserOrchestra.isUserLoggedIn}');
       
       if (uid != null) {
         if (kDebugMode) debugPrint('🔄 Chargement des vies depuis Firestore pour utilisateur $uid');
         
         // Vérifier les vies avant checkAndResetLives
-        final livesBefore = await LifeSyncService.getCurrentLives(uid);
+        final livesBefore = await UserOrchestra.getCurrentLives(uid);
         if (kDebugMode) debugPrint('📊 Vies dans Firestore avant checkAndResetLives: $livesBefore');
         
-        final lives = await LifeSyncService.checkAndResetLives(uid);
+        final lives = await UserOrchestra.checkAndResetLives(uid);
         
         if (mounted) {
           setState(() {
@@ -183,7 +183,7 @@ class _HomeContentState extends State<HomeContent> {
       }
       
       // Charger les missions depuis le CSV avec progression Firestore
-      final uid = LifeSyncService.getCurrentUserId();
+      final uid = UserOrchestra.currentUserId;
       List<Mission> allMissions;
       
       if (uid != null) {
@@ -273,7 +273,7 @@ class _HomeContentState extends State<HomeContent> {
         for (final biomeName in _biomeUnlockOrder) {
           if (biomeName != currentBiome && !_missionsCache.containsKey(biomeName)) {
             try {
-              final uid = LifeSyncService.getCurrentUserId();
+              final uid = UserOrchestra.currentUserId;
               List<Mission> missions;
               
               if (uid != null) {
@@ -419,8 +419,7 @@ class _HomeContentState extends State<HomeContent> {
         final double subtitleFontSize = isTablet
             ? (14.0 * scale * 1.10).clamp(13.0, 22.0).toDouble()
             : 14.0 * phoneScaleUp;
-        final double navIconSize = isTablet ? 28.0 : 24.0;
-        final double navLabelSize = isTablet ? 13.0 : 12.0;
+        // Removed unused navIconSize/navLabelSize
 
         final double livesSize = isTablet
             ? (shortest * (isWide ? 0.15 : 0.18)).clamp(150.0, 230.0).toDouble()
@@ -492,14 +491,14 @@ class _HomeContentState extends State<HomeContent> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(height: spacing * 0.5),
+                        SizedBox(height: spacing * 0.3),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: spacing),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _buildTitleSection(titleFontSize, subtitleFontSize),
-                              SizedBox(height: spacing * 0.15),
+                              SizedBox(height: spacing * 0.1),
                             ],
                           ),
                         ),
@@ -510,6 +509,7 @@ class _HomeContentState extends State<HomeContent> {
                             });
                             _loadMissionsForBiome(biome.name);
                           },
+                          isBiomeUnlocked: (biomeName) => _isBiomeUnlocked(biomeName),
                         ),
                         Expanded(
                           child: Padding(
@@ -517,7 +517,7 @@ class _HomeContentState extends State<HomeContent> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                SizedBox(height: spacing * 0.5),
+                                SizedBox(height: spacing * 0.2),
                                 Expanded(
                                   child: Stack(
                                     children: [

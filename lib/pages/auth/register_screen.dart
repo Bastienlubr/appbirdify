@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/Users/user_orchestra_service.dart';
+import '../../services/Users/user_profile_service.dart';
 import '../../pages/home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -87,21 +88,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Mettre à jour le profil utilisateur avec le nom
       if (userCredential.user != null) {
         await userCredential.user!.updateDisplayName(name);
-        
-        // Sauvegarder les informations utilisateur dans Firestore
+
+        // Écrire la structure complète du profil et démarrer la synchronisation
         try {
-          await FirebaseFirestore.instance
-              .collection('utilisateurs')
-              .doc(userCredential.user!.uid)
-              .set({
-            'name': name,
-            'email': email,
-            'createdAt': FieldValue.serverTimestamp(),
-            'lastLogin': FieldValue.serverTimestamp(),
-          });
-        } catch (firestoreError) {
-          // Log l'erreur Firestore mais ne pas bloquer l'inscription
-          debugPrint('Firestore error: $firestoreError');
+          await UserProfileService.createOrUpdateUserProfile(
+            uid: userCredential.user!.uid,
+            displayName: name,
+            email: email,
+            photoURL: userCredential.user!.photoURL,
+          );
+          await UserOrchestra.startRealtime();
+        } catch (syncError) {
+          debugPrint('Profil/sync error: $syncError');
         }
       }
 

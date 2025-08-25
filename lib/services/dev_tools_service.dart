@@ -75,19 +75,30 @@ class DevToolsService {
         debugPrint('💚 Restauration des vies pour ${user.uid}...');
       }
 
-      // Utiliser la même structure que LifeSyncService
+      // Nouveau schéma unifié
       await _firestore
           .collection('utilisateurs')
           .doc(user.uid)
           .set({
-        'livesRemaining': 5,
-        'dailyResetDate': DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
-        'lastUpdated': FieldValue.serverTimestamp(),
+        'vie': {
+          'vieRestante': 5,
+          'vieMaximum': 5,
+          'prochaineRecharge': DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1),
+        },
+        // plus de champ root lastUpdated
+        // Nettoyage anciens schémas
+        'Vie restante': FieldValue.delete(),
+        'livesRemaining': FieldValue.delete(),
+        'vies.compte': FieldValue.delete(),
+        'vies.max': FieldValue.delete(),
+        'vies.Vie restante': FieldValue.delete(),
+        'vies.prochaineRecharge': FieldValue.delete(),
+        'vie.Vie restante': FieldValue.delete(),
       }, SetOptions(merge: true));
 
       if (kDebugMode) {
-        debugPrint('✅ Vies restaurées à 5 (structure harmonisée)');
-        debugPrint('   📍 Champ utilisé: livesRemaining (comme LifeSyncService)');
+        debugPrint('✅ Vies restaurées à 5 (schéma unifié)');
+        debugPrint('   📍 Champ utilisé: "vie.vieRestante"');
         debugPrint('   🔄 Synchronisation Firestore terminée, vies mises à jour');
       }
     } catch (e) {
@@ -105,7 +116,7 @@ class DevToolsService {
       if (user == null) return;
 
       if (kDebugMode) {
-        debugPrint('♾️ Mise à jour du mode vies infinies=${enabled} pour ${user.uid}');
+        debugPrint('♾️ Mise à jour du mode vies infinies=$enabled pour ${user.uid}');
       }
 
       await _firestore
@@ -113,7 +124,7 @@ class DevToolsService {
           .doc(user.uid)
           .set({
         'livesInfinite': enabled,
-        'lastUpdated': FieldValue.serverTimestamp(),
+        // plus de champ root lastUpdated
       }, SetOptions(merge: true));
 
       if (kDebugMode) {
@@ -322,6 +333,97 @@ class DevToolsService {
         debugPrint('❌ Erreur lors du calcul des étoiles: $e');
       }
       return 0;
+    }
+  }
+
+  /// Déverrouille toutes les étoiles (3 étoiles par mission)
+  /// Crée et complète automatiquement toutes les missions de tous les biomes
+  static Future<void> unlockAllStars() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      if (kDebugMode) {
+        debugPrint('⭐ Déverrouillage de toutes les étoiles pour ${user.uid}...');
+      }
+
+      // Définir toutes les missions existantes par biome
+      final Map<String, List<String>> allMissions = {
+        'urbain': ['U01', 'U02', 'U03', 'U04'],
+        'forestier': ['F01', 'F02', 'F03', 'F04'],
+        'agricole': ['A01', 'A02', 'A03', 'A04'],
+        'humide': ['H01', 'H02', 'H03', 'H04'],
+        'montagnard': ['M01', 'M02', 'M03', 'M04'],
+        'littoral': ['L01', 'L02', 'L03', 'L04'],
+      };
+
+      // Mapper biome vers code de biome pour compatibilité
+      final Map<String, String> biomeToCode = {
+        'urbain': 'U',
+        'forestier': 'F', 
+        'agricole': 'A',
+        'humide': 'H',
+        'montagnard': 'M',
+        'littoral': 'L',
+      };
+
+      final batch = _firestore.batch();
+      int missionsCreated = 0;
+
+      // Pour chaque biome et ses missions
+      for (final biomeEntry in allMissions.entries) {
+        final biomeName = biomeEntry.key;
+        final missionIds = biomeEntry.value;
+        final biomeCode = biomeToCode[biomeName]!;
+
+        for (int i = 0; i < missionIds.length; i++) {
+          final missionId = missionIds[i];
+          final missionIndex = i + 1;
+          
+          // Référence du document de progression
+          final missionRef = _firestore
+              .collection('utilisateurs')
+              .doc(user.uid)
+              .collection('progression_missions')
+              .doc(missionId);
+
+          // Créer/mettre à jour la progression avec 3 étoiles
+          batch.set(missionRef, {
+            'missionId': missionId,
+            'biome': biomeCode,
+            'index': missionIndex,
+            'etoiles': 3,
+            'tentatives': 1,
+            'moyenneScores': 100.0,
+            'scoresHistorique': {
+              DateTime.now().millisecondsSinceEpoch.toString(): 100.0
+            },
+            'scoresPourcentagesPasses': [100.0],
+            'deverrouille': true,
+            'deverrouilleLe': FieldValue.serverTimestamp(),
+            'derniereMiseAJour': FieldValue.serverTimestamp(),
+            'creeLe': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          missionsCreated++;
+          
+          if (kDebugMode) {
+            debugPrint('   ⭐ $missionId ($biomeName): 3 étoiles accordées');
+          }
+        }
+      }
+
+      await batch.commit();
+
+      if (kDebugMode) {
+        debugPrint('✅ $missionsCreated missions complétées avec 3 étoiles sur tous les biomes');
+        debugPrint('📊 Biomes traités: ${allMissions.keys.join(', ')}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Erreur lors du déverrouillage des étoiles: $e');
+      }
+      rethrow;
     }
   }
 }
