@@ -48,6 +48,9 @@ dependencies:
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.3
   cloud_firestore: ^5.4.3
+  firebase_storage: ^12.3.6
+  firebase_app_check: ^0.3.0+5
+  image_cropper: ^9.1.0
   
   # HTTP client for API calls
   http: ^1.2.0
@@ -58,6 +61,7 @@ dependencies:
   # Shared preferences for persistent storage
   shared_preferences: ^2.2.2
   cached_network_image: ^3.4.1
+  image_picker: ^1.1.2
   
 
 
@@ -101,6 +105,7 @@ flutter:
     - assets/PAGE/Score resultat/
     - assets/PAGE/Chargement/
     - assets/PAGE/Recompenses utiles/
+    - assets/PAGE/Profil/
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

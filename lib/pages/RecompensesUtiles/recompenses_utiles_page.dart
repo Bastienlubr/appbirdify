@@ -6,6 +6,7 @@ import 'package:lottie/lottie.dart';
 import '../../services/Users/recompenses_utiles_service.dart';
 import '../../ui/responsive/responsive.dart';
 import '../../ui/scaffold/adaptive_scaffold.dart';
+import '../home_screen.dart';
 
 /// Layout calculé pour la page des récompenses utiles
 /// Similaire au système de la page Score final
@@ -40,7 +41,8 @@ class _RewardLayout {
 /// Page des récompenses utiles reproduisant le design Figma fourni
 /// Centrée sur le système d'étoiles avec félicitations
 class RecompensesUtilesPage extends StatefulWidget {
-  const RecompensesUtilesPage({super.key});
+  final TypeEtoile? forcedType; // Permet de forcer l'animation/texte selon l'étoile gagnée
+  const RecompensesUtilesPage({super.key, this.forcedType});
 
   @override
   State<RecompensesUtilesPage> createState() => _RecompensesUtilesPageState();
@@ -181,44 +183,59 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
 
                 final layout = calculateLayout();
 
-                return Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.only(
-                      top: isTablet ? layout.spacing * 0.5 : 0,
-                      left: layout.spacing,
-                      right: layout.spacing,
-                      bottom: layout.spacing,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Bloc 1: Header "Félicitations !!"
-                          _buildHeaderBlock(layout),
-                          
-                          SizedBox(height: layout.spacing),
-                          
-                          // Bloc 2: Zone principale avec animation centrale
-                          _buildMainBlock(layout),
-                          
-                          SizedBox(height: isTablet ? layout.spacing * 0.2 : layout.spacing * 0.4),
-                          
-                          // Bloc 3: Textes de félicitations
-                          _buildMessageBlock(layout),
-                          
-                          SizedBox(height: layout.spacing * 0.8),
-                          if (!isTablet) SizedBox(height: layout.spacing * 0.3),
-                          
-                          // Bloc 4: Bouton continuer
-                          _buildContinueButton(layout),
-                        ],
+                return Stack(
+                  children: [
+                    // Effet Sunburst en arrière-plan GLOBAL (derrière tout)
+                    Positioned(
+                      top: layout.animationTop + layout.spacing * 5, // Position globale ajustée
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: _buildSunburstEffect(layout),
                       ),
                     ),
-                  ),
+                    
+                    // Contenu principal au-dessus
+                    Center(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.only(
+                          top: isTablet ? layout.spacing * 0.5 : 0,
+                          left: layout.spacing,
+                          right: layout.spacing,
+                          bottom: layout.spacing,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              // Bloc 1: Header "Félicitations !!"
+                              _buildHeaderBlock(layout),
+                              
+                              SizedBox(height: layout.spacing),
+                              
+                              // Bloc 2: Zone principale avec animation centrale
+                              _buildMainBlock(layout),
+                              
+                              SizedBox(height: isTablet ? layout.spacing * 0.2 : layout.spacing * 0.4),
+                              
+                              // Bloc 3: Textes de félicitations
+                              _buildMessageBlock(layout),
+                              
+                              SizedBox(height: layout.spacing * 0.8),
+                              if (!isTablet) SizedBox(height: layout.spacing * 0.3),
+                              
+                              // Bloc 4: Bouton continuer
+                              _buildContinueButton(layout),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -230,9 +247,13 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
     );
   }
 
+  TypeEtoile _currentRewardType() {
+    return widget.forcedType ?? (_recompenses['derniere_recompense_type'] ?? TypeEtoile.uneEtoile);
+  }
+
   /// Bloc 1: Header "Félicitations !!"
   Widget _buildHeaderBlock(_RewardLayout layout) {
-    final derniereRecompense = _recompenses['derniere_recompense_type'] ?? TypeEtoile.uneEtoile;
+    final derniereRecompense = _currentRewardType();
     
     return Container(
       width: double.infinity,
@@ -301,12 +322,7 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
               alignment: Alignment.topCenter,
               clipBehavior: Clip.none,
               children: [
-                // Effet Sunburst rotatif en arrière-plan
-                Positioned(
-                  top: layout.animationTop - 50, // Décalé pour être centré avec l'animation
-                  child: _buildSunburstEffect(layout),
-                ),
-                // Zone d'animation centrale
+                // Zone d'animation centrale (Sunburst maintenant en arrière-plan global)
                 Positioned(
                   top: layout.animationTop,
                   child: _buildAnimationWidget(layout),
@@ -321,7 +337,7 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
 
     /// Bloc 3: Textes de félicitations
   Widget _buildMessageBlock(_RewardLayout layout) {
-    final derniereRecompense = _recompenses['derniere_recompense_type'] ?? TypeEtoile.uneEtoile;
+    final derniereRecompense = _currentRewardType();
     
     return Container(
       width: double.infinity,
@@ -380,7 +396,13 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(16),
-                    onTap: () => Navigator.pop(context),
+                    onTap: () {
+                      // Retour propre à la Home si cette page a remplacé la fin de quiz
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        (route) => false,
+                      );
+                    },
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: const Color(0xFF6A994E),
@@ -439,7 +461,7 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
   /// Construit le widget d'animation
   Widget _buildAnimationWidget(_RewardLayout layout) {
     final animations = _recompenses['animations_disponibles'] as List? ?? [];
-    final derniereRecompense = _recompenses['derniere_recompense_type'] ?? TypeEtoile.uneEtoile;
+    final derniereRecompense = _currentRewardType();
     
     if (kDebugMode) {
       debugPrint('🎬 Animations disponibles: $animations');
@@ -517,12 +539,15 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
       builder: (context, child) {
         return Transform.rotate(
           angle: _sunburstController.value * 2 * 3.14159, // Rotation complète
-          child: Container(
-            width: layout.ringSize * 1.8, // Plus grand que l'animation
-            height: layout.ringSize * 1.8,
-            child: CustomPaint(
-              painter: SunburstPainter(),
-              size: Size(layout.ringSize * 1.8, layout.ringSize * 1.8),
+          child: Transform.scale(
+            scale: 1.5, // Agrandissement modéré - juste milieu parfait !
+            child: Container(
+              width: layout.ringSize * 1.8, // Taille de base
+              height: layout.ringSize * 1.8,
+              child: CustomPaint(
+                painter: SunburstPainter(),
+                size: Size(layout.ringSize * 1.8, layout.ringSize * 1.8),
+              ),
             ),
           ),
         );
@@ -552,15 +577,15 @@ class SunburstPainter extends CustomPainter {
   
   /// Dessiner le dégradé radial central lumineux
   void _drawRadialGlow(Canvas canvas, Offset center, double radius) {
-    final glowRadius = radius * 0.3;
+    final glowRadius = radius * 0.3; // Taille de base (Transform.scale s'occupe de l'agrandissement)
     
     final radialGradient = RadialGradient(
       center: Alignment.center,
       radius: 1.0,
       colors: [
-        const Color(0xFFFFEB3B).withOpacity(0.8), // Jaune vif au centre
-        const Color(0xFFFFF176).withOpacity(0.4), // Jaune clair
-        const Color(0xFFFFFFFF).withOpacity(0.15), // Blanc transparent
+        const Color(0xFFFFEB3B).withValues(alpha: 0.25),
+        const Color(0xFFFFF176).withValues(alpha: 0.15),
+        const Color(0xFFFFFFFF).withValues(alpha: 0.08),
         Colors.transparent, // Transparent à l'extérieur
       ],
       stops: const [0.0, 0.4, 0.7, 1.0],
@@ -577,9 +602,9 @@ class SunburstPainter extends CustomPainter {
   
   /// Dessiner le halo ondulé autour
   void _drawUndulatingHalo(Canvas canvas, Offset center, double radius) {
-    const int waveCount = 24;
-    final haloRadius = radius * 0.85;
-    final waveAmplitude = radius * 0.08;
+    const int waveCount = 54;
+    final haloRadius = radius * 0.95; // Taille de base
+    final waveAmplitude = radius * 0.58; // Taille de base
     
     final path = Path();
     bool firstPoint = true;
@@ -601,14 +626,30 @@ class SunburstPainter extends CustomPainter {
     }
     path.close();
     
+    // Dégradé radial pour un estompage progressif ultra-fluide
+    final haloGradient = RadialGradient(
+      center: Alignment.center,
+      radius: 1.0,
+      colors: [
+        const Color(0xFFFFEB3B).withValues(alpha: 0.08),
+        const Color(0xFFFFEB3B).withValues(alpha: 0.04),
+        const Color(0xFFFFEB3B).withValues(alpha: 0.02),
+        Colors.transparent, // Transparent aux extrémités
+      ],
+      stops: const [0.0, 0.6, 0.85, 1.0],
+    );
+    
     final haloPaint = Paint()
-      ..color = const Color(0xFFFFEB3B).withOpacity(0.1)
+      ..shader = haloGradient.createShader(Rect.fromCircle(
+        center: center,
+        radius: haloRadius,
+      ))
       ..style = PaintingStyle.fill;
     
     canvas.drawPath(path, haloPaint);
   }
   
-  /// Dessiner les rayons triangulaires isocèles
+  /// Dessiner les rayons triangulaires isocèles avec estompage progressif
   void _drawSunRays(Canvas canvas, Offset center, double radius) {
     const int rayCount = 16;
     
@@ -617,11 +658,11 @@ class SunburstPainter extends CustomPainter {
       
       // Rayons alternés longs et courts
       final isLongRay = i % 2 == 0;
-      final rayLength = isLongRay ? radius * 0.9 : radius * 0.65;
+      final rayLength = isLongRay ? radius * 0.9 : radius * 0.65; // Taille de base
       
-      // Largeur du rayon : fin au centre, épais au bout (BEAUCOUP PLUS LARGES)
-      final centerWidth = radius * 0.04; // Plus fin au centre mais visible
-      final tipWidth = isLongRay ? radius * 0.15 : radius * 0.12; // BEAUCOUP plus épais au bout
+      // Largeur du rayon : fin au centre, plus épais au bout (AUGMENTÉ)
+      final centerWidth = radius * 0.02; // Légèrement plus épais au centre
+      final tipWidth = isLongRay ? radius * 0.12 : radius * 0.08; // RAYONS PLUS LARGES
       
       // Créer le triangle isocèle
       final path = Path();
@@ -663,20 +704,54 @@ class SunburstPainter extends CustomPainter {
       path.lineTo(leftTip.dx, leftTip.dy);
       path.close();
       
-      // Dégradé linéaire du centre vers l'extérieur
-      final rayGradient = LinearGradient(
-        begin: Alignment.center,
-        end: Alignment.centerRight,
-        colors: [
-          const Color(0xFFFFEB3B).withOpacity(0.6), // Jaune vif au centre
-          const Color(0xFFFFC107).withOpacity(0.4), // Jaune ambré
-          const Color(0xFFFFEB3B).withOpacity(0.2), // Jaune clair au bout
-        ],
-        stops: const [0.0, 0.6, 1.0],
-      );
+      // ESTOMPAGE PROGRESSIF : opacité réduite selon la distance du centre de l'étoile
+      final distanceFromCenter = rayLength / radius; // Ratio 0.0 -> 1.0
+      final fadeOpacity = math.max(0.05, 0.35 * (1.0 - distanceFromCenter * 0.8)); // Plus on s'éloigne, plus ça s'estompe
       
-      final rayPaint = Paint()
-        ..shader = rayGradient.createShader(Rect.fromPoints(centerStart, tipCenter));
+      // Dégradé avec effet diffus sur les côtés pour les rayons longs
+      late Paint rayPaint;
+      
+      if (isLongRay) {
+        // RAYONS LONGS : Effet diffus avec dégradé radial depuis le centre du rayon
+        final rayCenter = Offset(
+          (centerStart.dx + tipCenter.dx) / 2,
+          (centerStart.dy + tipCenter.dy) / 2,
+        );
+        
+        final rayRadialGradient = RadialGradient(
+          center: Alignment.center,
+          radius: 1.2, // Élargi pour effet diffus sur les côtés
+          colors: [
+            const Color(0xFFFFEB3B).withValues(alpha: 0.0).withValues(alpha: fadeOpacity * 1.4),
+            const Color(0xFFFFC107).withValues(alpha: 0.0).withValues(alpha: fadeOpacity * 1.0),
+            const Color(0xFFFFEB3B).withValues(alpha: 0.0).withValues(alpha: fadeOpacity * 0.6),
+            const Color(0xFFFFEB3B).withValues(alpha: 0.0).withValues(alpha: fadeOpacity * 0.2),
+            Colors.transparent, // Extrémités transparentes pour effet fondu
+          ],
+          stops: const [0.0, 0.4, 0.7, 0.9, 1.0],
+        );
+        
+        rayPaint = Paint()
+          ..shader = rayRadialGradient.createShader(Rect.fromPoints(
+            Offset(rayCenter.dx - tipWidth * 1.5, rayCenter.dy - rayLength * 0.6),
+            Offset(rayCenter.dx + tipWidth * 1.5, rayCenter.dy + rayLength * 0.6),
+          ));
+      } else {
+        // RAYONS COURTS : Dégradé linéaire classique
+        final rayLinearGradient = LinearGradient(
+          begin: Alignment.center,
+          end: Alignment.centerRight,
+          colors: [
+            const Color(0xFFFFEB3B).withValues(alpha: 0.0).withValues(alpha: fadeOpacity * 1.2),
+            const Color(0xFFFFC107).withValues(alpha: 0.0).withValues(alpha: fadeOpacity * 0.8),
+            const Color(0xFFFFEB3B).withValues(alpha: 0.0).withValues(alpha: fadeOpacity * 0.3),
+          ],
+          stops: const [0.0, 0.7, 1.0],
+        );
+        
+        rayPaint = Paint()
+          ..shader = rayLinearGradient.createShader(Rect.fromPoints(centerStart, tipCenter));
+      }
       
       canvas.drawPath(path, rayPaint);
     }

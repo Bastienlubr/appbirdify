@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
-import 'dart:ui' as ui;
+// import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
-import '../services/Mission/communs/commun_gestion_mission.dart';
-import '../models/mission.dart';
-import '../ui/responsive/responsive.dart';
-import '../ui/scaffold/adaptive_scaffold.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+// import supprimé en double
+import '../../models/mission.dart';
+import '../../ui/responsive/responsive.dart';
+import '../../ui/scaffold/adaptive_scaffold.dart';
 import 'package:lottie/lottie.dart';
 import 'package:just_audio/just_audio.dart';
-import '../models/answer_recap.dart';
-import 'home_screen.dart';
-import '../widgets/recap_button.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../models/answer_recap.dart';
+import '../../pages/home_screen.dart';
+import '../../widgets/recap_button.dart';
+// import 'package:google_fonts/google_fonts.dart';
+import '../../pages/RecompensesUtiles/recompenses_utiles_page.dart';
+import '../../services/Users/recompenses_utiles_service.dart';
+// import '../../services/Users/firestore_service.dart';
+import '../Mission/communs/commun_gestion_mission.dart';
 
 class _EndLayout {
   final double ringSize;
@@ -78,6 +84,10 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
   final String _lottiePath = 'assets/PAGE/Score resultat/Check.json';
   Future<String>? _lottiePathFuture;
   final ScrollController _scrollController = ScrollController();
+  
+  // Variables pour capturer les étoiles avant et après mise à jour
+  int? _starsBeforeUpdate;
+  int? _starsAfterUpdate;
   final AudioPlayer _recapPlayer = AudioPlayer();
   String _recapPlayingUrl = '';
   bool _recapIsPlaying = false;
@@ -98,11 +108,20 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
   // Clé unique pour forcer la reconstruction de l'anneau
   int _ringKey = 0;
   
+  // Messages sélectionnés une seule fois à l'arrivée
+  String? _chosenTitleMessage;
+  String? _chosenSubtitleMessage;
+  bool _messagesLocked = false;
+  
   // Variables de test pour simuler différents scores
   int _testScore = 0;
   bool _useTestScore = false;
   final List<int> _testScores = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   int _currentTestScoreIndex = 0;
+
+  // Services pour la navigation intelligente
+  // final FirestoreService _firestoreService = FirestoreService();
+  final RecompensesUtilesService _recompensesService = RecompensesUtilesService();
 
   @override
   void initState() {
@@ -137,6 +156,18 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
         _showConfetti2 = true;
       });
     });
+
+    // Sélectionner les messages une seule fois à l'arrivée
+    _selectMessagesOnce();
+  }
+
+  void _selectMessagesOnce() {
+    if (_messagesLocked) return;
+    final int scoreVal = _useTestScore ? _testScore : widget.score;
+    final int totalVal = widget.totalQuestions;
+    _chosenTitleMessage = _getTitleMessage(scoreVal, totalVal);
+    _chosenSubtitleMessage = _getSubtitleMessage(scoreVal, totalVal);
+    _messagesLocked = true;
   }
 
   /// Met à jour complètement la progression de la mission dans Firestore
@@ -146,6 +177,26 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
         if (kDebugMode) debugPrint('⚠️ Aucune mission fournie');
         return;
       }
+
+      // 🎯 CAPTURER LES ÉTOILES AVANT mise à jour
+      try {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          final progressionData = await FirebaseFirestore.instance
+              .collection('utilisateurs')
+              .doc(currentUser.uid)
+              .collection('progression_missions')
+              .doc(widget.mission!.id)
+              .get();
+          _starsBeforeUpdate = progressionData.exists
+              ? (progressionData.data()?['etoiles'] ?? 0)
+              : 0;
+        }
+      } catch (e) {
+        _starsBeforeUpdate = 0;
+      }
+
+
 
       if (kDebugMode) {
         debugPrint('🚀 Début de la mise à jour de la progression pour ${widget.mission!.id}');
@@ -168,12 +219,69 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
         dureePartie: dureePartie,
         wrongBirds: widget.wrongBirds, // Nouveau paramètre
       );
+
+      // 🎯 CAPTURE DES ÉTOILES APRÈS MISE À JOUR
+      if (kDebugMode) debugPrint('🔥🔥🔥 CAPTURE ÉTOILES APRÈS - DÉBUT 🔥🔥🔥');
+      
+      try {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (kDebugMode) debugPrint('👤 Utilisateur pour capture APRÈS: ${currentUser?.uid ?? "NULL"}');
+        
+        if (currentUser != null) {
+          if (kDebugMode) debugPrint('📡 Requête Firestore APRÈS pour ${widget.mission!.id}...');
+          
+          final progressionDataAfter = await FirebaseFirestore.instance
+              .collection('utilisateurs')
+              .doc(currentUser.uid)
+              .collection('progression_missions')
+              .doc(widget.mission!.id)
+              .get();
+          
+          _starsAfterUpdate = progressionDataAfter.exists 
+              ? (progressionDataAfter.data()?['etoiles'] ?? 0) 
+              : 0;
+              
+          if (kDebugMode) {
+            debugPrint('📊 Progression APRÈS exists: ${progressionDataAfter.exists}');
+            debugPrint('📊 Raw data APRÈS: ${progressionDataAfter.data()}');
+            debugPrint('⭐⭐⭐ ÉTOILES APRÈS: $_starsAfterUpdate ⭐⭐⭐');
+            debugPrint('🎯🎯🎯 COMPARAISON NAVIGATION CRITIQUE:');
+            debugPrint('   - AVANT: $_starsBeforeUpdate');
+            debugPrint('   - APRÈS: $_starsAfterUpdate'); 
+            debugPrint('   - GAGNÉES: ${(_starsAfterUpdate ?? 0) - (_starsBeforeUpdate ?? 0)}');
+            debugPrint('   - DEVRAIT ALLER AUX RÉCOMPENSES?: ${((_starsAfterUpdate ?? 0) - (_starsBeforeUpdate ?? 0)) > 0}');
+          }
+        } else {
+          if (kDebugMode) debugPrint('❌ CurrentUser APRÈS est NULL !');
+        }
+      } catch (e) {
+        if (kDebugMode) debugPrint('💥 ERREUR capture APRÈS: $e');
+      }
+      
+      // 🎯 CAPTURER LES ÉTOILES APRÈS mise à jour
+      try {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          final progressionDataAfter = await FirebaseFirestore.instance
+              .collection('utilisateurs')
+              .doc(currentUser.uid)
+              .collection('progression_missions')
+              .doc(widget.mission!.id)
+              .get();
+          _starsAfterUpdate = progressionDataAfter.exists
+              ? (progressionDataAfter.data()?['etoiles'] ?? 0)
+              : 0;
+        }
+      } catch (e) {
+        _starsAfterUpdate = 0;
+      }
       
       if (kDebugMode) {
         debugPrint('✅ Progression complète mise à jour pour ${widget.mission!.id}');
         debugPrint('   Score: ${widget.score}/10');
         debugPrint('   Durée: ${dureePartie.inSeconds}s');
         debugPrint('   Service appelé avec succès');
+        debugPrint('🎯 ÉTOILES: AVANT=${_starsBeforeUpdate} → APRÈS=${_starsAfterUpdate}');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -183,12 +291,75 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
     }
   }
 
+  
+
+  
+
+  /// Navigation vers la page d'accueil
+  void _navigateToHome() {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
+  }
+
+  /// Action du bouton "Continuer" après l'écran de score
+  /// Affiche la page Récompenses si des étoiles ont été gagnées, sinon retourne à l'accueil
+  Future<void> _handleContinueButton() async {
+    try {
+      // Si pas de mission ou données insuffisantes, fallback vers l'accueil
+      if (widget.mission == null) {
+        _navigateToHome();
+        return;
+      }
+
+      final int before = _starsBeforeUpdate ?? 0;
+      // Préférer la valeur Firestore déjà capturée si disponible; sinon calcul local
+      final int? afterFromServer = _starsAfterUpdate;
+      final int afterLocal = MissionManagementService.calculateStars(
+        widget.score,
+        widget.totalQuestions,
+        before,
+      );
+      final int after = afterFromServer ?? afterLocal;
+      final int gained = after - before;
+
+      if (gained > 0) {
+        final TypeEtoile rewardType = (after == 1)
+            ? TypeEtoile.uneEtoile
+            : (after == 2)
+                ? TypeEtoile.deuxEtoiles
+                : TypeEtoile.troisEtoiles;
+        // Met à jour le service des récompenses pour que la page affiche le bon état
+        await _recompensesService.simulerEtoiles(rewardType, missionId: widget.mission?.id ?? 'MISSION');
+        _navigateToRewards(forcedType: rewardType);
+      } else {
+        _navigateToHome();
+      }
+    } catch (_) {
+      _navigateToHome();
+    }
+  }
+
+  /// Navigation vers la page des Récompenses Utiles
+  void _navigateToRewards({TypeEtoile? forcedType}) {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => RecompensesUtilesPage(forcedType: forcedType)),
+      (route) => false,
+    );
+  }
+
+  
+
   @override
   Widget build(BuildContext context) {
     if (kDebugMode) {
       debugPrint('🎨 QuizEndPage.build() appelé');
       debugPrint('   Mission: ${widget.mission?.id ?? "NULL"}');
       debugPrint('   Score: ${widget.score}/${widget.totalQuestions}');
+      debugPrint('🔥🔥🔥 MODIFICATION TEST - VERSION CORRIGÉE ! 🔥🔥🔥');
     }
     
     final s = useScreenSize(context);
@@ -611,7 +782,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                               SizedBox(
                                 width: double.infinity,
                                 child: Text(
-                                  _getTitleMessage(_useTestScore ? _testScore : widget.score, widget.totalQuestions),
+                                  _chosenTitleMessage ?? _getTitleMessage(_useTestScore ? _testScore : widget.score, widget.totalQuestions),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: const Color(0xFF334355),
@@ -632,7 +803,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                                 child: Opacity(
                               opacity: 0.80,
                     child: Text(
-                                    _getSubtitleMessage(_useTestScore ? _testScore : widget.score, widget.totalQuestions),
+                                    _chosenSubtitleMessage ?? _getSubtitleMessage(_useTestScore ? _testScore : widget.score, widget.totalQuestions),
                       textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: const Color(0xFF334355),
@@ -674,12 +845,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                                       color: Colors.transparent,
                                       child: InkWell(
                                         borderRadius: BorderRadius.circular(16),
-                                        onTap: () {
-                                          Navigator.of(context).pushAndRemoveUntil(
-                                            MaterialPageRoute(builder: (_) => const HomeScreen()),
-                                            (route) => false,
-                                          );
-                                        },
+                                        onTap: () => _handleContinueButton(),
                                 child: DecoratedBox(
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF6A994E),
@@ -1132,6 +1298,10 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
       _forceMessageRefresh = !_forceMessageRefresh;
       // Force la reconstruction de l'anneau
       _ringKey++;
+      // Réinitialiser les messages pour la prochaine mission/test
+      _chosenTitleMessage = null;
+      _chosenSubtitleMessage = null;
+      _messagesLocked = false;
     });
 
     // Reprogrammer le démarrage de la deuxième animation après 1 seconde

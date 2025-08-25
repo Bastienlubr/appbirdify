@@ -20,9 +20,9 @@ class FirestoreService {
         final now = DateTime.now();
         final nextMidnight = DateTime(now.year, now.month, now.day + 1);
         await userRef.set({
-          'creeLe': FieldValue.serverTimestamp(),
-          'lastUpdated': FieldValue.serverTimestamp(),
+          // Déplacer la date de création sous profil
           'profil': {
+            'creeLe': FieldValue.serverTimestamp(),
             'email': null,
             'nomAffichage': null,
             'estPremium': false,
@@ -51,6 +51,8 @@ class FirestoreService {
         return true; // Document créé
       }
 
+      // Document existait déjà → nettoyage lastUpdated si présent
+      await userRef.set({'lastUpdated': FieldValue.delete()}, SetOptions(merge: true));
       return false; // Document existait déjà
     } catch (e) {
       if (kDebugMode) debugPrint('Erreur lors de la création du document utilisateur: $e');
@@ -80,7 +82,6 @@ class FirestoreService {
       // Mettre à jour ou créer le document mission
       await missionRef.set({
         'lastStarsEarned': newStars,
-        'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true)); // merge: true permet de créer le document s'il n'existe pas
 
       if (kDebugMode) {

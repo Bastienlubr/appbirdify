@@ -4,9 +4,10 @@ import 'dart:math' as math;
 import '../widgets/biome_carousel_enhanced.dart';
 import '../widgets/home_bottom_nav_bar.dart';
 import 'Perchoir/base_ornitho_page.dart';
+import 'Profil/profil_page.dart';
 import '../data/milieu_data.dart';
 import '../models/mission.dart';
-import '../pages/mission_loading_screen.dart';
+import 'MissionHabitat/mission_loading_screen.dart';
 import '../services/Users/user_orchestra_service.dart';
 import '../services/Mission/communs/commun_chargeur_missions.dart';
 import '../services/Mission/communs/commun_persistance_consultation.dart';
@@ -26,7 +27,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 1; // 0: Quiz, 1: Accueil, 2: Profil, 3: Bibliothèque
-  int _previousIndex = 1;
+  // int _previousIndex = 1; // plus utilisé
   
   @override
   Widget build(BuildContext context) {
@@ -42,12 +43,18 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
-      body: (_currentIndex == 3 ? const BaseOrnithoPage() : const HomeContent()),
+      body: (
+        _currentIndex == 3 
+          ? const BaseOrnithoPage() 
+          : _currentIndex == 2 
+            ? const ProfilPage() 
+            : const HomeContent()
+      ),
       bottomNavigationBar: HomeBottomNavBar(
         currentIndex: _currentIndex,
         onTabSelected: (idx) {
           setState(() {
-            _previousIndex = _currentIndex;
+            // _previousIndex = _currentIndex;
             _currentIndex = idx;
           });
         },

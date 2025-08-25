@@ -159,21 +159,7 @@ class BirdImageAlignments {
     return _doubleToAlignment(fineValue);
   }
   
-  /// VERROUILLAGE AUTOMATIQUE - Passer en mode production
-  static Future<void> _autoLockOnFirstLoad() async {
-    final mode = await getCurrentMode();
-    if (mode == BirdAlignmentStorage.MODE_DEV) {
-      // Verrouiller automatiquement si on a des alignements sauvegardés
-      final stats = await BirdAlignmentStorage.getStats();
-      if ((stats['total_calibrated'] as int) > 0) {
-        await lockAllAlignments();
-        assert(() {
-          debugPrint('🔒 Système automatiquement verrouillé en mode production');
-          return true;
-        }());
-      }
-    }
-  }
+  // Méthode d'auto-lock supprimée (déplacée dans AutoLockService)
   
   /// Version asynchrone pour obtenir l'alignement optimal
   static Future<Alignment> getOptimalAlignmentAsync(String genus, String species) async {

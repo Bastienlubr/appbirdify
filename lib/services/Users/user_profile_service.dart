@@ -109,20 +109,25 @@ class UserProfileService {
         ...?additionalData,
       };
       
-      // Ne définir 'creeLe' qu'une seule fois :
-      // - Si le document n'existe pas encore → serverTimestamp()
-      // - Si le doc existe sans 'creeLe' mais possède 'createdAt' → recopier 'createdAt' pour conserver l'historique
-      // - Sinon, ne pas toucher à 'creeLe'
+      // Ne définir 'profil.creeLe' qu'une seule fois (sous profil) :
+      // - Si le document n'existe pas encore → serverTimestamp() sous profil.creeLe
+      // - Si le doc existe et possède un 'creeLe' racine → le migrer sous profil.creeLe et supprimer le root
       final Map<String, dynamic> creationFields = {};
       if (!existingDoc.exists) {
-        creationFields['creeLe'] = FieldValue.serverTimestamp();
+        creationFields['profil'] = {
+          ...?creationFields['profil'],
+          'creeLe': FieldValue.serverTimestamp(),
+        };
       } else {
-        final hasCreeLe = existingData?.containsKey('creeLe') == true;
-        if (!hasCreeLe) {
-          final createdAt = existingData?['createdAt'];
-          if (createdAt != null) {
-            creationFields['creeLe'] = createdAt;
-          }
+        final profilMap = (existingData?['profil'] as Map<String, dynamic>?) ?? {};
+        final hasProfilCreeLe = profilMap.containsKey('creeLe');
+        final rootCreeLe = existingData?['creeLe'];
+        if (!hasProfilCreeLe && rootCreeLe != null) {
+          creationFields['profil'] = {
+            ...profilMap,
+            'creeLe': rootCreeLe,
+          };
+          creationFields['creeLe'] = FieldValue.delete();
         }
       }
 

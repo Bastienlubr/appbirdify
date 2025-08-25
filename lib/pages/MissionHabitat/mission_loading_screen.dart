@@ -5,17 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:csv/csv.dart';
-import '../models/bird.dart';
+import '../../models/bird.dart';
 // Unused colors import removed
-import '../services/Mission/communs/commun_cache_images.dart';
-import 'MissionHabitat/quiz_page.dart';
+import '../../services/Mission/communs/commun_cache_images.dart';
+import 'quiz_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/mission.dart';
-import '../services/Mission/communs/commun_chargeur_missions.dart';
-import '../services/Users/user_orchestra_service.dart';
+import '../../models/mission.dart';
+import '../../services/Mission/communs/commun_chargeur_missions.dart';
+import '../../services/Users/user_orchestra_service.dart';
 import 'package:lottie/lottie.dart';
-import '../services/Mission/communs/commun_generateur_quiz.dart';
-import '../ui/responsive/responsive.dart';
+import '../../services/Mission/communs/commun_generateur_quiz.dart';
+import '../../ui/responsive/responsive.dart';
 
 /// Écran de chargement temporaire pour précharger les images des bonnes réponses
 class MissionLoadingScreen extends StatefulWidget {
@@ -106,11 +106,14 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
           .toList();
 
       if (facts.isNotEmpty) {
+        // Mélanger l'ordre et choisir un point de départ aléatoire
+        facts.shuffle();
+        final int startIndex = (DateTime.now().millisecondsSinceEpoch % facts.length).toInt();
         setState(() {
           _funFacts
             ..clear()
             ..addAll(facts);
-          _currentFunFactIndex = 0;
+          _currentFunFactIndex = startIndex;
         });
 
         _scheduleFunFactTimer();
@@ -163,7 +166,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
       if (kDebugMode) debugPrint('🔄 Début du chargement de la mission: ${widget.missionId}');
 
       // Étape 1: Charger la mission depuis Firestore si disponible, sinon basculer vers CSV
-      await _updateProgress('Chargement de la mission (Firestore)...', 0.1);
+      await _updateProgress('', 0.1);
       bool loadedFromFirestore = false;
       try {
         final missionDoc = await FirebaseFirestore.instance
@@ -177,7 +180,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
           final List<dynamic> bonnesDetails = (pool?['bonnesDetails'] as List<dynamic>?) ?? [];
 
           if (bonnesDetails.isNotEmpty) {
-            await _updateProgress('Analyse des bonnes réponses (Firestore)...', 0.2);
+            await _updateProgress('', 0.2);
             _birdNames = bonnesDetails
                 .map((e) => (e as Map<String, dynamic>)['nomFrancais']?.toString() ?? '')
                 .where((n) => n.isNotEmpty)
@@ -204,7 +207,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
             if (kDebugMode) debugPrint('🐦 ${_birdNames.length} bonnes réponses (Firestore): $_birdNames');
 
             // Étape: Précharger les images à partir des URLs Firestore
-            await _updateProgress('Préchargement des images...', 0.4);
+            await _updateProgress('', 0.4);
             await _preloadGoodAnswerImages();
             loadedFromFirestore = true;
 
@@ -221,21 +224,21 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
 
       if (!loadedFromFirestore) {
         // Fallback CSV: ancien flux
-        await _updateProgress('Chargement des données mission (CSV)...', 0.1);
+        await _updateProgress('', 0.1);
         final missionData = await _loadMissionData();
         if (missionData.isEmpty) {
           throw Exception('Aucune donnée trouvée pour la mission ${widget.missionId}');
         }
 
-        await _updateProgress('Analyse des bonnes réponses...', 0.2);
+        await _updateProgress('', 0.2);
         _birdNames = _extractGoodAnswers(missionData);
         _totalImages = _birdNames.length;
         if (kDebugMode) debugPrint('🐦 ${_birdNames.length} bonnes réponses trouvées: $_birdNames');
 
-        await _updateProgress('Chargement de la base de données...', 0.3);
+        await _updateProgress('', 0.3);
         await _loadBirdifyData();
 
-        await _updateProgress('Préchargement des images...', 0.4);
+        await _updateProgress('', 0.4);
         await _preloadGoodAnswerImages();
 
         // Précharger aussi les questions pour éviter tout second écran de chargement
@@ -245,7 +248,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
       }
 
       // Étape 5: Finalisation
-      await _updateProgress('Finalisation...', 1.0);
+      await _updateProgress('', 1.0);
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
@@ -537,8 +540,8 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
                 ? (4.0 * localScale * 1.1).clamp(3.0, 6.0).toDouble()
                 : 4.0;
             final double titleFontSize = isTablet
-                ? (20.0 * scale * 1.05).clamp(16.0, 28.0).toDouble()
-                : 20.0;
+                ? (22.0 * scale * 1.10).clamp(18.0, 30.0).toDouble()
+                : 22.0;
             final double factFontSize = isTablet
                 ? (20.0 * scale * 1.02).clamp(16.0, 26.0).toDouble()
                 : 20.0;
@@ -589,13 +592,13 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
                       SizedBox(height: mediumGap),
 
                       Text(
-                        _currentStep.isNotEmpty ? _currentStep : 'Chargement en cours...',
+                        'Chargement en cours...',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: const Color(0xDB606D7C).withValues(alpha: 0.7),
                           fontSize: titleFontSize,
                           fontFamily: 'Quicksand',
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
                           letterSpacing: -0.30,
                           shadows: [
                             Shadow(

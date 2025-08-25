@@ -14,7 +14,7 @@ import '../../models/mission.dart';
 import '../../models/bird.dart';
 import '../../models/answer_recap.dart';
 // removed unused import
-import '../mission_unloading_screen.dart';
+import 'mission_unloading_screen.dart';
 
 class QuizPage extends StatefulWidget {
   final String missionId;

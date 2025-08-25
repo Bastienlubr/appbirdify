@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter/services.dart';
-import '../ui/responsive/responsive.dart';
-import '../services/Users/user_orchestra_service.dart';
-import '../services/Mission/communs/commun_gestionnaire_assets.dart';
-import '../models/mission.dart';
-import '../models/answer_recap.dart';
-import 'score_final_habitat.dart';
-import 'home_screen.dart';
+import '../../ui/responsive/responsive.dart';
+import '../../services/Users/user_orchestra_service.dart';
+import '../../services/Mission/communs/commun_gestionnaire_assets.dart';
+import '../../models/mission.dart';
+import '../../models/answer_recap.dart';
+import '../../services/Mission/score_final_habitat.dart';
+import '../home_screen.dart';
 
 /// Écran de déchargement pour synchroniser les vies et libérer les ressources
 class MissionUnloadingScreen extends StatefulWidget {
@@ -126,11 +126,14 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
           .toList();
 
       if (facts.isNotEmpty) {
+        // Mélanger l'ordre et choisir un point de départ aléatoire
+        facts.shuffle();
+        final int startIndex = (DateTime.now().millisecondsSinceEpoch % facts.length).toInt();
         setState(() {
           _funFacts
             ..clear()
             ..addAll(facts);
-          _currentFunFactIndex = 0;
+          _currentFunFactIndex = startIndex;
         });
 
         _scheduleFunFactTimer();
@@ -379,8 +382,8 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
                 ? (4.0 * localScale * 1.1).clamp(3.0, 6.0).toDouble()
                 : 4.0;
             final double titleFontSize = isTablet
-                ? (20.0 * scale * 1.05).clamp(16.0, 28.0).toDouble()
-                : 20.0;
+                ? (22.0 * scale * 1.10).clamp(18.0, 30.0).toDouble()
+                : 22.0;
             final double factFontSize = isTablet
                 ? (20.0 * scale * 1.02).clamp(16.0, 26.0).toDouble()
                 : 20.0;
@@ -431,13 +434,13 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
                       SizedBox(height: mediumGap),
 
                       Text(
-                        _currentStep.isNotEmpty ? _currentStep : 'Déchargement en cours...',
+                        'Chargement en cours...',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: const Color(0xDB606D7C).withValues(alpha: 0.7),
                           fontSize: titleFontSize,
                           fontFamily: 'Quicksand',
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
                           letterSpacing: -0.30,
                           shadows: [
                             Shadow(

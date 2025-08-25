@@ -85,7 +85,7 @@ class DevToolsService {
           'vieMaximum': 5,
           'prochaineRecharge': DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1),
         },
-        'lastUpdated': FieldValue.serverTimestamp(),
+        // plus de champ root lastUpdated
         // Nettoyage anciens schémas
         'Vie restante': FieldValue.delete(),
         'livesRemaining': FieldValue.delete(),
@@ -124,7 +124,7 @@ class DevToolsService {
           .doc(user.uid)
           .set({
         'livesInfinite': enabled,
-        'lastUpdated': FieldValue.serverTimestamp(),
+        // plus de champ root lastUpdated
       }, SetOptions(merge: true));
 
       if (kDebugMode) {

@@ -73,7 +73,7 @@ class LifeService {
           'vie': {
             'vieRestante': clampedLives,
           },
-          'lastUpdated': FieldValue.serverTimestamp(),
+          // plus d'écriture du champ root lastUpdated
           // Nettoyage clés dottées à chaque écriture
           'vie.Vie restante': FieldValue.delete(),
           'vie.vieRestante': FieldValue.delete(),
@@ -201,7 +201,7 @@ class LifeService {
               'vieRestante': 5,
               'prochaineRecharge': DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1),
             },
-            'lastUpdated': FieldValue.serverTimestamp(),
+            // plus d'écriture du champ root lastUpdated
             'livesRemaining': FieldValue.delete(),
             'vies.compte': FieldValue.delete(),
             'vies.Vie restante': FieldValue.delete(),
@@ -262,7 +262,7 @@ class LifeService {
               'vieRestante': 5,
               'prochaineRecharge': nextMidnight,
             },
-            'lastUpdated': FieldValue.serverTimestamp(),
+            // plus d'écriture du champ root lastUpdated
             'Vie restante': FieldValue.delete(),
             'prochaineRecharge': FieldValue.delete(),
             'livesRemaining': FieldValue.delete(),
@@ -370,7 +370,7 @@ class LifeService {
           'vie': {
             'vieRestante': correctedLives,
           },
-          'lastUpdated': FieldValue.serverTimestamp(),
+          // plus d'écriture du champ root lastUpdated
           'Vie restante': FieldValue.delete(),
           'livesRemaining': FieldValue.delete(),
           'vies.compte': FieldValue.delete(),
@@ -416,7 +416,7 @@ class LifeService {
           'vieRestante': 5,
           'prochaineRecharge': nextMidnight,
         },
-        'lastUpdated': FieldValue.serverTimestamp(),
+        // plus d'écriture du champ root lastUpdated
         'Vie restante': FieldValue.delete(),
         'prochaineRecharge': FieldValue.delete(),
         'livesRemaining': FieldValue.delete(),
@@ -486,7 +486,7 @@ class LifeService {
           'vie.vieRestante': FieldValue.delete(),
           'vie.vieMaximum': FieldValue.delete(),
           'vie.prochaineRecharge': FieldValue.delete(),
-          'lastUpdated': FieldValue.serverTimestamp(),
+          // plus d'écriture du champ root lastUpdated
         }, SetOptions(merge: true));
         if (kDebugMode) debugPrint('🔁 Migration des vies → mapping "vie.vieRestante" ($value)');
       }

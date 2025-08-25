@@ -37,7 +37,7 @@ class AutoLockService {
     final currentMode = await BirdAlignmentStorage.getCurrentMode();
     
     // Si déjà en mode production, rien à faire
-    if (currentMode == BirdAlignmentStorage.MODE_PRODUCTION) {
+    if (currentMode == BirdAlignmentStorage.modeProduction) {
       if (kDebugMode) {
         debugPrint('🔒 Système déjà en mode production');
       }
@@ -85,7 +85,7 @@ class AutoLockService {
   static Future<Map<String, dynamic>> getSystemStatus() async {
     final mode = await BirdAlignmentStorage.getCurrentMode();
     final stats = await BirdAlignmentStorage.getStats();
-    final isProduction = mode == BirdAlignmentStorage.MODE_PRODUCTION;
+    final isProduction = mode == BirdAlignmentStorage.modeProduction;
     
     return {
       'mode': mode,

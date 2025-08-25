@@ -13,10 +13,10 @@ class BirdAlignmentStorage {
   static bool? _isDevMode;
   
   /// Mode développement (interfaces de calibration visibles)
-  static const String MODE_DEV = 'development';
+  static const String modeDev = 'development';
   
   /// Mode production (alignements verrouillés, pas d'interface)
-  static const String MODE_PRODUCTION = 'production';
+  static const String modeProduction = 'production';
   
   /// Sauvegarde un alignement calibré
   static Future<void> saveAlignment(String genus, String species, double alignment) async {
@@ -92,16 +92,16 @@ class BirdAlignmentStorage {
   /// Obtient le mode actuel (dev ou production)
   static Future<String> getCurrentMode() async {
     if (_isDevMode != null) {
-      return _isDevMode! ? MODE_DEV : MODE_PRODUCTION;
+      return _isDevMode! ? modeDev : modeProduction;
     }
     
     try {
       final prefs = await SharedPreferences.getInstance();
-      final mode = prefs.getString(_modeKey) ?? MODE_DEV; // Par défaut en dev
-      _isDevMode = (mode == MODE_DEV);
+      final mode = prefs.getString(_modeKey) ?? modeDev; // Par défaut en dev
+      _isDevMode = (mode == modeDev);
       return mode;
     } catch (e) {
-      return MODE_DEV;
+      return modeDev;
     }
   }
   
@@ -110,7 +110,7 @@ class BirdAlignmentStorage {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_modeKey, mode);
-      _isDevMode = (mode == MODE_DEV);
+      _isDevMode = (mode == modeDev);
       
       if (kDebugMode) {
         debugPrint('🔧 Mode alignement changé: $mode');
@@ -125,12 +125,12 @@ class BirdAlignmentStorage {
   /// Vérifie si on est en mode développement
   static Future<bool> isDevMode() async {
     final mode = await getCurrentMode();
-    return mode == MODE_DEV;
+    return mode == modeDev;
   }
   
   /// Verrouille les alignements (passage en mode production)
   static Future<void> lockAlignments() async {
-    await setMode(MODE_PRODUCTION);
+    await setMode(modeProduction);
     
     // Sauvegarder la version de verrouillage
     final prefs = await SharedPreferences.getInstance();
@@ -144,7 +144,7 @@ class BirdAlignmentStorage {
   
   /// Déverrouille les alignements (retour en mode dev)
   static Future<void> unlockAlignments() async {
-    await setMode(MODE_DEV);
+    await setMode(modeDev);
     
     if (kDebugMode) {
       debugPrint('🔓 Alignements déverrouillés - mode dev activé');
@@ -190,7 +190,7 @@ class BirdAlignmentStorage {
       'left_aligned': leftCount,
       'right_aligned': rightCount,
       'center_aligned': centerCount,
-      'is_locked': mode == MODE_PRODUCTION,
+      'is_locked': mode == modeProduction,
     };
   }
   

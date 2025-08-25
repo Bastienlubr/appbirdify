@@ -48,6 +48,21 @@ class UserOrchestra {
       // 1) S'assurer que le document utilisateur existe
       final firestoreService = FirestoreService();
       await firestoreService.createUserDocumentIfNeeded(uid);
+      // Migration: déplacer un éventuel 'creeLe' racine sous profil.creeLe
+      try {
+        final userDocRef = FirebaseFirestore.instance.collection('utilisateurs').doc(uid);
+        final snap = await userDocRef.get();
+        final data = snap.data();
+        if (data != null && data.containsKey('creeLe')) {
+          await userDocRef.set({
+            'profil': {
+              ...((data['profil'] as Map<String, dynamic>?) ?? {}),
+              'creeLe': data['creeLe'],
+            },
+            'creeLe': FieldValue.delete(),
+          }, SetOptions(merge: true));
+        }
+      } catch (_) {}
 
       // 2) Enrichir le profil (email, nom, premium, dernière connexion)
       try {
@@ -62,7 +77,6 @@ class UserOrchestra {
             'estPremium': false,
             'derniereConnexion': FieldValue.serverTimestamp(),
           },
-          'lastUpdated': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       } catch (_) {}
 
@@ -100,8 +114,8 @@ class UserOrchestra {
           'vie.vieRestante': FieldValue.delete(),
           'vie.vieMaximum': FieldValue.delete(),
           'vie.prochaineRecharge': FieldValue.delete(),
-          // Marqueur de mise à jour
-          'lastUpdated': FieldValue.serverTimestamp(),
+          // Ne plus écrire lastUpdated
+          'lastUpdated': FieldValue.delete(),
         };
 
         if (!hasNewBiomes && legacyBiomes != null && legacyBiomes.isNotEmpty) {
@@ -364,9 +378,15 @@ class UserOrchestra {
       final data = snap.data() ?? {};
 
       // Critère de reset: absence des clés structurantes nouvelles
-      final bool needsReset = !(data.containsKey('creeLe') && data.containsKey('profil') && data.containsKey('parametres') && data.containsKey('vie'));
+      final bool needsReset = !(data.containsKey('profil') && data.containsKey('parametres') && data.containsKey('vie'));
 
-      if (!needsReset) return;
+      if (!needsReset) {
+        // Même si pas de reset global, supprimer un éventuel 'creeLe' racine résiduel
+        if (data.containsKey('creeLe')) {
+          await rootRef.set({'creeLe': FieldValue.delete()}, SetOptions(merge: true));
+        }
+        return;
+      }
 
       if (kDebugMode) debugPrint('🧹 Réinitialisation du schéma utilisateur (hors sessions/progression)');
 
@@ -386,7 +406,7 @@ class UserOrchestra {
 
       // Réécrire le document avec la structure cible
       await rootRef.set({
-        'creeLe': data['creeLe'] ?? FieldValue.serverTimestamp(),
+        'creeLe': FieldValue.delete(), // au cas où un autre passage le recrée
         'profil': {
           'email': data['profil']?['email'],
           'nomAffichage': data['profil']?['nomAffichage'],
@@ -416,11 +436,11 @@ class UserOrchestra {
           'prochaineRecharge': data['vie']?['prochaineRecharge'] ?? nextMidnight,
           'vieMaximum': (data['vie']?['vieMaximum'] as int? ?? data['vies']?['max'] as int? ?? 5).clamp(1, 10),
         },
-        'lastUpdated': FieldValue.serverTimestamp(),
         // Supprimer d'éventuels doublons dottés à la racine
         'vie.vieRestante': FieldValue.delete(),
         'vie.vieMaximum': FieldValue.delete(),
         'vie.prochaineRecharge': FieldValue.delete(),
+        'lastUpdated': FieldValue.delete(),
       }, SetOptions(merge: true));
     } catch (e) {
       if (kDebugMode) debugPrint('⚠️ _resetSchemaIfNeeded erreur: $e');
