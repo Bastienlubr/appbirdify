@@ -11,7 +11,7 @@ class AppTransitions {
   // ⏱️ Durées optimisées pour fluidité maximale
   static const Duration _fastDuration = Duration(milliseconds: 250);
   static const Duration _standardDuration = Duration(milliseconds: 400);
-  static const Duration _slowDuration = Duration(milliseconds: 600);
+  // Removed unused: _slowDuration
   
   // 🎭 Courbes optimisées pour sensation premium
   static const Curve _enterCurve = Curves.easeOutQuart;

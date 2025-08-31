@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../ui/responsive/responsive.dart';
 import '../../models/bird.dart';
 import '../../services/Mission/communs/commun_gestionnaire_assets.dart';
+import '../../data/bird_image_alignments.dart';
 import '../../services/Users/favorites_service.dart';
 import 'bird_detail_page.dart';
 
@@ -699,7 +700,10 @@ class _SimpleBirdTile extends StatelessWidget {
                         child: CachedNetworkImage(
                           imageUrl: bird.urlImage,
                           fit: BoxFit.cover, // Structure identique partout
-                          alignment: Alignment.center,
+                          alignment: BirdImageAlignments.getOptimalAlignment(
+                            bird.genus,
+                            bird.species,
+                          ),
                           fadeInDuration: const Duration(milliseconds: 400),
                           filterQuality: FilterQuality.high,
                       placeholder: (context, url) => Container(

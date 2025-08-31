@@ -13,6 +13,7 @@ class MissionPreloader {
   static final Map<String, AudioPlayer> _audioCache = {};
   static final Map<String, bool> _loadingStatus = {};
   static final Map<String, bool> _imageCache = {};
+  static bool _allBirdsLoaded = false; // indique si le chargement complet CSV a été effectué
   
   /// Précharge uniquement les éléments nécessaires pour une mission (version ultra-rapide)
   static Future<Map<String, dynamic>> preloadMission(String missionId) async {
@@ -157,8 +158,9 @@ class MissionPreloader {
   
   /// Charge les données Birdify complètes (méthode publique - pour compatibilité)
   static Future<void> loadBirdifyData() async {
-    if (_birdCache.isNotEmpty) {
-      if (kDebugMode) debugPrint('📦 Données Birdify déjà en cache (${_birdCache.length} oiseaux)');
+    // Ne pas sortir juste parce qu'il existe déjà quelques entrées (chargements ciblés)
+    if (_allBirdsLoaded) {
+      if (kDebugMode) debugPrint('📦 Données Birdify déjà chargées complètement (${_birdCache.length} oiseaux)');
       return;
     }
     
@@ -189,7 +191,8 @@ class MissionPreloader {
         }
       }
       
-      if (kDebugMode) debugPrint('✅ ${_birdCache.length} oiseaux chargés depuis Birdify');
+      if (kDebugMode) debugPrint('✅ ${_birdCache.length} oiseaux chargés depuis Birdify (chargement complet)');
+      _allBirdsLoaded = true;
       
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur lors du chargement Birdify: $e');
@@ -281,6 +284,44 @@ class MissionPreloader {
     return _imageCache[birdName] ?? false;
   }
   
+  /// Précharge uniquement l'audio pour une liste d'oiseaux (chargement CSV ciblé inclus)
+  static Future<void> preloadAudioForBirds(List<String> birdNames) async {
+    if (birdNames.isEmpty) return;
+    try {
+      // S'assurer que les données Bird sont disponibles pour ces oiseaux
+      await _loadBirdifyDataForSpecificBirds(birdNames);
+
+      for (final birdName in birdNames) {
+        try {
+          final bird = _birdCache[birdName];
+          if (bird == null) continue;
+          if (bird.urlMp3.isEmpty) continue;
+          if (_audioCache.containsKey(birdName)) continue;
+
+          final audioPlayer = AudioPlayer();
+          await audioPlayer.setUrl(bird.urlMp3).timeout(
+            const Duration(seconds: 3),
+            onTimeout: () => throw TimeoutException('Timeout audio'),
+          );
+          _audioCache[birdName] = audioPlayer;
+          if (kDebugMode) debugPrint('✅ Audio préchargé (liste ciblée): $birdName');
+        } catch (e) {
+          if (kDebugMode) debugPrint('❌ Erreur préchargement audio (liste ciblée) pour $birdName: $e');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ preloadAudioForBirds error: $e');
+    }
+  }
+
+  /// Purge les indicateurs d'images préchargées pour une liste d'oiseaux
+  static void clearImagesForBirds(List<String> birdNames) {
+    for (final name in birdNames) {
+      _imageCache.remove(name);
+    }
+    if (kDebugMode) debugPrint('🗑️ Images préchargées nettoyées pour: $birdNames');
+  }
+
   /// Récupère les données Bird d'un oiseau
   static Bird? getBirdData(String birdName) {
     return _birdCache[birdName];
@@ -359,6 +400,7 @@ class MissionPreloader {
     _birdCache.clear();
     _imageCache.clear();
     _loadingStatus.clear();
+    _allBirdsLoaded = false;
     if (kDebugMode) debugPrint('🗑️ Tout le cache nettoyé');
   }
   

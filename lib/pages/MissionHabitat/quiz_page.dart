@@ -298,7 +298,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                 left: 20,
                 child: Column(
                   children: [
-                    Container(
+                    SizedBox(
                       width: 60,
                       height: 45,
                       child: ElevatedButton(
@@ -314,7 +314,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Container(
+                    SizedBox(
                       width: 60,
                       height: 45,
                       child: ElevatedButton(

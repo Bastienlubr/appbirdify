@@ -11,6 +11,8 @@ import '../../models/mission.dart';
 import '../../models/answer_recap.dart';
 import '../../services/Mission/score_final_habitat.dart';
 import '../home_screen.dart';
+import '../../services/Users/user_profile_service.dart';
+import '../../services/Users/streak_service.dart';
 
 /// Écran de déchargement pour synchroniser les vies et libérer les ressources
 class MissionUnloadingScreen extends StatefulWidget {
@@ -50,8 +52,9 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
   AnimationController? _funFactController; // Nullable pour éviter LateInitializationError
   int? _previousFunFactIndex;
   bool _isFunFactAnimating = false;
+  final DateTime _sessionStart = DateTime.now();
 
-  String _currentStep = '';
+  // Supprimé: _currentStep non utilisé dans l'UI
   String? _errorMessage;
   // Removed unused _isCompleted; visual completion reflected by navigation
 
@@ -65,22 +68,42 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
   }
 
   Future<void> _unloadResourcesMock() async {
-    setState(() {
-      _currentStep = '';
-    });
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    setState(() {
-      _currentStep = '';
-    });
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    setState(() {
-      _currentStep = 'Nettoyage du cache...';
-    });
-    await Future.delayed(const Duration(milliseconds: 500));
-
+    await Future.delayed(const Duration(milliseconds: 1500));
     // Design mode: nothing more to do here
+  }
+
+  Future<void> _recordSessionIfNeeded() async {
+    try {
+      final uid = UserOrchestra.currentUserId;
+      if (uid == null) return;
+      if (widget.score == null || widget.totalQuestions == null) return;
+
+      final int duree = DateTime.now().difference(_sessionStart).inSeconds.clamp(0, 24 * 3600);
+      final List<String> especesRateesIds = (widget.wrongBirds ?? const <String>[]);
+
+      // Transformer le recap en structure simple (optionnel)
+      final List<Map<String, dynamic>> reponses = (widget.recap ?? const <AnswerRecap>[]) 
+          .map((a) => {
+                'questionBird': a.questionBird,
+                'selected': a.selected,
+                'isCorrect': a.isCorrect,
+                'audioUrl': a.audioUrl,
+              })
+          .toList();
+
+      await UserProfileService.recordQuizSession(
+        uid,
+        missionId: widget.missionId ?? widget.mission?.id ?? 'inconnue',
+        score: widget.score!,
+        totalQuestions: widget.totalQuestions!,
+        dureeSeconds: duree,
+        especesRateesIds: especesRateesIds,
+        reponses: reponses,
+        milieu: widget.mission?.milieu,
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('⚠️ Enregistrement de session ignoré/échoué: $e');
+    }
   }
 
   @override
@@ -219,6 +242,13 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
         if (mounted) {
           final hasEndData = widget.score != null && widget.totalQuestions != null;
           if (hasEndData) {
+            // Enregistrer la session dans Firestore (non bloquant)
+            unawaited(_recordSessionIfNeeded());
+            // Marquer une activité du jour pour la série (non bloquant)
+            final uid = UserOrchestra.currentUserId;
+            if (uid != null) {
+              unawaited(StreakService.registerActivityToday(uid));
+            }
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
@@ -233,6 +263,11 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
               (route) => false,
             );
           } else {
+            // Marquer une activité du jour pour la série même en cas d'échec (non bloquant)
+            final uid = UserOrchestra.currentUserId;
+            if (uid != null) {
+              unawaited(StreakService.registerActivityToday(uid));
+            }
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
@@ -256,9 +291,6 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
 
   Future<void> _updateProgress(String step, double progress) async {
     if (mounted) {
-      setState(() {
-        _currentStep = step;
-      });
       _progressController.animateTo(progress);
       await Future.delayed(const Duration(milliseconds: 300));
     }

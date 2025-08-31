@@ -48,15 +48,27 @@ class ServiceCadrageImages {
     required Function(Alignment) onAlignmentChanged,
     Function(double)? onPreviewAlignment,
   }) async {
+    // Capturer les dépendances UI avant tout await
+    final messenger = ScaffoldMessenger.of(context);
     // Vérifier l'accès aux outils de dev
     final accessible = await isAccessible();
     if (!accessible) {
-      _showAccessDeniedMessage(context);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Outils de développement désactivés en mode production',
+            style: TextStyle(fontFamily: 'Quicksand', fontWeight: FontWeight.w600),
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
     
     final currentAlignment = BirdImageAlignments.getFineAlignment(bird.genus, bird.species);
     
+    if (!context.mounted) return;
     await showDialog(
       context: context,
       builder: (context) => AlignmentCalibrationDialog(
@@ -82,12 +94,23 @@ class ServiceCadrageImages {
   /// Affiche le panel d'administration des alignements
   static Future<void> showAdminPanel(BuildContext context) async {
     // Vérifier l'accès aux outils de dev
+    final messenger = ScaffoldMessenger.of(context);
     final accessible = await isAccessible();
     if (!accessible) {
-      _showAccessDeniedMessage(context);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Outils de développement désactivés en mode production',
+            style: TextStyle(fontFamily: 'Quicksand', fontWeight: FontWeight.w600),
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
     
+    if (!context.mounted) return;
     await showDialog(
       context: context,
       builder: (context) => const AlignmentAdminPanel(),
@@ -261,6 +284,7 @@ class ServiceCadrageImages {
   // ===================================================================
   
   /// Affiche un message d'accès refusé
+  // ignore: unused_element
   static void _showAccessDeniedMessage(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(

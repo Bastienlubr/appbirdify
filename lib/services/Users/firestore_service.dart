@@ -40,6 +40,7 @@ class FirestoreService {
           'serie': {
             'derniersJoursActifs': <String>[],
             'serieEnCours': 0,
+            'serieMaximum': 0,
           },
           'vie': {
             'vieRestante': 5,

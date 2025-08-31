@@ -41,8 +41,6 @@ class DevToolsService {
           'tentatives': 0,
           'moyenneScores': 0.0,
           'scoresHistorique': {},
-          'scoresPourcentagesPasses': [],
-          'derniereMiseAJour': FieldValue.serverTimestamp(),
         });
 
         missionsUpdated++;
@@ -138,6 +136,64 @@ class DevToolsService {
     }
   }
 
+  /// Définit le maximum de vies (vie.vieMaximum)
+  static Future<void> setMaxLives(int value) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final ref = _firestore.collection('utilisateurs').doc(user.uid);
+    final snap = await ref.get();
+    final data = snap.data() is Map<String, dynamic> ? snap.data() as Map<String, dynamic> : null;
+    final Map<String, dynamic>? vie = data?['vie'] is Map<String, dynamic> ? (data?['vie']) : null;
+    final int current = (vie?['vieRestante'] as int? ?? 5).clamp(0, 50);
+    final int newMax = value.clamp(1, 50);
+    final int clampedCurrent = current.clamp(0, newMax);
+    await ref.set({
+      'vie': {
+        'vieMaximum': newMax,
+        'vieRestante': clampedCurrent,
+      }
+    }, SetOptions(merge: true));
+    if (kDebugMode) debugPrint('✅ Max vies défini à $newMax, vies restantes clampées à $clampedCurrent');
+  }
+
+  /// Réinitialise vie.vieMaximum à 5
+  static Future<void> resetMaxLivesToFive() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final ref = _firestore.collection('utilisateurs').doc(user.uid);
+    final snap = await ref.get();
+    final data = snap.data() is Map<String, dynamic> ? snap.data() as Map<String, dynamic> : null;
+    final Map<String, dynamic>? vie = data?['vie'] is Map<String, dynamic> ? (data?['vie']) : null;
+    final int current = (vie?['vieRestante'] as int? ?? 5).clamp(0, 50);
+    final int clampedCurrent = current.clamp(0, 5);
+    await ref.set({
+      'vie': {
+        'vieMaximum': 5,
+        'vieRestante': clampedCurrent,
+      }
+    }, SetOptions(merge: true));
+    if (kDebugMode) debugPrint('✅ vieMaximum=5, vieRestante clampée à $clampedCurrent');
+  }
+
+  /// Ajoute 1 vie (sans dépasser vie.vieMaximum)
+  static Future<void> addOneLife() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final ref = _firestore.collection('utilisateurs').doc(user.uid);
+    final snap = await ref.get();
+    final data = snap.data() is Map<String, dynamic> ? snap.data() as Map<String, dynamic> : null;
+    final Map<String, dynamic>? vie = data?['vie'] is Map<String, dynamic> ? (data?['vie']) : null;
+    final int maxLives = (vie?['vieMaximum'] as int? ?? 5).clamp(1, 50);
+    final int current = (vie?['vieRestante'] as int? ?? 5).clamp(0, maxLives);
+    final int next = (current + 1).clamp(0, maxLives);
+    await ref.set({
+      'vie': {
+        'vieRestante': next,
+      }
+    }, SetOptions(merge: true));
+    if (kDebugMode) debugPrint('✅ Vie ajoutée: $current -> $next (max=$maxLives)');
+  }
+
   /// Déverrouille toutes les missions d'un biome
   static Future<void> unlockAllBiomeMissions(String biome) async {
     try {
@@ -171,7 +227,6 @@ class DevToolsService {
         batch.update(missionDoc.reference, {
           'deverrouille': true,
           'deverrouilleLe': FieldValue.serverTimestamp(),
-          'derniereMiseAJour': FieldValue.serverTimestamp(),
         });
 
         missionsUnlocked++;
@@ -226,7 +281,6 @@ class DevToolsService {
         batch.update(missionDoc.reference, {
           'deverrouille': true,
           'deverrouilleLe': FieldValue.serverTimestamp(),
-          'derniereMiseAJour': FieldValue.serverTimestamp(),
         });
 
         missionsUnlocked++;
@@ -395,14 +449,9 @@ class DevToolsService {
             'etoiles': 3,
             'tentatives': 1,
             'moyenneScores': 100.0,
-            'scoresHistorique': {
-              DateTime.now().millisecondsSinceEpoch.toString(): 100.0
-            },
-            'scoresPourcentagesPasses': [100.0],
+            'scoresHistorique': {},
             'deverrouille': true,
             'deverrouilleLe': FieldValue.serverTimestamp(),
-            'derniereMiseAJour': FieldValue.serverTimestamp(),
-            'creeLe': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
 
           missionsCreated++;

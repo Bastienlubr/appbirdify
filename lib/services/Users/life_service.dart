@@ -56,7 +56,19 @@ class LifeService {
     int retryCount = 0;
     while (retryCount < maxRetries) {
       try {
-        final clampedLives = livesRemaining.clamp(0, 5);
+        // Récupérer le plafond depuis Firestore
+        int maxLives = 5;
+        try {
+          final userDoc = _getSecureUserDocument(uid);
+          final snap = await userDoc!.get();
+          final data = snap.data() as Map<String, dynamic>?;
+          final Map<String, dynamic>? vie = data?['vie'] is Map<String, dynamic>
+              ? (data?['vie'] as Map<String, dynamic>)
+              : null;
+          maxLives = (vie?['vieMaximum'] as int? ?? data?['vies']?['max'] as int? ?? 5).clamp(1, 50);
+        } catch (_) {}
+
+        final clampedLives = livesRemaining.clamp(0, maxLives);
 
         if (kDebugMode) {
           debugPrint('🔄 Synchronisation des vies restantes: $clampedLives pour l\'utilisateur $uid (tentative ${retryCount + 1}/$maxRetries)');
@@ -158,6 +170,8 @@ class LifeService {
         final Map<String, dynamic>? vies = data?['vies'] is Map<String, dynamic>
             ? (data?['vies'] as Map<String, dynamic>)
             : null;
+        // Lire le maximum depuis Firestore (fallback 5)
+        final int maxLives = (vie?['vieMaximum'] as int? ?? data?['vies']?['max'] as int? ?? 5).clamp(1, 50);
         final dynamic livesNew = vie?['vieRestante'];
         final dynamic livesSingular = vie?['Vie restante'];
         final dynamic livesTopFr = data?['Vie restante'];
@@ -165,7 +179,7 @@ class LifeService {
         final dynamic livesLegacy = data?['livesRemaining'];
         final dynamic livesOldNested = vies?['compte'] ?? vie?['compte'];
         final int lives = (livesNew ?? livesSingular ?? livesTopFr ?? livesNestedFr ?? livesLegacy ?? livesOldNested ?? 5) as int;
-        return lives.clamp(0, 5);
+        return lives.clamp(0, maxLives);
       }
       return 5;
     } catch (e) {
@@ -230,6 +244,7 @@ class LifeService {
         final Map<String, dynamic>? vies = data?['vies'] is Map<String, dynamic>
             ? (data?['vies'] as Map<String, dynamic>)
             : null;
+        final int maxLives = (vie?['vieMaximum'] as int? ?? data?['vies']?['max'] as int? ?? 5).clamp(1, 50);
         final int currentLives = (vie?['vieRestante'] as int?
               ?? data?['Vie restante'] as int?
               ?? vies?['Vie restante'] as int?
@@ -237,7 +252,7 @@ class LifeService {
               ?? vie?['compte'] as int?
               ?? vies?['compte'] as int?
               ?? 5)
-            .clamp(0, 5);
+            .clamp(0, maxLives);
         final Timestamp? prochaineRechargeTs = (vie?['prochaineRecharge'] as Timestamp?)
             ?? (data?['prochaineRecharge'] as Timestamp?)
             ?? (vies?['prochaineRecharge'] as Timestamp?);
@@ -253,13 +268,23 @@ class LifeService {
         final bool shouldReset = prochaineRechargeTs != null
             ? now.isAfter(prochaineRechargeTs.toDate()) || now.isAtSameMomentAs(prochaineRechargeTs.toDate())
             : false;
-        if (shouldReset) {
+        if (currentLives > maxLives) {
+          if (kDebugMode) {
+            debugPrint('⚠️ vieRestante ($currentLives) > vieMaximum ($maxLives) → correction');
+          }
+          await userDoc.set({
+            'vie': {
+              'vieRestante': maxLives,
+            },
+          }, SetOptions(merge: true));
+          return maxLives;
+        } else if (shouldReset) {
           if (kDebugMode) {
             debugPrint('🔄 Prochaine recharge atteinte, réinitialisation des vies à 5 pour l\'utilisateur $uid');
           }
           await userDoc.set({
             'vie': {
-              'vieRestante': 5,
+              'vieRestante': maxLives,
               'prochaineRecharge': nextMidnight,
             },
             // plus d'écriture du champ root lastUpdated
@@ -275,14 +300,14 @@ class LifeService {
             'vie.prochaineRecharge': FieldValue.delete(),
           }, SetOptions(merge: true));
           if (kDebugMode) {
-            debugPrint('✅ Vies réinitialisées à 5 pour l\'utilisateur $uid');
+            debugPrint('✅ Vies réinitialisées au maximum ($maxLives) pour l\'utilisateur $uid');
           }
-          return 5;
+          return maxLives;
         } else {
           if (kDebugMode) {
             debugPrint('✅ Pas de réinitialisation nécessaire, vies actuelles: $currentLives pour l\'utilisateur $uid');
           }
-          return currentLives.clamp(0, 5);
+          return currentLives.clamp(0, maxLives);
         }
       } catch (e) {
         retryCount++;

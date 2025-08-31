@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'dart:io';
-import 'dart:typed_data';
+// import supprimé: dart:typed_data redondant avec ui/foundation usages
 import 'dart:ui' as ui;
 import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,8 +12,10 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path/path.dart' as p;
 // import 'package:image_cropper/image_cropper.dart';
 import '../../services/Users/user_profile_service.dart';
+import 'dart:async';
 import '../../ui/responsive/responsive.dart';
 import '../../widgets/biome_carousel_enhanced.dart';
+import 'bilan_quiz_page.dart';
 
 /// Page Profil (squelette UI basé sur Figma) — fonctionnalités à brancher ensuite.
 class ProfilPage extends StatefulWidget {
@@ -27,6 +29,67 @@ class _ProfilPageState extends State<ProfilPage> {
   bool _showAllBadges = false;
   bool _isUploadingAvatar = false;
   int _avatarVersion = 0; // pour forcer le rafraîchissement de l'image
+  int _totalSessions = 0;
+  StreamSubscription<List<Map<String, dynamic>>>? _sessionsSub;
+  String _favoriteHabitat = '';
+  int _currentStreak = 0;
+  StreamSubscription<Map<String, dynamic>?>? _profileSub;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _profileSub = UserProfileService.profileStream(uid).listen((data) {
+        if (!mounted) return;
+        final int streak = (data?['serie']?['serieEnCours'] as int?) ?? 0;
+        setState(() {
+          _currentStreak = streak;
+        });
+      });
+      _sessionsSub = UserProfileService.sessionsStream(uid).listen((sessions) {
+        if (!mounted) return;
+        // Calculer le nombre de sessions par milieu et déterminer l'habitat favori
+        final Map<String, int> countsByMilieu = {};
+        for (final s in sessions) {
+          final dynamic m = s['milieu'];
+          if (m is String && m.trim().isNotEmpty) {
+            final key = m.trim();
+            countsByMilieu[key] = (countsByMilieu[key] ?? 0) + 1;
+          }
+        }
+        String best = '';
+        int bestCount = 0;
+        countsByMilieu.forEach((k, v) {
+          if (v > bestCount) {
+            best = k;
+            bestCount = v;
+          }
+        });
+        setState(() {
+          _totalSessions = sessions.length;
+          _favoriteHabitat = _formatMilieu(best);
+        });
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _sessionsSub?.cancel();
+    _profileSub?.cancel();
+    super.dispose();
+  }
+
+  String _formatMilieu(String raw) {
+    if (raw.isEmpty) return '';
+    final parts = raw.split(RegExp(r"\s+")).where((p) => p.isNotEmpty).toList();
+    return parts.map((w) {
+      if (w.isEmpty) return w;
+      final lower = w.toLowerCase();
+      return lower[0].toUpperCase() + lower.substring(1);
+    }).join(' ');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,9 +100,7 @@ class _ProfilPageState extends State<ProfilPage> {
         final double sectionGap = m.gapLarge();
         final double titleSize = m.font(15);
         final double nameSize = m.font(30);
-        final double cardHeight = m.dp(110, tabletFactor: 1.15, min: 96, max: 160);
-        final double statNumberSize = m.font(20);
-        final double statLabelSize = m.font(14);
+        // valeurs calculées directement dans les widgets; variables locales supprimées (non utilisées)
 
         return Scaffold(
           backgroundColor: const Color(0xFFF2F5F8),
@@ -52,7 +113,7 @@ class _ProfilPageState extends State<ProfilPage> {
                   _buildHeader(nameSize, m),
                   SizedBox(height: sectionGap * 0.6),
                   // Nouveau tableau de bord conforme à la maquette fournie
-                  const TableauDeBord(),
+                  TableauDeBord(totalEpreuves: _totalSessions, habitatFavori: _favoriteHabitat, currentStreak: _currentStreak),
                   SizedBox(height: sectionGap * 0.8),
                   _buildBilanOrnithologique(titleSize, m),
                   const SizedBox(height: 0),
@@ -226,6 +287,7 @@ class _ProfilPageState extends State<ProfilPage> {
         imageQuality: 85,
       );
       if (picked == null) return;
+      if (!mounted) return;
       
       // Recadrage simple intégré (dialog avec zoom/pan), sans plugin natif
       final Uint8List? croppedBytes = await _openAvatarCropper(context, picked.path);
@@ -294,22 +356,20 @@ class _ProfilPageState extends State<ProfilPage> {
       );
     } on FirebaseException catch (e) {
       // On garde silencieux côté UI pour l’instant
-      if (mounted) {
-        setState(() => _isUploadingAvatar = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Échec de l'upload de l'avatar (${e.code}): ${e.message ?? e.toString()}")),
-        );
-      }
+      if (!mounted) return;
+      setState(() => _isUploadingAvatar = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Échec de l'upload de l'avatar (${e.code}): ${e.message ?? e.toString()}")),
+      );
       if (kDebugMode) {
         debugPrint('❌ Upload avatar error: code=${e.code} message=${e.message}');
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isUploadingAvatar = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Échec de l'upload de l'avatar: $e")),
-        );
-      }
+      if (!mounted) return;
+      setState(() => _isUploadingAvatar = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Échec de l'upload de l'avatar: $e")),
+      );
     }
   }
 
@@ -323,6 +383,7 @@ class _ProfilPageState extends State<ProfilPage> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildDashboard(double titleSize, double cardHeight, double numberSize, double labelSize, ResponsiveMetrics m) {
     final Color borderColor = const Color(0xFF473C33);
     final Color chipColor = const Color(0xFFD2DBB2);
@@ -450,8 +511,18 @@ class _ProfilPageState extends State<ProfilPage> {
                 loopInfinite: true,
                 showDots: false,
                 viewportFraction: 0.5,
+                compactStyle: true,
                 onBiomeSelected: (biome) {
-                  _showBiomePopup(biome.name);
+                  final String name = biome.name;
+                  final String code = name.isNotEmpty ? name[0].toUpperCase() : '';
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => BilanQuizPage(
+                        scopeId: code,
+                        scopeLabel: _formatMilieu(name),
+                      ),
+                    ),
+                  );
                 },
               ),
               // Fade gauche
@@ -503,6 +574,7 @@ class _ProfilPageState extends State<ProfilPage> {
     );
   }
 
+  // ignore: unused_element
   String _assetForBiome(String biome) {
     switch (biome.toLowerCase()) {
       case 'urbain':
@@ -522,26 +594,7 @@ class _ProfilPageState extends State<ProfilPage> {
     }
   }
 
-  void _showBiomePopup(String biome) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Bilan — $biome', style: const TextStyle(fontFamily: 'Quicksand', fontWeight: FontWeight.w800)),
-          content: const Text(
-            'Popup placeholder: nom de session, espèces les plus jouées/moins appréciées, etc.',
-            style: TextStyle(fontFamily: 'Quicksand'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Fermer'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // _showBiomePopup supprimé (non utilisé)
 
   Widget _buildBadges(double titleSize, ResponsiveMetrics m) {
     final List<Widget> mainBadges = [
@@ -598,6 +651,7 @@ class _ProfilPageState extends State<ProfilPage> {
   }
 }
 
+// ignore: unused_element
 class _BiomeCard extends StatelessWidget {
   final String title;
   final String assetPath;
@@ -677,7 +731,10 @@ class _BadgeCircle extends StatelessWidget {
 
 /// Tableau de bord fidèle au layout communiqué (positions absolues, tailles fixes)
 class TableauDeBord extends StatelessWidget {
-  const TableauDeBord({super.key});
+  final int totalEpreuves;
+  final String? habitatFavori;
+  final int currentStreak;
+  const TableauDeBord({super.key, this.totalEpreuves = 0, this.habitatFavori, this.currentStreak = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -713,15 +770,15 @@ class TableauDeBord extends StatelessWidget {
                       _StatChipAsset(
                         height: chipHeight,
                         assetPath: 'assets/PAGE/Profil/nombres de sessions.png',
-                        numberText: '0',
+                        numberText: totalEpreuves.toString(),
                         label: "Nombre d'épreuves",
                       ),
                       const SizedBox(height: innerGap),
                       _StatChipAsset(
                         height: chipHeight,
                         assetPath: 'assets/Images/Bouton/strick.png',
-                        numberText: '0',
-                        label: "Meilleure série d'activités",
+                        numberText: currentStreak.toString(),
+                        label: "Jour d’activité\nen cours...",
                       ),
                     ],
                   ),
@@ -744,7 +801,7 @@ class TableauDeBord extends StatelessWidget {
                         assetPath: 'assets/PAGE/Profil/biome favoris.png',
                         numberText: null,
                         label: 'Habitat favori',
-                        secondary: 'Milieu Urbain',
+                        secondary: habitatFavori?.isNotEmpty == true ? habitatFavori! : '—',
                       ),
                     ],
                   ),
@@ -802,7 +859,7 @@ class _StatChipAsset extends StatelessWidget {
               numberText!,
               style: const TextStyle(
                 color: Color(0xC4334355),
-                fontSize: 22,
+                fontSize: 38,
                 fontFamily: 'Quicksand',
                 fontWeight: FontWeight.w700,
                 height: 1.0,
@@ -871,6 +928,7 @@ class _AvatarCropperDialog extends StatefulWidget {
 }
 
 class _AvatarCropperDialogState extends State<_AvatarCropperDialog> {
+  // ignore: unused_field
   final ValueNotifier<Rect> _cropRect = ValueNotifier<Rect>(const Rect.fromLTWH(0, 0, 1, 1));
   double _scale = 1.0;
   Offset _offset = Offset.zero;

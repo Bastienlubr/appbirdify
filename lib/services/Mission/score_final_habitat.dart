@@ -281,7 +281,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
         debugPrint('   Score: ${widget.score}/10');
         debugPrint('   Durée: ${dureePartie.inSeconds}s');
         debugPrint('   Service appelé avec succès');
-        debugPrint('🎯 ÉTOILES: AVANT=${_starsBeforeUpdate} → APRÈS=${_starsAfterUpdate}');
+        debugPrint('🎯 ÉTOILES: AVANT=$_starsBeforeUpdate → APRÈS=$_starsAfterUpdate');
       }
     } catch (e) {
       if (kDebugMode) {

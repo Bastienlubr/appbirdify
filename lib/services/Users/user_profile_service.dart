@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'streak_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
@@ -57,7 +58,7 @@ class UserProfileService {
         .collection('utilisateurs')
         .doc(uid)
         .collection('sessions')
-        .orderBy('termineLe', descending: true)
+        .orderBy('commenceLe', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs.map((d) => d.data()).toList());
   }
@@ -100,6 +101,7 @@ class UserProfileService {
         'serie': {
           'derniersJoursActifs': <String>[],
           'serieEnCours': 0,
+          'serieMaximum': 0,
         },
         'vie': {
           'vieRestante': 5,
@@ -405,7 +407,6 @@ class UserProfileService {
       await userRef.update({
         'totaux.xpTotal': newXP,
         'totaux.niveau': newLevel,
-        'derniereMiseAJour': FieldValue.serverTimestamp(),
       });
       
       // Si le niveau a augmenté, débloquer un badge
@@ -450,8 +451,10 @@ class UserProfileService {
     required String missionId,
     required int score,
     required int totalQuestions,
+    required List<String> especesRateesIds,
+    required int dureeSeconds,
     required List<Map<String, dynamic>> reponses,
-    String? commentaireAudio,
+    String? milieu,
   }) async {
     try {
       final sessionRef = _firestore
@@ -463,13 +466,15 @@ class UserProfileService {
       final sessionData = {
         'idMission': missionId,
         'score': score,
+        'especesRateesIds': especesRateesIds, // [id]
         'totalQuestions': totalQuestions,
-        'pourcentage': (score / totalQuestions * 100).round(),
+        'dureeSeconds': dureeSeconds,
         'reponses': reponses,
-        'commentaireAudio': commentaireAudio,
         'commenceLe': FieldValue.serverTimestamp(),
-        'termineLe': FieldValue.serverTimestamp(),
       };
+      if (milieu != null && milieu.isNotEmpty) {
+        sessionData['milieu'] = milieu;
+      }
       
       await sessionRef.set(sessionData);
       
@@ -479,10 +484,6 @@ class UserProfileService {
       
       // Mettre à jour les statistiques globales
       await _updateGlobalStats(uid, score, totalQuestions);
-      
-      if (kDebugMode) {
-        debugPrint('📊 Session quiz enregistrée: $score/$totalQuestions (+$xpGagne XP)');
-      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Erreur lors de l\'enregistrement de la session: $e');
@@ -509,7 +510,6 @@ class UserProfileService {
       await userRef.update({
         'totaux.scoreTotal': FieldValue.increment(score),
         'totaux.missionsTerminees': FieldValue.increment(1),
-        'derniereMiseAJour': FieldValue.serverTimestamp(),
       });
     } catch (e) {
       if (kDebugMode) {
@@ -539,7 +539,6 @@ class UserProfileService {
         'tentatives': FieldValue.increment(1),
         'deverrouille': deverrouille,
         'dernierePartieLe': FieldValue.serverTimestamp(),
-        'derniereMiseAJour': FieldValue.serverTimestamp(),
       });
       
       if (kDebugMode) {

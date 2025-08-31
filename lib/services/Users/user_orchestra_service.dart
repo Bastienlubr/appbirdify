@@ -425,6 +425,7 @@ class UserOrchestra {
         'serie': {
           'derniersJoursActifs': (data['serie']?['derniersJoursActifs'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? <String>[],
           'serieEnCours': (data['serie']?['serieEnCours'] as int?) ?? 0,
+          'serieMaximum': (data['serie']?['serieMaximum'] as int?) ?? 0,
         },
         'vie': {
           'vieRestante': (data['vie']?['vieRestante'] as int?

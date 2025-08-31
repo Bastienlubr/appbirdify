@@ -14,6 +14,8 @@ import '../services/Mission/communs/commun_persistance_consultation.dart';
 import '../services/Mission/communs/commun_strategie_progression.dart';
 import '../widgets/dev_tools_menu.dart';
 import '../ui/responsive/responsive.dart';
+import 'Accueil/widgets/lives_popover.dart';
+import 'Quiz/quiz_personnalise_page.dart';
 // import '../ui/animations/transitions.dart'; // (désactivé) Animations centralisées
 
 
@@ -28,18 +30,25 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 1; // 0: Quiz, 1: Accueil, 2: Profil, 3: Bibliothèque
   // int _previousIndex = 1; // plus utilisé
+  final GlobalKey<_HomeContentState> _homeContentKey = GlobalKey<_HomeContentState>();
   
   @override
   Widget build(BuildContext context) {
+    final bool isLivesPopoverOpen = _currentIndex == 1 && (_homeContentKey.currentState?.isLivesPopoverOpen ?? false);
     return PopScope(
-      canPop: true,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (_currentIndex == 3) {
+        // 1) Fermer le popover des vies s'il est ouvert
+        final handled = _homeContentKey.currentState?.closeLivesPopoverIfOpen() ?? false;
+        if (handled) return;
+        // 2) Si on n'est pas sur Accueil, y retourner
+        if (_currentIndex != 1) {
           setState(() => _currentIndex = 1);
-        } else {
-          Navigator.maybePop(context);
+          return;
         }
+        // 3) Déjà sur Accueil sans popover: ne pas quitter l'app (on absorbe le retour)
+        return;
       },
       child: Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
@@ -48,11 +57,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ? const BaseOrnithoPage() 
           : _currentIndex == 2 
             ? const ProfilPage() 
-            : const HomeContent()
+            : _currentIndex == 0
+              ? const QuizPersonnalisePage()
+              : HomeContent(key: _homeContentKey)
       ),
       bottomNavigationBar: HomeBottomNavBar(
         currentIndex: _currentIndex,
         onTabSelected: (idx) {
+          if (kDebugMode) debugPrint('🧭 Onglet sélectionné: $idx');
           setState(() {
             // _previousIndex = _currentIndex;
             _currentIndex = idx;
@@ -85,6 +97,9 @@ class _HomeContentState extends State<HomeContent> {
   
   // Gestion des vies
   int _currentLives = 5;
+  final LayerLink _livesLink = LayerLink();
+  OverlayEntry? _livesEntry;
+  final GlobalKey<LivesPopoverState> _livesPopoverKey = GlobalKey<LivesPopoverState>();
 
 
   @override
@@ -153,8 +168,51 @@ class _HomeContentState extends State<HomeContent> {
 
   @override
   void dispose() {
+    _removeLivesPopover();
     _missionScrollController.dispose();
     super.dispose();
+  }
+
+  void _toggleLivesPopover(BuildContext context, {required double size}) {
+    if (_livesEntry != null) {
+      // Fermer avec animation inverse avant de retirer l'overlay
+      _livesPopoverKey.currentState?.dismissWithAnimation(onCompleted: _removeLivesPopover);
+      return;
+    }
+
+    final RenderBox box = context.findRenderObject() as RenderBox;
+    // Ancre au bas-centre du widget vies pour que la flèche pointe dessous
+    final Offset bottomCenter = box.localToGlobal(Offset(box.size.width / 2, box.size.height));
+
+    _livesEntry = OverlayEntry(
+      builder: (ctx) {
+        return LivesPopover(
+          key: _livesPopoverKey,
+          currentLives: _currentLives,
+          anchor: bottomCenter,
+          onClose: () {
+            _removeLivesPopover();
+          },
+        );
+      },
+    );
+
+    Overlay.of(context, rootOverlay: true).insert(_livesEntry!);
+  }
+
+  void _removeLivesPopover() {
+    _livesEntry?.remove();
+    _livesEntry = null;
+  }
+
+  // Exposé à HomeScreen pour intercepter le bouton retour
+  bool get isLivesPopoverOpen => _livesEntry != null;
+  bool closeLivesPopoverIfOpen() {
+    if (_livesEntry != null) {
+      _livesPopoverKey.currentState?.dismissWithAnimation(onCompleted: _removeLivesPopover);
+      return true;
+    }
+    return false;
   }
 
   Future<void> _loadMissionsForBiome(String biomeName) async {
@@ -422,11 +480,11 @@ class _HomeContentState extends State<HomeContent> {
         // Removed unused navIconSize/navLabelSize
 
         final double livesSize = isTablet
-            ? (shortest * (isWide ? 0.15 : 0.18)).clamp(150.0, 230.0).toDouble()
-            : 110.0 * phoneScaleUp;
-        final double livesOffsetX = 15.0 * (livesSize / 110.0);
-        final double livesOffsetY = 35.0 * (livesSize / 110.0);
-        final double livesFontSize = 32.0 * (livesSize / 110.0) * (isTablet ? 1.06 : 1.0);
+            ? (shortest * (isWide ? 0.135 : 0.165)).clamp(150.0, 230.0).toDouble()
+            : 92.0 * phoneScaleUp;
+        final double livesOffsetX = 24.0 * (livesSize / 110.0);
+        final double livesOffsetY = 28.0 * (livesSize / 110.0);
+        final double livesFontSize = 43.0 * (livesSize / 110.0) * (isTablet ? 1.06 : 1.0);
 
         // Échelle UI des cartes (1.0 mobile, >1 tablette)
         final double uiScale = isTablet ? (localScale * 1.08).clamp(1.0, 1.3).toDouble() : 1.0;
@@ -446,36 +504,16 @@ class _HomeContentState extends State<HomeContent> {
               ),
 
               Positioned(
-                top: 4,
-                right: 4,
-                child: SizedBox(
-                  width: livesSize,
-                  height: livesSize,
-                  child: Stack(
-                    children: [
-                      Image.asset(
-                        'assets/Images/Bouton/Group 15.png',
-                        width: livesSize,
-                        height: livesSize,
-                      ),
-                      Positioned.fill(
-                        child: Transform.translate(
-                          offset: Offset(livesOffsetX, livesOffsetY),
-                          child: Align(
-                            alignment: Alignment.center,
-                            child: Text(
-                              _currentLives.toString(),
-                              style: TextStyle(
-                                fontFamily: 'Quicksand',
-                                fontSize: livesFontSize,
-                                fontWeight: FontWeight.w900,
-                                color: const Color(0xFF473C33),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                top: 10,
+                right: 18,
+                child: CompositedTransformTarget(
+                  link: _livesLink,
+                  child: _LivesAnchor(
+                    size: livesSize,
+                    offset: Offset(livesOffsetX, livesOffsetY),
+                    fontSize: livesFontSize,
+                    lives: _currentLives,
+                    onTap: (ctx) => _toggleLivesPopover(ctx, size: livesSize),
                   ),
                 ),
               ),
@@ -510,6 +548,7 @@ class _HomeContentState extends State<HomeContent> {
                             _loadMissionsForBiome(biome.name);
                           },
                           isBiomeUnlocked: (biomeName) => _isBiomeUnlocked(biomeName),
+                          selectOnPageChange: true,
                         ),
                         Expanded(
                           child: Padding(
@@ -732,6 +771,60 @@ class _HomeContentState extends State<HomeContent> {
 
 
 
+}
+
+class _LivesAnchor extends StatelessWidget {
+  final double size;
+  final Offset offset;
+  final double fontSize;
+  final int lives;
+  final void Function(BuildContext)? onTap;
+
+  const _LivesAnchor({
+    required this.size,
+    required this.offset,
+    required this.fontSize,
+    required this.lives,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => onTap?.call(context),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Stack(
+          children: [
+            Image.asset(
+              'assets/Images/Bouton/barviemascotte.png',
+              width: size,
+              height: size,
+            ),
+            Positioned.fill(
+              child: Transform.translate(
+                offset: offset,
+                child: Align(
+                  alignment: Alignment.center,
+                  child: Text(
+                    lives.toString(),
+                    style: TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF473C33),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _AnimatedMissionCard extends StatefulWidget {

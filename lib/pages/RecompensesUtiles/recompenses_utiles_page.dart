@@ -438,17 +438,19 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
                 right: 16,
                 top: 12,
                 bottom: 12,
-                child: Container(
+                child: SizedBox(
                   width: 28,
                   height: 28,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_forward,
-                    color: Color(0xFF6A994E),
-                    size: 20,
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward,
+                      color: Color(0xFF6A994E),
+                      size: 20,
+                    ),
                   ),
                 ),
               ),
@@ -541,8 +543,8 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
           angle: _sunburstController.value * 2 * 3.14159, // Rotation complète
           child: Transform.scale(
             scale: 1.5, // Agrandissement modéré - juste milieu parfait !
-            child: Container(
-              width: layout.ringSize * 1.8, // Taille de base
+            child: SizedBox(
+              width: layout.ringSize * 1.8,
               height: layout.ringSize * 1.8,
               child: CustomPaint(
                 painter: SunburstPainter(),

@@ -97,41 +97,25 @@ class MissionManagementService {
         oiseauxManquesHistorique[bird] = (oiseauxManquesHistorique[bird] ?? 0) + 1;
       }
 
-      // Calculer la moyenne des scores (basée sur les scores en pourcentage de toutes les tentatives)
-      // Gérer la migration depuis l'ancien format List vers le nouveau format List
-      List<int> scoresPourcentagesPasses;
-      if (currentData['scoresPourcentagesPasses'] is List) {
-        // Nouveau format List
-        scoresPourcentagesPasses = List<int>.from(currentData['scoresPourcentagesPasses'] ?? []);
-      } else if (currentData['scoresHistorique'] is List) {
-        // Migration depuis l'ancien format: utiliser l'ancien scoresHistorique comme scoresPourcentagesPasses
-        if (kDebugMode) {
-          debugPrint('   🔄 Migration: utilisation de l\'ancien scoresHistorique comme scoresPourcentagesPasses');
-        }
-        final oldScoresList = currentData['scoresHistorique'] as List;
-        scoresPourcentagesPasses = oldScoresList.map((e) => e is int ? e : 0).toList().cast<int>();
-      } else {
-        // Aucun historique
-        scoresPourcentagesPasses = <int>[];
-      }
-      
-      scoresPourcentagesPasses.add(scorePourcentage);
-      final double moyenneScores = scoresPourcentagesPasses.reduce((a, b) => a + b) / scoresPourcentagesPasses.length;
+      // Calculer la moyenne des scores de façon incrémentale (sans stocker la liste des pourcentages)
+      final double ancienneMoyenne = (currentData['moyenneScores'] is num)
+          ? (currentData['moyenneScores'] as num).toDouble()
+          : 0.0;
+      final int nouveauNombreTentatives = anciennesTentatives + 1;
+      final double moyenneScores =
+          ((ancienneMoyenne * anciennesTentatives) + scorePourcentage) / (nouveauNombreTentatives == 0 ? 1 : nouveauNombreTentatives);
 
       if (kDebugMode) {
         debugPrint('   📈 Calcul des moyennes:');
         debugPrint('      - Oiseaux manqués (fréquence): $oiseauxManquesHistorique');
-        debugPrint('      - Scores pourcentages passés: $scoresPourcentagesPasses');
         debugPrint('      - Moyenne scores: ${moyenneScores.toStringAsFixed(1)}%');
       }
 
       // Préparer les données de mise à jour
       final Map<String, dynamic> updateData = {
-        'tentatives': anciennesTentatives + 1,
+        'tentatives': nouveauNombreTentatives,
         'dernierePartieLe': FieldValue.serverTimestamp(),
-        'derniereMiseAJour': FieldValue.serverTimestamp(),
         'scoresHistorique': oiseauxManquesHistorique, // Maintenant stocke les oiseaux manqués
-        'scoresPourcentagesPasses': scoresPourcentagesPasses, // Nouveau champ pour la moyenne
         'moyenneScores': double.parse(moyenneScores.toStringAsFixed(1)),
       };
 
@@ -172,11 +156,10 @@ class MissionManagementService {
           debugPrint('✅ Progression mise à jour pour $missionId');
         }
       } else {
-        // Créer une nouvelle progression
+        // Créer une nouvelle progression (pas de champ creeLe pour éviter les doublons avec derniereMiseAJour)
         if (kDebugMode) {
           debugPrint('🎯 Aucune progression existante, création d\'une nouvelle pour $missionId...');
         }
-        updateData['creeLe'] = FieldValue.serverTimestamp();
         updateData['deverrouille'] = true;
         updateData['etoiles'] = nouvellesEtoiles; // Initialiser les étoiles lors de la création
         await progressRef.set(updateData);
@@ -263,7 +246,6 @@ class MissionManagementService {
         'idMission': missionId,
         'score': score,
         'totalQuestions': totalQuestions,
-        'scorePourcentage': ((score / totalQuestions) * 100).round(),
         'oiseauxManques': wrongBirds, // Renommé pour plus de clarté
         'dureePartie': dureePartie.inSeconds,
         'commenceLe': FieldValue.serverTimestamp(),
@@ -311,7 +293,6 @@ class MissionManagementService {
           'derniereMiseAJour': FieldValue.serverTimestamp(),
           'deverrouillePar': currentMissionId, // Mission qui a permis le déverrouillage
           'scoresHistorique': {}, // Map vide pour les oiseaux manqués
-          'scoresPourcentagesPasses': [], // Liste vide pour les scores
           'moyenneScores': 0.0, // Moyenne à 0
         });
 

@@ -26,6 +26,8 @@ class AlignmentCalibrationDialog extends StatefulWidget {
 class _AlignmentCalibrationDialogState extends State<AlignmentCalibrationDialog> {
   late double _currentValue;
   late double _originalValue;
+  // peut être final mais est modifié pendant le cycle de vie (utilisé/unused)
+  // ignore: unused_field, prefer_final_fields
   bool _showPreview = true;
   bool _isValidating = false;
   
@@ -369,13 +371,13 @@ class _AlignmentCalibrationDialogState extends State<AlignmentCalibrationDialog>
                             return true;
                           }());
                           
+                          // Capturer le navigator avant l'attente pour éviter l'usage de context après await
+                          final navigator = Navigator.of(context);
                           // 5. Délai pour voir l'effet avant fermeture
                           await Future.delayed(const Duration(milliseconds: 500));
-                          
-                          // 5. Fermer le dialog
-                          if (mounted) {
-                            Navigator.of(context).pop();
-                          }
+                          if (!mounted) return;
+                          // 5. Fermer le dialog via navigator capturé
+                          navigator.pop();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _alignmentColor,

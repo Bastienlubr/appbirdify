@@ -52,8 +52,10 @@ class StableCarouselPhysics extends PageScrollPhysics {
 // -----------------------------------------------------------------------------
 class BirdDetailPage extends StatefulWidget {
   final Bird bird;
+  final bool useHero;
+  final bool staticEntrance; // fige l'affichage (pas d'animations d'apparition)
   
-  const BirdDetailPage({super.key, required this.bird});
+  const BirdDetailPage({super.key, required this.bird, this.useHero = true, this.staticEntrance = false});
 
   @override
   State<BirdDetailPage> createState() => _BirdDetailPageState();
@@ -78,6 +80,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   bool _isDevMode = true; // Mode dev par défaut
   int _adminTapCount = 0;
   bool _alignmentJustSaved = false;
+  bool _alignmentLoaded = false; // indique si l'alignement sauvegardé a été récupéré
 
   // Données et état
   FicheOiseau? _fiche;
@@ -133,8 +136,29 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     _initializeControllers();
     _calculateOptimalImageAlignment();
     _checkDevMode();
-    _scheduleInitialAnimations();
-    _precacheMainImage();
+
+    if (widget.staticEntrance) {
+      // Figer l'affichage mais n'afficher le background qu'après récupération de l'alignement sauvegardé (évite le "saut")
+      _showBackground = false;
+      _panelController.value = 0.5; // 1/3 visible directement
+      _startWatchingFiche(); // charger immédiatement les données
+      _precacheMainImage();
+      // Essayer d'attendre très brièvement l'alignement sauvegardé, puis afficher
+      Future.delayed(const Duration(milliseconds: 0), () {
+        if (!mounted) return;
+        if (_alignmentLoaded) {
+          setState(() => _showBackground = true);
+        } else {
+          // Timeout de grâce pour ne pas retarder indéfiniment
+          Future.delayed(const Duration(milliseconds: 220), () {
+            if (mounted) setState(() => _showBackground = true);
+          });
+        }
+      });
+    } else {
+      _scheduleInitialAnimations();
+      _precacheMainImage();
+    }
   }
 
   /// Initialise tous les controllers d'animation et de page
@@ -188,9 +212,13 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       }());
       
       if (savedAlignment != null && mounted) {
-        setState(() {
-          _optimalImageAlignment = Alignment(savedAlignment, 0.0);
-        });
+        _optimalImageAlignment = Alignment(savedAlignment, 0.0);
+        _alignmentLoaded = true;
+        // Si le background n'est pas encore affiché, on l'affichera avec l'alignement correct
+        // Si le background est déjà visible, on évite un "saut" visuel en n'actualisant pas l'UI immédiatement
+        if (!_showBackground) {
+          setState(() {});
+        }
         
         assert(() {
           debugPrint('📥 Alignement sauvegardé appliqué: ${widget.bird.nomFr} → ${savedAlignment.toStringAsFixed(2)}');
@@ -729,8 +757,9 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                // Image full screen (toujours visible pour l'Hero animation)
                _buildBackgroundImage(screenHeight),
 
-               // Fade d'harmonisation image/panel (temporairement désactivé pour test Hero)
-               // if (_showBackground && !_isReturning) _buildImagePanelFade(m, screenHeight),
+               // Fade d'harmonisation image/panel (réactivé pour la fluidité Perchoir)
+               if (_showBackground && !_isReturning && widget.useHero && !widget.staticEntrance)
+                 _buildImagePanelFade(m, screenHeight),
 
                              // Bouton retour (masqué pendant le retour)
               if (_showBackground && !_isReturning) _buildBackButton(m),
@@ -835,92 +864,71 @@ class _BirdDetailPageState extends State<BirdDetailPage>
 
   // --- Background image ------------------------------------------------------
   Widget _buildBackgroundImage(double screenHeight) {
+    // Respecter l'alignement calibré partout pour conserver le placement choisi
+    final Alignment alignmentToUse = _optimalImageAlignment;
 
+    final imageWidget = SizedBox(
+      width: double.infinity,
+      height: screenHeight,
+      child: widget.bird.urlImage.isNotEmpty
+          ? CachedNetworkImage(
+              imageUrl: widget.bird.urlImage,
+              fit: BoxFit.cover,
+              alignment: alignmentToUse,
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              filterQuality: FilterQuality.high,
+              placeholder: (context, url) => Container(
+                color: const Color(0xFFD2DBB2),
+                child: const Center(
+                  child: Icon(
+                    Icons.image_outlined,
+                    color: Color(0xFF6A994E),
+                    size: 32,
+                  ),
+                ),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: const Color(0xFFD2DBB2),
+                child: const Center(
+                  child: Icon(
+                    Icons.image_not_supported,
+                    color: Color(0xFF6A994E),
+                    size: 32,
+                  ),
+                ),
+              ),
+            )
+          : Container(
+              color: const Color(0xFFD2DBB2),
+              child: const Center(
+                child: Icon(Icons.image, color: Color(0xFF6A994E), size: 32),
+              ),
+            ),
+    );
 
+    if (!widget.useHero) {
+      return imageWidget;
+    }
 
     return Hero(
       tag: 'bird-hero-${widget.bird.id}',
       transitionOnUserGestures: true,
       flightShuttleBuilder: (context, animation, direction, fromContext, toContext) {
-        debugPrint('🚀 Hero animation DECLENCHE: direction=$direction, value=${animation.value}');
-        if (direction == HeroFlightDirection.pop) {
-          debugPrint('🔙 RETOUR HERO ANIMATION EN COURS ! - Animation visible maintenant');
-        }
-        
-        // Animation simple et visible du contour
         final radiusValue = direction == HeroFlightDirection.push 
-            ? 12.0 * (1.0 - animation.value) // 12 -> 0
-            : 12.0 * animation.value; // 0 -> 12
-        
-                 return ClipRRect(
-           borderRadius: BorderRadius.circular(radiusValue),
-           child: widget.bird.urlImage.isNotEmpty
-               ? SizedBox(
-                   width: double.infinity,
-                   height: double.infinity,
-                   child: CachedNetworkImage(
-                     imageUrl: widget.bird.urlImage,
-                     fit: BoxFit.cover, // Structure 100% identique
-                     alignment: _optimalImageAlignment,
-                     fadeInDuration: Duration.zero,
-                     fadeOutDuration: Duration.zero,
-                     filterQuality: FilterQuality.high,
-                   ),
-                 )
-               : Container(
-                   color: const Color(0xFFD2DBB2),
-                   child: const Center(
-                     child: Icon(Icons.image, color: Color(0xFF6A994E), size: 32),
-                   ),
-                 ),
-         );
+            ? 12.0 * (1.0 - animation.value)
+            : 12.0 * animation.value;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(radiusValue),
+          child: imageWidget,
+        );
       },
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(0.0), // Coins carrés en plein écran
-        child: SizedBox(
-          width: double.infinity,
-          height: screenHeight,
-          child: widget.bird.urlImage.isNotEmpty
-              ? CachedNetworkImage(
-                  imageUrl: widget.bird.urlImage,
-                  fit: BoxFit.cover, // Page detail garde BoxFit.cover pour remplir l'écran
-                  alignment: _optimalImageAlignment,
-                  fadeInDuration: Duration.zero,
-                  fadeOutDuration: Duration.zero,
-                  filterQuality: FilterQuality.high,
-                  placeholder: (context, url) => Container(
-                    color: const Color(0xFFD2DBB2),
-                    child: const Center(
-                      child: Icon(
-                        Icons.image_outlined,
-                        color: Color(0xFF6A994E),
-                        size: 32,
-                      ),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: const Color(0xFFD2DBB2),
-                    child: const Center(
-                      child: Icon(
-                        Icons.image_not_supported,
-                        color: Color(0xFF6A994E),
-                        size: 32,
-                      ),
-                    ),
-                  ),
-                )
-              : Container(
-                  color: const Color(0xFFD2DBB2),
-                  child: const Center(
-                    child: Icon(Icons.image, color: Color(0xFF6A994E), size: 32),
-                  ),
-                ),
-        ),
+        borderRadius: BorderRadius.circular(0.0),
+        child: imageWidget,
       ),
     );
   }
-
-  // _buildCenteredHeroTitle supprimé (titre géré dans le panel)
 
   // --- Back button -----------------------------------------------------------
   Widget _buildBackButton(ResponsiveMetrics m) {
@@ -1168,8 +1176,32 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   }
 
   // --- Fade d'harmonisation image/panel (animation progressive) ---
-
-
+  Widget _buildImagePanelFade(ResponsiveMetrics m, double screenHeight) {
+    return IgnorePointer(
+      ignoring: true,
+      child: AnimatedOpacity(
+        opacity: 1.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        child: Container(
+          width: double.infinity,
+          height: screenHeight,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [
+                Color(0x80F3F5F9),
+                Color(0x40F3F5F9),
+                Color(0x00F3F5F9),
+              ],
+              stops: [0.0, 0.2, 0.5],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   // --- Panel content ---------------------------------------------------------
   Widget _buildPanelContent(ResponsiveMetrics m) {
@@ -1206,10 +1238,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
               }
               return false;
             },
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.8, // Hauteur max raisonnable pour éviter overflow
-              ),
+            child: SizedBox.expand(
               child: SingleChildScrollView(
                 physics: _panelAnimation.value < 0.75
                     ? const NeverScrollableScrollPhysics()
@@ -1635,7 +1664,16 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   // --- Contenu principal synchronisé ----------------------------------------
   Widget _buildMainContent(ResponsiveMetrics m) {
     final showBasicInfo = _panelAnimation.value < 0.7 && _panelAnimation.value > 0.2;
-    final baseHeight = showBasicInfo ? 300.0 : 400.0; // Hauteur fixe pour éviter l'overflow
+    final bool isExtended = _panelAnimation.value > 0.7;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    // Hauteur visée du panel en mode étendu (alignée sur maxPanelHeight défini plus haut)
+    final double extendedPanelHeight = screenHeight * 0.95;
+    // Estimation de l'espace occupé au-dessus du contenu (poignée, infos, onglets, titres, marges)
+    final double headerEstimate = m.dp(220, tabletFactor: 1.0);
+    final double dynamicHeight = (extendedPanelHeight - headerEstimate).clamp(260.0, extendedPanelHeight);
+    final double baseHeight = isExtended
+        ? dynamicHeight
+        : (showBasicInfo ? 300.0 : 400.0);
 
     return SizedBox(
       height: baseHeight,

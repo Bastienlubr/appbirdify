@@ -8,6 +8,8 @@ class BiomeCarouselEnhanced extends StatefulWidget {
   final bool loopInfinite;
   final bool showDots;
   final double viewportFraction;
+  final bool compactStyle; // style compact (Profil) vs style par défaut (Home)
+  final bool selectOnPageChange; // sélection auto lors du slide
 
   const BiomeCarouselEnhanced({
     super.key,
@@ -16,6 +18,8 @@ class BiomeCarouselEnhanced extends StatefulWidget {
     this.loopInfinite = false,
     this.showDots = true,
     this.viewportFraction = 0.55,
+    this.compactStyle = false,
+    this.selectOnPageChange = false,
   });
 
   @override
@@ -136,18 +140,28 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced>
         // Échelle progressive pour grands téléphones (sans toucher aux petits comme A54)
         final double phoneScaleUp = !isTablet ? (m.shortest / 400.0).clamp(1.0, 1.15) : 1.0;
 
-        final double itemSize = isTablet
-            ? m.dp(200, tabletFactor: 1.2, min: 180, max: 320)
-            : m.dp(160, tabletFactor: 1.0, min: 140, max: 190);
-        final double radius = (itemSize * 0.12).clamp(16, 28).toDouble();
+        // Paramètres visuels selon style
+        final double itemSize = widget.compactStyle
+            ? (isTablet ? m.dp(200, tabletFactor: 1.2, min: 180, max: 320)
+                        : m.dp(160, tabletFactor: 1.0, min: 140, max: 190))
+            : (isTablet ? m.dp(250, tabletFactor: 1.5, min: 260, max: 420)
+                        : 250 * phoneScaleUp);
+        final double radius = widget.compactStyle
+            ? (itemSize * 0.12).clamp(16, 28).toDouble()
+            : 28;
         final double blur = isTablet ? m.dp(12, tabletFactor: 1.2, min: 10, max: 18) : 12;
         final double offsetY = isTablet ? m.dp(6, tabletFactor: 1.2, min: 4, max: 10) : 6;
-        // Bande très fine entre items
-        final double padH = isTablet ? m.dp(1, tabletFactor: 1.0, min: 1, max: 2) : m.dp(1);
+        final double padH = widget.compactStyle
+            ? (isTablet ? m.dp(1, tabletFactor: 1.0, min: 1, max: 2) : m.dp(1))
+            : (isTablet ? m.dp(4, tabletFactor: 1.2, min: 4, max: 10) : 4 * phoneScaleUp);
         final double dotsActive = isTablet ? 14 : (12 * phoneScaleUp);
         final double dotsInactive = isTablet ? 10 : (8 * phoneScaleUp);
         final double dotsGap = isTablet ? 8 : (6 * phoneScaleUp);
-        final double height = itemSize + m.dp(40, tabletFactor: 1.0, min: 28, max: 56);
+        final double height = widget.compactStyle
+            ? (itemSize + m.dp(40, tabletFactor: 1.0, min: 28, max: 56))
+            : (isTablet
+                ? (itemSize + m.dp(60, tabletFactor: 1.0, min: 50, max: 90))
+                : (300 * phoneScaleUp));
 
         return Column(
           children: [
@@ -166,7 +180,10 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced>
                       _currentPage = mapped;
                     });
                   }
-                  // Ne pas ouvrir le popup lors du slide
+                  // Selon le contexte (Home), déclencher la sélection au slide
+                  if (widget.selectOnPageChange) {
+                    widget.onBiomeSelected?.call(biomes[mapped]);
+                  }
                 },
                 itemBuilder: (context, index) {
                   final mapped = widget.loopInfinite ? index % biomes.length : index;
@@ -183,21 +200,23 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced>
                   final distance = widget.loopInfinite
                       ? ((_currentPageFloat - (mapped.toDouble()))).abs()
                       : (_currentPageFloat - index).abs();
-                  // Récupération de couleur plus rapide à l'arrivée sur la carte centrale
-                  final nonLinear = (distance * distance);
-                  final baseOpacity = (1.0 - nonLinear * 0.7).clamp(0.35, 1.0);
+                  final double baseOpacity = widget.compactStyle
+                      ? (1.0 - (distance * distance) * 0.7).clamp(0.35, 1.0)
+                      : (1.0 - (distance * 0.4)).clamp(0.3, 1.0);
                   // Réduire l'opacité pour les biomes verrouillés
                   final opacity = isUnlocked ? baseOpacity : (baseOpacity * 0.5);
                   
-                  // Échelle progressive selon la distance (même pour les verrouillés)
-                  final baseScale = isTablet ? 0.88 : 0.88;
+                  // Échelle progressive
+                  final baseScale = widget.compactStyle
+                      ? (isTablet ? 0.88 : 0.88)
+                      : (isTablet ? 0.82 : (0.75 + (phoneScaleUp - 1.0) * 0.2));
                   final maxScale = 1.0;
                   final scale = baseScale + ((maxScale - baseScale) * (1.0 - distance.clamp(0.0, 1.0)));
 
                   return Padding(
                     padding: EdgeInsets.symmetric(horizontal: padH),
                     child: TweenAnimationBuilder<double>(
-                      duration: const Duration(milliseconds: 120),
+                      duration: Duration(milliseconds: widget.compactStyle ? 120 : 150),
                       curve: Curves.easeOutCubic,
                       tween: Tween<double>(begin: 0.0, end: scale),
                       builder: (context, animatedScale, child) {
@@ -205,7 +224,7 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced>
                           scale: animatedScale,
                           child: AnimatedOpacity(
                             opacity: opacity,
-                            duration: const Duration(milliseconds: 80),
+                            duration: Duration(milliseconds: widget.compactStyle ? 80 : 100),
                             curve: Curves.easeInOut,
                             child: GestureDetector(
                             onTap: () {

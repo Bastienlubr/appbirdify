@@ -17,9 +17,11 @@ class RecapButton extends StatefulWidget {
   final Color? borderColor;
   final Color? hoverBorderColor;
   final Color? shadowColor;
+  final double? visualScale; // Permet d'agrandir le texte sans changer la taille du bouton
+  final double? lineHeight; // Permet de réduire l'interligne pour le texte multi-ligne
 
   const RecapButton({
-    Key? key,
+    super.key,
     this.text = "Récapitulatif",
     this.onPressed,
     this.disabled = false,
@@ -34,7 +36,9 @@ class RecapButton extends StatefulWidget {
     this.borderColor,
     this.hoverBorderColor,
     this.shadowColor,
-  }) : super(key: key);
+    this.visualScale,
+    this.lineHeight,
+  });
 
   @override
   State<RecapButton> createState() => _RecapButtonState();
@@ -197,32 +201,71 @@ class _RecapButtonState extends State<RecapButton>
                 borderRadius: BorderRadius.circular(_resolvedBorderRadius),
                 border: Border.all(
                   color: _bdColor,
-                  width: 2,
+                  width: 2.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _shColor,
-                    offset: Offset(0, _shadowAnimation.value),
+                    color: _shColor.withValues(alpha: 0.8),
+                    offset: Offset(0, _shadowAnimation.value + 2),
                     blurRadius: 0,
                     spreadRadius: 0,
                   ),
                 ],
               ),
-              child: Text(
-                widget.text!,
-                style: TextStyle(
-                  color: _txColor,
-                  fontSize: _fontSize,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  fontFamily: widget.fontFamily,
-                ),
-                textAlign: TextAlign.center,
+              child: _ScaledText(
+                text: widget.text!,
+                color: _txColor,
+                fontSize: _fontSize,
+                fontFamily: widget.fontFamily,
+                visualScale: widget.visualScale ?? 1.0,
+                lineHeight: widget.lineHeight,
               ),
             ),
           );
         },
       ),
+    );
+  }
+}
+
+class _ScaledText extends StatelessWidget {
+  final String text;
+  final Color color;
+  final double fontSize;
+  final String? fontFamily;
+  final double visualScale;
+  final double? lineHeight;
+
+  const _ScaledText({
+    required this.text,
+    required this.color,
+    required this.fontSize,
+    required this.fontFamily,
+    required this.visualScale,
+    this.lineHeight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget label = Text(
+      text,
+      style: TextStyle(
+        color: color,
+        fontSize: fontSize,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.5,
+        fontFamily: fontFamily,
+        decoration: TextDecoration.none,
+        height: lineHeight,
+      ),
+      textAlign: TextAlign.center,
+    );
+
+    if (visualScale == 1.0) return label;
+    return Transform.scale(
+      scale: visualScale,
+      alignment: Alignment.center,
+      child: label,
     );
   }
 }

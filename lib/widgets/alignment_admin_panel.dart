@@ -12,6 +12,7 @@ class AlignmentAdminPanel extends StatefulWidget {
 }
 
 class _AlignmentAdminPanelState extends State<AlignmentAdminPanel> {
+  // ignore: unused_field
   String _currentMode = 'development';
   Map<String, dynamic> _stats = {};
   bool _loading = true;

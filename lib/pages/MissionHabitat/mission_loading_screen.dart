@@ -46,11 +46,10 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
   int? _previousFunFactIndex;
   bool _isFunFactAnimating = false;
 
-  String _currentStep = 'Initialisation...';
+  // Supprimé: _currentStep non utilisé dans l'UI
   List<String> _birdNames = [];
   final Map<String, Bird> _birdCache = {};
   int _loadedImages = 0;
-  int _totalImages = 0;
   String? _errorMessage;
   List<QuizQuestion> _preloadedQuestions = [];
 
@@ -185,7 +184,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
                 .map((e) => (e as Map<String, dynamic>)['nomFrancais']?.toString() ?? '')
                 .where((n) => n.isNotEmpty)
                 .toList();
-            _totalImages = _birdNames.length;
+            // total images no longer tracked for UI progress text
 
             // Construire le cache oiseau minimal à partir de bonnesDetails
             for (final entry in bonnesDetails) {
@@ -232,7 +231,7 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
 
         await _updateProgress('', 0.2);
         _birdNames = _extractGoodAnswers(missionData);
-        _totalImages = _birdNames.length;
+        // total images no longer tracked for UI progress text
         if (kDebugMode) debugPrint('🐦 ${_birdNames.length} bonnes réponses trouvées: $_birdNames');
 
         await _updateProgress('', 0.3);
@@ -291,9 +290,6 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
 
   Future<void> _updateProgress(String step, double progress) async {
     if (mounted) {
-      setState(() {
-        _currentStep = step;
-      });
       _progressController.animateTo(progress);
       await Future.delayed(const Duration(milliseconds: 200));
     }
@@ -441,9 +437,6 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
       final progress = 0.9; // 90% du progrès
       
       if (mounted) {
-        setState(() {
-          _currentStep = 'Images préchargées: $_loadedImages/$_totalImages';
-        });
         _progressController.animateTo(progress);
       }
       

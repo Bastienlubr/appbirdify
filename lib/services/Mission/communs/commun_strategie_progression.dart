@@ -34,13 +34,12 @@ class MissionProgressionInitService {
         // Créer la progression initiale
         final initialData = {
           'etoiles': 0,
-          'meilleurScore': 0,
           'tentatives': 0,
           'deverrouille': forceUnlock || index == 1, // Première mission toujours déverrouillée
           'biome': biome,
           'index': index,
-          'creeLe': FieldValue.serverTimestamp(),
-          'derniereMiseAJour': FieldValue.serverTimestamp(),
+          'scoresHistorique': {},
+          'moyenneScores': 0.0,
         };
 
         await progressRef.set(initialData);
@@ -133,14 +132,13 @@ class MissionProgressionInitService {
         // Créer la progression au moment du déverrouillage
         await progressRef.set({
           'etoiles': 0,
-          'meilleurScore': 0,
           'tentatives': 0,
           'deverrouille': true,
           'biome': biome,
           'index': index,
           'deverrouilleLe': FieldValue.serverTimestamp(), // Date de déverrouillage
-          'creeLe': FieldValue.serverTimestamp(),
-          'derniereMiseAJour': FieldValue.serverTimestamp(),
+          'scoresHistorique': {},
+          'moyenneScores': 0.0,
         });
         
         if (kDebugMode) {
@@ -151,7 +149,6 @@ class MissionProgressionInitService {
         await progressRef.update({
           'deverrouille': true,
           'deverrouilleLe': FieldValue.serverTimestamp(), // Date de déverrouillage
-          'derniereMiseAJour': FieldValue.serverTimestamp(),
         });
         
         if (kDebugMode) {
