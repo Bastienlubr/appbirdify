@@ -15,7 +15,7 @@ import '../services/Mission/communs/commun_strategie_progression.dart';
 import '../widgets/dev_tools_menu.dart';
 import '../ui/responsive/responsive.dart';
 import 'Accueil/widgets/lives_popover.dart';
-import 'Quiz/quiz_personnalise_page.dart';
+import 'Quiz/quiz_selection_page.dart';
 // import '../ui/animations/transitions.dart'; // (désactivé) Animations centralisées
 
 
@@ -34,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
   
   @override
   Widget build(BuildContext context) {
-    final bool isLivesPopoverOpen = _currentIndex == 1 && (_homeContentKey.currentState?.isLivesPopoverOpen ?? false);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -58,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : _currentIndex == 2 
             ? const ProfilPage() 
             : _currentIndex == 0
-              ? const QuizPersonnalisePage()
+              ? const QuizSelectionPage()
               : HomeContent(key: _homeContentKey)
       ),
       bottomNavigationBar: HomeBottomNavBar(
@@ -215,7 +214,7 @@ class _HomeContentState extends State<HomeContent> {
     return false;
   }
 
-  Future<void> _loadMissionsForBiome(String biomeName) async {
+  Future<void> _loadMissionsForBiome(String biomeName, {bool animateAppearance = true}) async {
     if (_isLoadingMissions) return; // Éviter les chargements multiples
     
     setState(() {
@@ -231,11 +230,14 @@ class _HomeContentState extends State<HomeContent> {
         if (mounted) {
           setState(() {
             _currentMissions = filteredMissions;
-            _missionVisibility = List.generate(filteredMissions.length, (index) => false);
+            _missionVisibility = animateAppearance
+                ? List.generate(filteredMissions.length, (index) => false)
+                : List.generate(filteredMissions.length, (index) => true);
             _isLoadingMissions = false;
           });
-          
-          _animateMissionsAppearance();
+          if (animateAppearance) {
+            _animateMissionsAppearance();
+          }
         }
         return;
       }
@@ -280,11 +282,14 @@ class _HomeContentState extends State<HomeContent> {
       if (mounted) {
         setState(() {
           _currentMissions = filteredMissions;
-          _missionVisibility = List.generate(filteredMissions.length, (index) => false);
+          _missionVisibility = animateAppearance
+              ? List.generate(filteredMissions.length, (index) => false)
+              : List.generate(filteredMissions.length, (index) => true);
           _isLoadingMissions = false;
         });
-        
-        _animateMissionsAppearance();
+        if (animateAppearance) {
+          _animateMissionsAppearance();
+        }
       }
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur lors du chargement des missions: $e');
@@ -541,14 +546,18 @@ class _HomeContentState extends State<HomeContent> {
                           ),
                         ),
                         BiomeCarouselEnhanced(
+                          // Slide (changement de page) => sélectionne et charge normalement (avec animation d’apparition)
                           onBiomeSelected: (biome) {
                             setState(() {
                               _selectedBiome = biome.name;
                             });
-                            _loadMissionsForBiome(biome.name);
+                            _loadMissionsForBiome(biome.name, animateAppearance: true);
                           },
+                          // Désactiver l'action au tap dans Home: slide uniquement
+                          onBiomeTapped: null,
                           isBiomeUnlocked: (biomeName) => _isBiomeUnlocked(biomeName),
                           selectOnPageChange: true,
+                          disableTapCenterAnimation: true,
                         ),
                         Expanded(
                           child: Padding(

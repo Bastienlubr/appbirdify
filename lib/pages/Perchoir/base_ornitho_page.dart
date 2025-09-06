@@ -156,6 +156,10 @@ class _BaseOrnithoPageState extends State<BaseOrnithoPage>
   @override
   void initState() {
     super.initState();
+    // Charger les alignements calibrés sauvegardés et déclencher un rebuild pour appliquer le cadrage
+    BirdImageAlignments.loadSavedAlignments().then((_) {
+      if (mounted) setState(() {});
+    }).catchError((_) {});
     _loadAllBirds();
     _loadFavorites();
   }
@@ -197,6 +201,7 @@ class _BaseOrnithoPageState extends State<BaseOrnithoPage>
           .map((name) => MissionPreloader.getBirdData(name))
           .where((bird) => bird != null)
           .cast<Bird>()
+          .where((b) => b.urlImage.trim().isNotEmpty)
           .toList();
       
       // Tri une seule fois à la source
@@ -758,19 +763,17 @@ class _SimpleBirdTile extends StatelessWidget {
                   ],
                 ),
                 child: Center(
-                  child: Text(
-                    bird.nomFr,
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                  child: _AdaptiveTwoLineText(
+                    text: bird.nomFr,
+                    maxHeight: 40.0 * dp,
+                    baseStyle: const TextStyle(
                       fontFamily: 'Quicksand',
                       fontWeight: FontWeight.w800,
-                      fontSize: 14.0,
-                      color: const Color(0xFF344356),
+                      color: Color(0xFF344356),
                       letterSpacing: -0.3,
                       height: 1.1,
                     ),
+                    candidateFontSizes: const [14.0, 13.5, 13.0, 12.5, 12.0, 11.5, 11.0],
                   ),
                 ),
               ),
@@ -810,6 +813,58 @@ class _SimpleBirdTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AdaptiveTwoLineText extends StatelessWidget {
+  final String text;
+  final double maxHeight;
+  final TextStyle baseStyle;
+  final List<double> candidateFontSizes;
+
+  const _AdaptiveTwoLineText({
+    required this.text,
+    required this.maxHeight,
+    required this.baseStyle,
+    required this.candidateFontSizes,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        for (final size in candidateFontSizes) {
+          final style = baseStyle.copyWith(fontSize: size);
+          final span = TextSpan(text: text, style: style);
+          final tp = TextPainter(
+            text: span,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            textDirection: TextDirection.ltr,
+            ellipsis: '…',
+          );
+          tp.layout(maxWidth: constraints.maxWidth);
+          if (tp.height <= maxHeight) {
+            return Text(
+              text,
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            );
+          }
+        }
+        // Fallback: plus petite taille
+        final fallback = baseStyle.copyWith(fontSize: candidateFontSizes.last);
+        return Text(
+          text,
+          maxLines: 2,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          style: fallback,
+        );
+      },
     );
   }
 }

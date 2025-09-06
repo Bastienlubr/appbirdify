@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:just_audio/just_audio.dart';
+import '../../services/dev_tools_service.dart';
 import '../../models/bird.dart';
 import '../../ui/responsive/responsive.dart';
 import '../../models/fiche_oiseau.dart';
@@ -71,21 +74,48 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   late final PageController _contentController;
   late final PageController _tabController;
 
+  // Mémoire de position du carrousel (fallback sûr)
+  double? _lastKnownTabPage;
+  double? _lastKnownTabPixels;
+
+  // Aides pour détecter les positions d'ancrage du panel
+  bool get _isAtBasicSnap => (_panelController.value - 0.5).abs() < 0.02;
+  bool get _isAtExtendedSnap => _panelController.value > 0.98;
+
+  // Gel temporaire des corrections pour éviter les courses avec le timer
+  bool _isCenteringFrozen = false;
+  void _freezeCentering([Duration duration = const Duration(milliseconds: 200)]) {
+    _isCenteringFrozen = true;
+    Future.delayed(duration, () {
+      _isCenteringFrozen = false;
+    });
+  }
+
   // État UI
   int _selectedTabIndex = 0;
   int _previousTabIndex = 0;
   bool _programmaticAnimating = false;
   bool _showBackground = false;
   bool _isReturning = false;
-  bool _isDevMode = true; // Mode dev par défaut
+  bool _isDevMode = false; // Masqué par défaut (activable via outils de dev)
   int _adminTapCount = 0;
   bool _alignmentJustSaved = false;
+  // ignore: unused_field
   bool _alignmentLoaded = false; // indique si l'alignement sauvegardé a été récupéré
 
   // Données et état
   FicheOiseau? _fiche;
   bool _ficheLoading = false;
   int? _familySpeciesCount;
+  // Audio
+  late final AudioPlayer _audioPlayer;
+  StreamSubscription<PlayerState>? _playerStateSub;
+  bool _isAudioPlaying = false;
+  Duration? _audioTotal;
+  Duration _audioPosition = Duration.zero;
+  double _audioProgress = 0.0;
+  StreamSubscription<Duration>? _posSub;
+  StreamSubscription<Duration?>? _durSub;
   
   // Alignement optimal pour cette espèce d'oiseau
   late Alignment _optimalImageAlignment;
@@ -136,6 +166,48 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     _initializeControllers();
     _calculateOptimalImageAlignment();
     _checkDevMode();
+    _audioPlayer = AudioPlayer();
+    _playerStateSub = _audioPlayer.playerStateStream.listen((state) async {
+      final playingNow = state.playing;
+      if (mounted && playingNow != _isAudioPlaying) {
+        setState(() => _isAudioPlaying = playingNow);
+      }
+      // Remettre à 0 quand l'audio arrive à la fin
+      if (state.processingState == ProcessingState.completed) {
+        try { await _audioPlayer.stop(); } catch (_) {}
+        if (mounted) {
+          setState(() {
+            _audioPosition = Duration.zero;
+            _audioProgress = 0.0;
+          });
+        }
+      }
+    });
+    _durSub = _audioPlayer.durationStream.listen((total) {
+      if (!mounted) return;
+      setState(() {
+        _audioTotal = total;
+        _audioProgress = _computeAudioProgress();
+      });
+    });
+    _posSub = _audioPlayer.positionStream.listen((pos) {
+      if (!mounted) return;
+      setState(() {
+        _audioPosition = pos;
+        _audioProgress = _computeAudioProgress();
+      });
+    });
+
+    // Assurer le chargement des cadrages calibrés puis re-calculer l'alignement initial
+    BirdImageAlignments.loadSavedAlignments().then((_) {
+      if (!mounted) return;
+      setState(() {
+        _optimalImageAlignment = BirdImageAlignments.getOptimalAlignment(
+          widget.bird.genus,
+          widget.bird.species,
+        );
+      });
+    }).catchError((_) {});
 
     if (widget.staticEntrance) {
       // Figer l'affichage mais n'afficher le background qu'après récupération de l'alignement sauvegardé (évite le "saut")
@@ -143,17 +215,19 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       _panelController.value = 0.5; // 1/3 visible directement
       _startWatchingFiche(); // charger immédiatement les données
       _precacheMainImage();
-      // Essayer d'attendre très brièvement l'alignement sauvegardé, puis afficher
+      // Avant d'afficher, s'assurer que le carrousel est positionné exactement sur l'onglet sélectionné
       Future.delayed(const Duration(milliseconds: 0), () {
         if (!mounted) return;
-        if (_alignmentLoaded) {
-          setState(() => _showBackground = true);
-        } else {
-          // Timeout de grâce pour ne pas retarder indéfiniment
-          Future.delayed(const Duration(milliseconds: 220), () {
-            if (mounted) setState(() => _showBackground = true);
-          });
-        }
+        // Positionner le carrousel sans animation si nécessaire
+        try {
+          final expected = _nearestPageForIndex(_tabController, _selectedTabIndex);
+          if (_tabController.hasClients && expected != null) {
+            _tabController.jumpToPage(expected);
+            _freezeCentering();
+          }
+        } catch (_) {}
+        // Puis afficher le background quand prêt
+        setState(() => _showBackground = true);
       });
     } else {
       _scheduleInitialAnimations();
@@ -172,14 +246,18 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       curve: Curves.easeInOutCubic,
     );
     _panelAnimation.addListener(_onPanelPositionChanged);
+    _panelController.addStatusListener(_onPanelStatusChanged);
 
-    // Initialisation des PageControllers avec seed pour navigation bidirectionnelle
+    // Initialisation des PageControllers avec seed et index sélectionné
     final seed = _nTabs * 1000;
-    _contentController = PageController(initialPage: seed);
+    final int initial = seed + (_selectedTabIndex % _nTabs);
+    _contentController = PageController(initialPage: initial, keepPage: true);
     _tabController = PageController(
-      initialPage: seed,
+      initialPage: initial,
       viewportFraction: 0.2,
+      keepPage: true,
     );
+    _tabController.addListener(_onTabControllerTick);
   }
 
   /// Calcule l'alignement optimal pour cette espèce d'oiseau
@@ -430,18 +508,24 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     _cleanupControllers();
     _cleanupStreams();
     _cleanupTimers();
+    try { _playerStateSub?.cancel(); } catch (_) {}
+    try { _posSub?.cancel(); } catch (_) {}
+    try { _durSub?.cancel(); } catch (_) {}
+    try { _audioPlayer.dispose(); } catch (_) {}
     super.dispose();
   }
 
   /// Nettoie les animations et leurs listeners
   void _cleanupAnimations() {
     _panelAnimation.removeListener(_onPanelPositionChanged);
+    _panelController.removeStatusListener(_onPanelStatusChanged);
     _panelController.dispose();
   }
 
   /// Nettoie les controllers de pages
   void _cleanupControllers() {
     _contentController.dispose();
+    _tabController.removeListener(_onTabControllerTick);
     _tabController.dispose();
   }
 
@@ -463,7 +547,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     if (!mounted) return;
     
     _centeringTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || !_tabController.hasClients || _programmaticAnimating) {
+      if (!mounted || !_tabController.hasClients || _programmaticAnimating || _isCenteringFrozen) {
         timer.cancel();
         return;
       }
@@ -472,15 +556,77 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     });
   }
 
+  // Mémorisation continue de la page/pixels du carrousel (fallback si page==null)
+  void _onTabControllerTick() {
+    if (!_tabController.hasClients) return;
+    final page = _tabController.page;
+    if (page != null) {
+      _lastKnownTabPage = page;
+    }
+    _lastKnownTabPixels = _tabController.position.hasPixels
+        ? _tabController.position.pixels
+        : _lastKnownTabPixels;
+  }
+
+  // Restaure la position exacte si perdue lors d'une transition
+  void _restoreIfLost() {
+    if (!_tabController.hasClients) return;
+    final page = _tabController.page;
+    if (page == null && _lastKnownTabPage != null) {
+      // Restaure la position sans animation pour éviter tout "snap" visible
+      try {
+        final int nearest = _lastKnownTabPage!.round();
+        _tabController.jumpToPage(nearest);
+        _freezeCentering();
+        if (_lastKnownTabPixels != null && _tabController.position.haveDimensions) {
+          _tabController.position.jumpTo(_lastKnownTabPixels!.clamp(
+            _tabController.position.minScrollExtent,
+            _tabController.position.maxScrollExtent,
+          ));
+        }
+      } catch (_) {
+        // Pas de throw: on garde silencieux
+      }
+    }
+  }
+
+  // Appelé quand l'animation du panel change de status; utile pour restaurer après une bascule
+  void _onPanelStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.completed || status == AnimationStatus.dismissed) {
+      // À la fin d'une transition de panel, vérifier que la position carrousel n'a pas été perdue
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _restoreIfLost();
+        _ensureCenterIfBasic();
+      });
+    }
+  }
+
+  // Garantit que, en mode basique, la page visible correspond EXACTEMENT à l'index sélectionné
+  void _ensureCenterIfBasic() {
+    if (!_tabController.hasClients) return;
+    if (!_isAtBasicSnap) return; // N'opère qu'au snap basique (1/3)
+    // Calculer la page cible attendue pour l'index sélectionné d'après la position actuelle
+    final expected = _nearestPageForIndex(_tabController, _selectedTabIndex);
+    final current = _tabController.page ?? _lastKnownTabPage;
+    if (expected == null || current == null) return; // aucune correction si valeur non fiable
+    if ((current - expected.toDouble()).abs() > 0.2) {
+      // Pas d'animation en mode basique pour éviter tout mouvement visible
+      try {
+        _tabController.jumpToPage(expected);
+      } catch (_) {}
+    }
+  }
+
   /// Vérifie et ajuste le centrage des onglets si nécessaire
   void _checkAndAdjustTabCentering() {
     final panelValue = _panelAnimation.value;
-    final isInStableMode = panelValue < 0.3 || panelValue > 0.7;
-    
-    if (!isInStableMode) return;
+    // Ne corriger que lorsqu'on est en mode étendu
+    final bool isInExtendedMode = panelValue > 0.7;
+    if (!isInExtendedMode) return;
     
     final targetPage = _nearestPageForIndex(_tabController, _selectedTabIndex);
-    final currentPage = _tabController.page ?? _tabController.initialPage.toDouble();
+    final currentPage = _tabController.page ?? _lastKnownTabPage;
+    if (currentPage == null || targetPage == null) return;
     
     if ((currentPage - targetPage).abs() > 0.15) {
       _tabController.animateToPage(
@@ -488,18 +634,17 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOutCubic,
       );
+      _freezeCentering();
     }
   }
 
   // État de détection des changements de mode
   bool _wasInExtendedMode = false;
-  bool _wasInBasicMode = false;
   bool _isRecenteringScheduled = false;
   bool _miniTitleHidden = false;
 
   // Méthode appelée quand la position du panel change
   void _onPanelPositionChanged() {
-    final isCurrentlyInBasicMode = _panelAnimation.value < 0.3; // Mode 2/3-1/3
     final isCurrentlyInExtendedMode = _panelAnimation.value > 0.7; // Mode étendu
     // Disparition progressive du petit titre après 5s en mode étendu
     if (isCurrentlyInExtendedMode && !_wasInExtendedMode) {
@@ -515,11 +660,9 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       setState(() => _miniTitleHidden = false);
     }
     
-    // Détecter TOUTE transition vers un mode stable (2/3-1/3 OU étendu)
-    final shouldRecenter = (isCurrentlyInBasicMode && !_wasInBasicMode) || 
-                          (isCurrentlyInExtendedMode && !_wasInExtendedMode);
-    
-    if (shouldRecenter && !_isRecenteringScheduled) {
+    // Ne recentrer que lors de l'entrée en mode étendu
+    final enteredExtended = isCurrentlyInExtendedMode && !_wasInExtendedMode;
+    if (enteredExtended && !_isRecenteringScheduled) {
       _isRecenteringScheduled = true;
       
       // Attendre que l'animation du panel soit complètement terminée
@@ -535,7 +678,6 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     
     // Mettre à jour les états précédents
     _wasInExtendedMode = isCurrentlyInExtendedMode;
-    _wasInBasicMode = isCurrentlyInBasicMode;
   }
 
   // Recentrer l'onglet sélectionné dans le carousel (version douce)
@@ -544,10 +686,15 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   // Forcer le recentrage (version robuste pour les transitions de mode)
   void _forceRecenterSelectedTab() {
     if (!mounted || !_tabController.hasClients) return;
+    // Skip tout recentrage si on est en mode basique
+    if (_isAtBasicSnap) {
+      return;
+    }
     
     // Calculer la page cible pour centrer l'onglet sélectionné
     final targetPage = _nearestPageForIndex(_tabController, _selectedTabIndex);
-    final currentPage = _tabController.page ?? _tabController.initialPage.toDouble();
+    final currentPage = _tabController.page ?? _lastKnownTabPage;
+    if (currentPage == null || targetPage == null) return;
     
     // TOUJOURS recentrer, même si ça semble proche
     if ((currentPage - targetPage).abs() > 0.1) {
@@ -565,9 +712,10 @@ class _BirdDetailPageState extends State<BirdDetailPage>
           // Vérification finale - si toujours pas centré, utiliser jumpToPage
           Future.delayed(const Duration(milliseconds: 100), () {
             if (mounted && _tabController.hasClients) {
-              final finalPage = _tabController.page ?? _tabController.initialPage.toDouble();
+              final finalPage = _tabController.page ?? _lastKnownTabPage;
+              if (finalPage == null) return;
               final finalTarget = _nearestPageForIndex(_tabController, _selectedTabIndex);
-              if ((finalPage - finalTarget).abs() > 0.2) {
+              if (finalTarget != null && (finalPage - finalTarget).abs() > 0.2) {
                 _tabController.jumpToPage(finalTarget);
               }
             }
@@ -582,10 +730,15 @@ class _BirdDetailPageState extends State<BirdDetailPage>
 
   // ------------------------------ LOGIQUE "NEAREST PAGE" ---------------------
   // Calcule la page cible la plus proche ayant (page % n == desiredIndex)
-  int _nearestPageForIndex(PageController controller, int desiredIndex) {
-    final double current =
-        controller.hasClients ? (controller.page ?? controller.initialPage.toDouble())
-                              : controller.initialPage.toDouble();
+  int? _nearestPageForIndex(PageController controller, int desiredIndex) {
+    final double? maybeCurrent = controller.hasClients
+        ? (controller.page ?? _lastKnownTabPage)
+        : (_lastKnownTabPage);
+    if (maybeCurrent == null) {
+      // Pas de valeur fiable cette frame → ne rien corriger
+      return null;
+    }
+    final double current = maybeCurrent;
 
     final int currentRound = current.round();
     final int currentMod = ((currentRound % _nTabs) + _nTabs) % _nTabs;
@@ -608,25 +761,26 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         _miniTitleHidden = false;
       });
 
-      // Si on est déjà en mode étendu, reprogrammer la disparition du petit titre après 3s
-      if (_panelAnimation.value > 0.7) {
+      // Si on est en mode étendu, reprogrammer la disparition du petit titre après 3s
+      if (_isAtExtendedSnap) {
         Future.delayed(const Duration(seconds: 3), () {
           if (!mounted) return;
-          if (_panelAnimation.value > 0.7) {
+          if (_isAtExtendedSnap) {
             setState(() => _miniTitleHidden = true);
           }
         });
       }
       
+      // Ne recentrer sur changement de sélection qu'en mode étendu
+      if (_isAtExtendedSnap) {
+        _forceRecenterSelectedTab();
+      }
+
       // Recentrer l'onglet dans TOUS les modes stables AVEC délai pour éviter conflits
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Future.delayed(const Duration(milliseconds: 50), () {
-          final isInBasicMode = _panelAnimation.value < 0.3;
-          final isInExtendedMode = _panelAnimation.value > 0.7;
-          final isInStableMode = isInBasicMode || isInExtendedMode;
-          
-          if (isInStableMode && mounted && !_programmaticAnimating && !_isRecenteringScheduled) {
-            _forceRecenterSelectedTab(); // Version robuste pour tous les modes
+          if (_isAtExtendedSnap && mounted && !_programmaticAnimating && !_isRecenteringScheduled) {
+            _forceRecenterSelectedTab();
           }
         });
       });
@@ -635,7 +789,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
 
   // Quand on **fait défiler** les onglets - SIMPLE ET DIRECT
   void _onTabCarouselChanged(int pageIndex) {
-    if (_programmaticAnimating) return;
+    if (_programmaticAnimating || _isAtBasicSnap || _isCenteringFrozen) return; // éviter tout changement en mode basique ou pendant gel
 
     final actualIndex = pageIndex % _nTabs;
     final currentIndex = _selectedTabIndex;
@@ -648,7 +802,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       // Synchronise le contenu INSTANTANÉMENT - pas d'animation concurrente
       if (_contentController.hasClients) {
         final target = _nearestPageForIndex(_contentController, actualIndex);
-        _contentController.jumpToPage(target);
+        if (target != null) _contentController.jumpToPage(target);
       }
     } else if (diff != 0) {
       // Mouvement non autorisé → SNAP vers l'adjacent sans animation
@@ -661,19 +815,19 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       // SNAP instantané pour éviter le wiggle
       if (_contentController.hasClients) {
         final t = _nearestPageForIndex(_contentController, targetIndex);
-        _contentController.jumpToPage(t);
+        if (t != null) _contentController.jumpToPage(t);
       }
 
       if (_tabController.hasClients) {
         final t = _nearestPageForIndex(_tabController, targetIndex);
-        _tabController.jumpToPage(t);
+        if (t != null) _tabController.jumpToPage(t);
       }
     }
   }
 
   // Quand on **tape** un onglet - ANIMATION FLUIDE UNIQUE
   void _onTabSelected(int index) {
-    if (_programmaticAnimating) return;
+    if (_programmaticAnimating || _isAtBasicSnap) return; // pas de sélection en mode basique pour éviter l'état transitoire
 
     final currentIndex = _selectedTabIndex;
     final diff = (index - currentIndex + _nTabs) % _nTabs;
@@ -700,13 +854,13 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       // Contenu → page la plus proche
       if (_contentController.hasClients) {
         final t = _nearestPageForIndex(_contentController, index);
-        animations.add(_contentController.animateToPage(t, duration: duration, curve: curve));
+        if (t != null) animations.add(_contentController.animateToPage(t, duration: duration, curve: curve));
       }
 
       // Onglets → page la plus proche 
       if (_tabController.hasClients) {
         final t = _nearestPageForIndex(_tabController, index);
-        animations.add(_tabController.animateToPage(t, duration: duration, curve: curve));
+        if (t != null) animations.add(_tabController.animateToPage(t, duration: duration, curve: curve));
       }
 
       // Attendre que TOUTES les animations se terminent
@@ -722,12 +876,12 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       // SNAP instantané pour éviter conflit
       if (_contentController.hasClients) {
         final t = _nearestPageForIndex(_contentController, targetIndex);
-        _contentController.jumpToPage(t);
+        if (t != null) _contentController.jumpToPage(t);
       }
 
       if (_tabController.hasClients) {
         final t = _nearestPageForIndex(_tabController, targetIndex);
-        _tabController.jumpToPage(t);
+        if (t != null) _tabController.jumpToPage(t);
       }
     }
   }
@@ -765,7 +919,14 @@ class _BirdDetailPageState extends State<BirdDetailPage>
               if (_showBackground && !_isReturning) _buildBackButton(m),
               
               // Interface de calibration (mode développement uniquement)
-              if (_showBackground && !_isReturning && _isDevMode) _buildAlignmentIndicator(m),
+              if (_showBackground && !_isReturning && _isDevMode)
+                ValueListenableBuilder<bool>(
+                  valueListenable: DevVisibilityService.overlaysEnabled,
+                  builder: (context, visible, child) => visible ? _buildAlignmentIndicator(m) : const SizedBox.shrink(),
+                ),
+
+              // Bouton audio (donut) en background (derrière le panel)
+              if (_showBackground && !_isReturning) _buildAudioButton(m),
 
               // Panel
               AnimatedBuilder(
@@ -793,8 +954,13 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                       onTap: _togglePanel,
                       onPanUpdate: (details) {
                         final delta = -details.delta.dy / screenHeight;
-                        final newValue = (_panelController.value + delta * 2)
+                        double newValue = (_panelController.value + delta * 2)
                             .clamp(0.0, 1.0);
+                        // Autorise une très légère descente sous le palier basique (jusqu'à ~0.48)
+                        const double basicFloor = 0.38;
+                        if (newValue < basicFloor) {
+                          newValue = basicFloor;
+                        }
                         _panelController.value = newValue;
                       },
                       onPanEnd: _onPanelPanEnd,
@@ -822,6 +988,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                   );
                 },
             ),
+            // (rien au-dessus: le bouton audio est rendu avant le panel)
           ],
         );
       },
@@ -934,29 +1101,23 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   Widget _buildBackButton(ResponsiveMetrics m) {
     return SafeArea(
       child: Align(
-        alignment: Alignment.topRight,
+        alignment: Alignment.topLeft,
         child: Padding(
           padding: EdgeInsets.all(m.dp(20, tabletFactor: 1.1)),
-          child: Container(
+          child: SizedBox(
             width: m.dp(50, tabletFactor: 1.1),
             height: m.dp(50, tabletFactor: 1.1),
-            decoration: BoxDecoration(
-              color: const Color(0xFF473C33).withValues(alpha: 0.85),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 4,
-                  offset: const Offset(0, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => _animateReturn(),
+                child: SvgPicture.asset(
+                  'assets/Images/Bouton/flechegauchecercle.svg',
+                  width: m.dp(50, tabletFactor: 1.1),
+                  height: m.dp(50, tabletFactor: 1.1),
+                  colorFilter: const ColorFilter.mode(Color(0xFFF3F5F9), BlendMode.srcIn),
                 ),
-              ],
-            ),
-            child: IconButton(
-              onPressed: () => _animateReturn(),
-              icon: Icon(
-                Icons.arrow_back,
-                color: Colors.white,
-                size: m.dp(24, tabletFactor: 1.1),
               ),
             ),
           ),
@@ -1226,7 +1387,6 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         Expanded(
           child: NotificationListener<UserScrollNotification>(
             onNotification: (n) {
-              // En mode compact (1/3), le premier geste de scroll ouvre le panel en grand
               final isCompact = _panelAnimation.value < 0.75;
               if (isCompact && n.direction != ScrollDirection.idle) {
                 _panelController.animateTo(
@@ -1234,79 +1394,130 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                   duration: const Duration(milliseconds: 900),
                   curve: Curves.easeInOutCubic,
                 );
-                return true; // on consomme l'événement
+                return true;
               }
               return false;
             },
-            child: SizedBox.expand(
-              child: SingleChildScrollView(
-                physics: _panelAnimation.value < 0.75
-                    ? const NeverScrollableScrollPhysics()
-                    : const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.only(
-                  left: m.dp(24, tabletFactor: 1.1),
-                  right: m.dp(24, tabletFactor: 1.1),
-                  top: showBasicInfo ? m.dp(4, tabletFactor: 1.0) : m.dp(16, tabletFactor: 1.0),
-                ),
-                child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                SizedBox(height: showBasicInfo ? m.dp(2, tabletFactor: 1.0) : m.dp(0, tabletFactor: 1.0)),
-
-                // Infos de base (nom, famille)
-                if (showBasicInfo) _buildInfoSection(m),
-
-                if (showBasicInfo) SizedBox(height: m.dp(16, tabletFactor: 1.1)),
-
-                // Carrousel d'onglets
-                Transform.translate(
-                  offset: Offset(0, showBasicInfo ? 0 : -m.dp(0, tabletFactor: 1.1)),
-                  child: _buildTabButtons(m),
-                ),
-
-                Transform.translate(
-                  offset: Offset(0, showBasicInfo ? -m.dp(16, tabletFactor: 1.0) : -m.dp(8, tabletFactor: 1.0)),
-                  child: _buildAnimatedTabTitle(m),
-                ),
-
-                SizedBox(height: showBasicInfo ? m.dp(12, tabletFactor: 1.1) : m.dp(4, tabletFactor: 1.1)),
-
-                if (!showBasicInfo)
-                  Container(
-                    height: 3,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: const Color(0x70344356),
-                      borderRadius: BorderRadius.circular(1.5),
+            child: (_panelAnimation.value > 0.7)
+                // Mode étendu: header fixe + contenu scrollable
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.only(
+                          left: m.dp(24, tabletFactor: 1.1),
+                          right: m.dp(24, tabletFactor: 1.1),
+                          top: showBasicInfo ? m.dp(4, tabletFactor: 1.0) : m.dp(16, tabletFactor: 1.0),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(height: showBasicInfo ? m.dp(2, tabletFactor: 1.0) : m.dp(0, tabletFactor: 1.0)),
+                            if (showBasicInfo) _buildInfoSection(m),
+                            if (showBasicInfo) SizedBox(height: m.dp(16, tabletFactor: 1.1)),
+                            Transform.translate(
+                              offset: Offset(0, showBasicInfo ? 0 : -m.dp(0, tabletFactor: 1.1)),
+                              child: _buildTabButtons(m),
+                            ),
+                            Transform.translate(
+                              offset: Offset(0, showBasicInfo ? -m.dp(16, tabletFactor: 1.0) : -m.dp(8, tabletFactor: 1.0)),
+                              child: _buildAnimatedTabTitle(m),
+                            ),
+                            SizedBox(height: showBasicInfo ? m.dp(12, tabletFactor: 1.1) : m.dp(4, tabletFactor: 1.1)),
+                            if (!showBasicInfo)
+                              Container(
+                                height: 3,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: const Color(0x70344356),
+                                  borderRadius: BorderRadius.circular(1.5),
+                                ),
+                              ),
+                            SizedBox(height: showBasicInfo ? 0 : m.dp(4, tabletFactor: 1.1)),
+                            Align(
+                              alignment: Alignment.center,
+                              child: Text(
+                                _tabs[_selectedTabIndex]['title'],
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: m.font(32, tabletFactor: 1.1, min: 24, max: 40),
+                                  fontFamily: 'Quicksand',
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: m.dp(16, tabletFactor: 1.1)),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: EdgeInsets.only(
+                            left: m.dp(24, tabletFactor: 1.1),
+                            right: m.dp(24, tabletFactor: 1.1),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildMainContent(m),
+                              SizedBox(height: m.dp(40, tabletFactor: 1.1)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                // Mode compact: tout défile ensemble pour éviter overflow
+                : SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.only(
+                      left: m.dp(24, tabletFactor: 1.1),
+                      right: m.dp(24, tabletFactor: 1.1),
+                      top: showBasicInfo ? m.dp(4, tabletFactor: 1.0) : m.dp(16, tabletFactor: 1.0),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: showBasicInfo ? m.dp(2, tabletFactor: 1.0) : m.dp(0, tabletFactor: 1.0)),
+                        if (showBasicInfo) _buildInfoSection(m),
+                        if (showBasicInfo) SizedBox(height: m.dp(16, tabletFactor: 1.1)),
+                        _buildTabButtons(m),
+                        Transform.translate(
+                          offset: Offset(0, showBasicInfo ? -m.dp(16, tabletFactor: 1.0) : -m.dp(8, tabletFactor: 1.0)),
+                          child: _buildAnimatedTabTitle(m),
+                        ),
+                        SizedBox(height: showBasicInfo ? m.dp(12, tabletFactor: 1.1) : m.dp(4, tabletFactor: 1.1)),
+                        if (!showBasicInfo)
+                          Container(
+                            height: 3,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: const Color(0x70344356),
+                              borderRadius: BorderRadius.circular(1.5),
+                            ),
+                          ),
+                        SizedBox(height: showBasicInfo ? 0 : m.dp(4, tabletFactor: 1.1)),
+                        Align(
+                          alignment: _panelAnimation.value > 0.7 ? Alignment.center : Alignment.centerLeft,
+                          child: Text(
+                            _tabs[_selectedTabIndex]['title'],
+                            textAlign: _panelAnimation.value > 0.7 ? TextAlign.center : TextAlign.left,
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: m.font(32, tabletFactor: 1.1, min: 24, max: 40),
+                              fontFamily: 'Quicksand',
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: m.dp(16, tabletFactor: 1.1)),
+                        _buildMainContent(m),
+                        SizedBox(height: m.dp(40, tabletFactor: 1.1)),
+                      ],
                     ),
                   ),
-
-                SizedBox(height: showBasicInfo ? 0 : m.dp(4, tabletFactor: 1.1)),
-
-                // Titre principal de l'onglet courant (dans le panel, en haut)
-                Align(
-                  alignment: _panelAnimation.value > 0.7 ? Alignment.center : Alignment.centerLeft,
-                        child: Text(
-                    _tabs[_selectedTabIndex]['title'],
-                    textAlign: _panelAnimation.value > 0.7 ? TextAlign.center : TextAlign.left,
-                          style: TextStyle(
-                      color: textColor,
-                      fontSize: m.font(32, tabletFactor: 1.1, min: 24, max: 40),
-                            fontFamily: 'Quicksand',
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                SizedBox(height: m.dp(16, tabletFactor: 1.1)),
-
-                // Contenu principal (PageView synchronisé)
-                _buildMainContent(m),
-
-                SizedBox(height: m.dp(40, tabletFactor: 1.1)),
-                ],
-                ),
-              ),
-            ),
           ),
         ),
           ],
@@ -1440,128 +1651,70 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         children: [
           // Le carousel principal
           PageView.builder(
+            key: const PageStorageKey('tabsCarousel'),
             controller: _tabController,
             onPageChanged: _onTabCarouselChanged,
             physics: const StableCarouselPhysics(),
             pageSnapping: true,
+            allowImplicitScrolling: true,
+            clipBehavior: Clip.none,
             itemBuilder: (context, pageIndex) {
           final index = pageIndex % _nTabs;
           final tab = _tabs[index];
           final isSelected = index == _selectedTabIndex;
-          final wasJustDeselected = index == _previousTabIndex;
-
-          // Seulement les onglets impliqués dans le changement s'animent
-          final shouldAnimate = isSelected || wasJustDeselected;
 
           return Center(
             child: GestureDetector(
               onTap: () => _onTabSelected(index),
-              child: shouldAnimate
-                  ? TweenAnimationBuilder<double>(
-                      key: ValueKey(
-                          '$index-${isSelected ? "select" : "deselect"}')
-,
-                      duration: const Duration(milliseconds: 280), // Plus fluide
-                      curve: Curves.easeOutCubic, // Courbe plus naturelle
-                      tween: Tween<double>(
-                        begin: isSelected ? 0.0 : 1.0,
-                        end: isSelected ? 1.0 : 0.0,
-                      ),
-                      builder: (context, animValue, child) {
-                        // Calcul des valeurs interpolées optimisées pour la fluidité
-                        final size = 60.0 + (6.0 * animValue); // 60 -> 66 simple
-                        final iconSize = 28.0 + (3.0 * animValue); // 28 -> 31 plus modéré
-                        final yOffset = -4.0 * animValue; // Montée simple et fluide
-                        final colorAlpha = 0.3 + (0.7 * animValue); // 0.3 -> 1.0
-                        final titleHeight = 6.0 * animValue; // 0 -> 6 simple
-                        final shadowIntensity = 0.15 * animValue; // Ombre plus douce
-    
-    return Column(
-                          mainAxisSize: MainAxisSize.min,
-        children: [
-                            Transform.translate(
-                              offset: Offset(
-                                  0.0, yOffset * m.dp(1, tabletFactor: 1.0)),
-                              child: Container(
-                                width: m.dp(size, tabletFactor: 1.1),
-                                height: m.dp(size, tabletFactor: 1.1),
-      decoration: BoxDecoration(
-                                  color: (tab['color'] as Color)
-                                      .withValues(alpha: colorAlpha),
-                                  borderRadius: BorderRadius.circular(
-                                    m.dp(16, tabletFactor: 1.0),
-                                  ),
-                                  boxShadow: animValue > 0.5
-                                      ? [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.15 * shadowIntensity),
-                                            blurRadius: 4 + (2 * animValue), // Ombre plus douce
-                                            offset: Offset(0, 2 + (1 * animValue)), // Se déplace moins
-                                            spreadRadius: 0.5 * animValue, // S'étend moins
-                                          ),
-                                        ]
-                                      : null,
+              child: isSelected
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Transform.translate(
+                          offset: Offset(0.0, -4.0 * m.dp(1, tabletFactor: 1.0)),
+                          child: Container(
+                            width: m.dp(66, tabletFactor: 1.1),
+                            height: m.dp(66, tabletFactor: 1.1),
+                            decoration: BoxDecoration(
+                              color: (tab['color'] as Color).withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(m.dp(16, tabletFactor: 1.0)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 3),
                                 ),
-                                child: Icon(
-                                  tab['icon'],
-        color: Colors.white,
-                                  size:
-                                      m.dp(iconSize, tabletFactor: 1.1),
-                                ),
-                              ),
+                              ],
                             ),
-                            SizedBox(
-                              height: m.dp(titleHeight, tabletFactor: 1.0),
-                              child: animValue > 0.1
-                                  ? Padding(
-                                      padding: EdgeInsets.only(
-                                          top: m.dp(6, tabletFactor: 1.0)),
-                                      child: Opacity(
-                                        opacity: animValue,
-        child: Text(
-                                          tab['title'],
-            style: TextStyle(
-                                            color: const Color(0x7F606D7C),
-                                            fontSize: m.font(12,
-                                                tabletFactor: 1.0,
-                                                min: 10,
-                                                max: 16),
-              fontFamily: 'Quicksand',
-              fontWeight: FontWeight.w900,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  : const SizedBox.shrink(),
+                            child: Icon(
+                              tab['icon'],
+                              color: Colors.white,
+                              size: m.dp(31, tabletFactor: 1.1),
                             ),
-                          ],
-                        );
-                      },
-                    )
-                  :
-                  // Onglets non impliqués : état statique
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-            children: [
-          Container(
-                        width: m.dp(60, tabletFactor: 1.1),
-                        height: m.dp(60, tabletFactor: 1.1),
-            decoration: BoxDecoration(
-                          color:
-                              (tab['color'] as Color).withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(
-                            m.dp(16, tabletFactor: 1.0),
                           ),
                         ),
-                        child: Icon(
-                          tab['icon'],
-                          color: Colors.white,
-                          size: m.dp(28, tabletFactor: 1.1),
+                        const SizedBox.shrink(),
+                      ],
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: m.dp(60, tabletFactor: 1.1),
+                          height: m.dp(60, tabletFactor: 1.1),
+                          decoration: BoxDecoration(
+                            color: (tab['color'] as Color).withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(m.dp(16, tabletFactor: 1.0)),
+                          ),
+                          child: Icon(
+                            tab['icon'],
+                            color: Colors.white,
+                            size: m.dp(28, tabletFactor: 1.1),
+                          ),
                         ),
-                      ),
-                      const SizedBox.shrink(),
-                  ],
-                ),
+                        const SizedBox.shrink(),
+                      ],
+                    ),
               ),
           );
         },
@@ -1679,6 +1832,8 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       height: baseHeight,
       child: PageView.builder(
         controller: _contentController,
+        allowImplicitScrolling: true,
+        clipBehavior: Clip.none,
                  onPageChanged: (pageIndex) {
            if (_programmaticAnimating) return; // éviter ping-pong
 
@@ -1693,7 +1848,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
              // Synchronise l'onglet INSTANTANÉMENT
              if (_tabController.hasClients) {
                final t = _nearestPageForIndex(_tabController, actualIndex);
-               _tabController.jumpToPage(t);
+               if (t != null) _tabController.jumpToPage(t);
              }
            } else if (diff != 0) {
              // Mouvement non autorisé → SNAP vers l'adjacent
@@ -1705,11 +1860,11 @@ class _BirdDetailPageState extends State<BirdDetailPage>
 
              // SNAP instantané pour éviter le wiggle
              final t = _nearestPageForIndex(_contentController, targetIndex);
-             _contentController.jumpToPage(t);
+             if (t != null) _contentController.jumpToPage(t);
 
              if (_tabController.hasClients) {
                final tt = _nearestPageForIndex(_tabController, targetIndex);
-               _tabController.jumpToPage(tt);
+               if (tt != null) _tabController.jumpToPage(tt);
              }
            }
          },
@@ -2200,13 +2355,13 @@ class _BirdDetailPageState extends State<BirdDetailPage>
             duration: const Duration(milliseconds: 900),
             curve: Curves.easeInOutCubic);
       } else {
-        _panelController.animateTo(0.5, // Retour à la position 1/3 au lieu de 0.0
+        _panelController.animateTo(0.5, // Retour à la position 1/3 (bloqué)
             duration: const Duration(milliseconds: 700),
             curve: Curves.easeInOutCubic);
       }
     } else {
       if (_panelController.value < 0.75) {
-        _panelController.animateTo(0.5, // Retour à la position 1/3 au lieu de 0.0
+        _panelController.animateTo(0.5, // Retour à la position 1/3 (bloqué)
             duration: const Duration(milliseconds: 700),
             curve: Curves.easeInOutCubic);
       } else {
@@ -2218,4 +2373,96 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   }
 
   String get _familyName => '${widget.bird.genus}idés';
+
+  Widget _buildAudioButton(ResponsiveMetrics m) {
+    final bool hasAudio = widget.bird.urlMp3.isNotEmpty;
+    final Color iconColor = Colors.white;
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: EdgeInsets.only(
+            top: m.dp(34, tabletFactor: 1.1),
+            right: m.dp(36, tabletFactor: 1.1),
+          ),
+          child: SizedBox(
+            width: m.dp(74, tabletFactor: 1.1),
+            height: m.dp(74, tabletFactor: 1.1),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: hasAudio ? _toggleAudio : null,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Progression circulaire couvrant exactement la largeur du donut
+                    SizedBox(
+                      width: m.dp(74, tabletFactor: 1.1),
+                      height: m.dp(74, tabletFactor: 1.1),
+                      child: CircularProgressIndicator(
+                        value: (_audioTotal != null && _audioTotal!.inMilliseconds > 0) ? _audioProgress : 0.0,
+                        strokeWidth: m.dp(5, tabletFactor: 1.0),
+                        backgroundColor: Colors.white,
+                        color: const Color(0xFFABC270),
+                      ),
+                    ),
+                    // Assombrissement du trou (fond du donut)
+                    Container(
+                      width: m.dp(66, tabletFactor: 1.1),
+                      height: m.dp(66, tabletFactor: 1.1),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black.withValues(alpha: 0.10),
+                      ),
+                    ),
+                    // Icône micro
+                    SvgPicture.asset(
+                      'assets/PAGE/Detail especes/icon audio.svg',
+                      colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                      width: m.dp(40, tabletFactor: 1.0),
+                      height: m.dp(40, tabletFactor: 1.0),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleAudio() async {
+    final String url = widget.bird.urlMp3.trim();
+    if (url.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucun audio disponible pour cette espèce')),
+        );
+      }
+      return;
+    }
+    try {
+      if (_audioPlayer.playing) {
+        await _audioPlayer.stop();
+        setState(() {
+          _audioPosition = Duration.zero;
+          _audioProgress = 0.0;
+        });
+        return;
+      }
+      // Toujours repartir de 0: reset source et position
+      await _audioPlayer.setUrl(url);
+      await _audioPlayer.seek(Duration.zero);
+      await _audioPlayer.play();
+    } catch (_) {}
+  }
+
+  double _computeAudioProgress() {
+    final totalMs = _audioTotal?.inMilliseconds ?? 0;
+    if (totalMs <= 0) return 0.0;
+    final posMs = _audioPosition.inMilliseconds.clamp(0, totalMs);
+    return (posMs / totalMs).toDouble().clamp(0.0, 1.0);
+  }
 }

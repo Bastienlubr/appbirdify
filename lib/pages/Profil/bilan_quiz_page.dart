@@ -49,6 +49,7 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
 
   // Espèces piégeuses: nom -> erreurs cumulées
   List<MapEntry<String, int>> _topTrickySpecies = const [];
+  bool _showAllTrickySpecies = false; // Afficher 10 (true) ou 5 (false) espèces piégeuses
 
   // Badges filtrés par périmètre
   List<Map<String, dynamic>> _badges = const [];
@@ -56,6 +57,7 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
   // Suivi des préchargements pour éviction mémoire
   List<String> _preloadedImageUrls = const [];
   List<String> _preloadedBirdNames = const [];
+  List<String> _preloadedAudioBirdNames = const [];
 
   // Audio: un seul player partagé, état par oiseau
   late final AudioPlayer _audioPlayer;
@@ -197,25 +199,6 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
           .take(6)
           .toList();
       _preloadedBirdNames = top6Names;
-      // Déterminer rapidement la disponibilité audio (cache → CSV)
-      final Set<String> avail = <String>{};
-      for (final name in top6Names) {
-        final cached = MissionPreloader.findBirdByName(name);
-        if (cached != null && cached.urlMp3.isNotEmpty) {
-          avail.add(name);
-          continue;
-        }
-        final fromCsv = await _loadBirdFromCsvByName(name);
-        if (fromCsv != null && fromCsv.urlMp3.isNotEmpty) {
-          avail.add(name);
-        }
-      }
-      if (mounted) {
-        setState(() { _audioAvailableBirds
-          ..clear()
-          ..addAll(avail);
-        });
-      }
       // Précharge en fond images puis audio (top 10 pour meilleure réactivité)
       final List<String> top10Names = _topTrickySpecies
           .map((e) => e.key.split('||').first)
@@ -224,6 +207,28 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
           .toList();
       unawaited(_preloadTopSpeciesImagesInOrder(top10Names));
       unawaited(MissionPreloader.preloadAudioForBirds(top10Names));
+      _preloadedAudioBirdNames = top10Names;
+
+      // Déterminer rapidement la disponibilité audio (cache → CSV) sur les 10
+      final Set<String> avail10 = <String>{};
+      for (final name in top10Names) {
+        final cached = MissionPreloader.findBirdByName(name);
+        if (cached != null && cached.urlMp3.isNotEmpty) {
+          avail10.add(name);
+          continue;
+        }
+        final fromCsv = await _loadBirdFromCsvByName(name);
+        if (fromCsv != null && fromCsv.urlMp3.isNotEmpty) {
+          avail10.add(name);
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _audioAvailableBirds
+            ..clear()
+            ..addAll(avail10);
+        });
+      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ BilanQuizPage._loadData error: $e');
@@ -320,7 +325,7 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
                 _buildAvatarHeader(),
                 const SizedBox(height: 8),
                 _buildScopeTitle(),
-                const SizedBox(height: 8),
+                const SizedBox(height: 0),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 19),
                   child: _buildDashboardFigmaStyle(),
@@ -340,30 +345,37 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
             ),
           ),
           Positioned(
-            left: 16,
-            top: 12,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () {
-                Navigator.of(context).maybePop();
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: _thickCrossSvg != null
-                    ? SvgPicture.string(
-                        _thickCrossSvg!,
-                        width: 30,
-                        height: 30,
-                        fit: BoxFit.contain,
-                        semanticsLabel: 'Fermer',
-                      )
-                    : SvgPicture.asset(
-                        'assets/Images/Bouton/cross.svg',
-                        width: 30,
-                        height: 30,
-                        fit: BoxFit.contain,
-                        semanticsLabel: 'Fermer',
-                      ),
+            left: 6,
+            top: 6,
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => Navigator.of(context).maybePop(),
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: Center(
+                    child: _thickCrossSvg != null
+                        ? SvgPicture.string(
+                            _thickCrossSvg!,
+                            width: 30,
+                            height: 30,
+                            fit: BoxFit.contain,
+                            colorFilter: const ColorFilter.mode(Color(0xFF334355), BlendMode.srcIn),
+                            semanticsLabel: 'Fermer',
+                          )
+                        : SvgPicture.asset(
+                            'assets/Images/Bouton/cross.svg',
+                            width: 30,
+                            height: 30,
+                            fit: BoxFit.contain,
+                            colorFilter: const ColorFilter.mode(Color(0xFF334355), BlendMode.srcIn),
+                            semanticsLabel: 'Fermer',
+                          ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -654,25 +666,53 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(
-            width: 174,
-            height: 29,
-            child: Text(
-              'Tes espèces piégeuses',
-              style: TextStyle(
-                color: Color(0xFF334355),
-                fontSize: 15,
-                fontFamily: 'Quicksand',
-                fontWeight: FontWeight.w700,
-                height: 2.67,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Expanded(
+                child: Transform.translate(
+                  offset: const Offset(0, 10),
+                  child: const Text(
+                    'Tes espèces piégeuses',
+                    style: TextStyle(
+                      color: Color(0xFF334355),
+                      fontSize: 15,
+                      fontFamily: 'Quicksand',
+                      fontWeight: FontWeight.w700,
+                      height: 2.67,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              if (_topTrickySpecies.length > 5)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _showAllTrickySpecies = !_showAllTrickySpecies),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Transform.translate(
+                      offset: const Offset(0, 10),
+                      child: Text(
+                        _showAllTrickySpecies ? 'Moins' : 'Tout',
+                        style: const TextStyle(
+                          color: Color(0xFF334355),
+                          fontSize: 13,
+                          fontFamily: 'Quicksand',
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _topTrickySpecies.length.clamp(0, 10),
+            itemCount: math.min(_topTrickySpecies.length, _showAllTrickySpecies ? 10 : 5),
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final entry = _topTrickySpecies[index];
@@ -952,6 +992,12 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
     try {
       if (_preloadedBirdNames.isNotEmpty) {
         MissionPreloader.clearImagesForBirds(_preloadedBirdNames);
+      }
+    } catch (_) {}
+    // Libérer les players audio préchargés spécifiquement pour cette page
+    try {
+      if (_preloadedAudioBirdNames.isNotEmpty) {
+        MissionPreloader.releaseAudioForBirds(_preloadedAudioBirdNames);
       }
     } catch (_) {}
     super.dispose();
@@ -1550,5 +1596,7 @@ class _EqualizerBars extends StatelessWidget {
     );
   }
 }*/
+
+// (suppression de _TrickyToggleLabel; le libellé est calculé inline)
 
 

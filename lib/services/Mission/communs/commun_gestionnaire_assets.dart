@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:collection';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
@@ -11,6 +12,8 @@ import '../../../models/bird.dart';
 class MissionPreloader {
   static final Map<String, Bird> _birdCache = {};
   static final Map<String, AudioPlayer> _audioCache = {};
+  static final Queue<String> _audioLru = Queue<String>();
+  static const int _maxCachedAudioPlayers = 8; // limite pour éviter une pression mémoire excessive
   static final Map<String, bool> _loadingStatus = {};
   static final Map<String, bool> _imageCache = {};
   static bool _allBirdsLoaded = false; // indique si le chargement complet CSV a été effectué
@@ -220,7 +223,7 @@ class MissionPreloader {
                 const Duration(seconds: 3),
                 onTimeout: () => throw TimeoutException('Timeout audio'),
               );
-              _audioCache[birdName] = audioPlayer;
+              _putAudioInCache(birdName, audioPlayer);
               successfulAudios.add(birdName);
               if (kDebugMode) debugPrint('✅ Audio préchargé: $birdName');
             } catch (e) {
@@ -276,7 +279,9 @@ class MissionPreloader {
   
   /// Récupère un AudioPlayer préchargé pour un oiseau
   static AudioPlayer? getPreloadedAudio(String birdName) {
-    return _audioCache[birdName];
+    final p = _audioCache[birdName];
+    if (p != null) _touchAudioInCache(birdName);
+    return p;
   }
   
   /// Vérifie si une image est préchargée pour un oiseau
@@ -296,14 +301,14 @@ class MissionPreloader {
           final bird = _birdCache[birdName];
           if (bird == null) continue;
           if (bird.urlMp3.isEmpty) continue;
-          if (_audioCache.containsKey(birdName)) continue;
+          if (_audioCache.containsKey(birdName)) { _touchAudioInCache(birdName); continue; }
 
           final audioPlayer = AudioPlayer();
           await audioPlayer.setUrl(bird.urlMp3).timeout(
             const Duration(seconds: 3),
             onTimeout: () => throw TimeoutException('Timeout audio'),
           );
-          _audioCache[birdName] = audioPlayer;
+          _putAudioInCache(birdName, audioPlayer);
           if (kDebugMode) debugPrint('✅ Audio préchargé (liste ciblée): $birdName');
         } catch (e) {
           if (kDebugMode) debugPrint('❌ Erreur préchargement audio (liste ciblée) pour $birdName: $e');
@@ -391,6 +396,7 @@ class MissionPreloader {
       player.dispose();
     }
     _audioCache.clear();
+    _audioLru.clear();
     if (kDebugMode) debugPrint('🗑️ Cache audio nettoyé');
   }
   
@@ -402,6 +408,48 @@ class MissionPreloader {
     _loadingStatus.clear();
     _allBirdsLoaded = false;
     if (kDebugMode) debugPrint('🗑️ Tout le cache nettoyé');
+  }
+
+  /// Libère les players audio pour une liste d'oiseaux spécifique
+  static void releaseAudioForBirds(List<String> birdNames) {
+    for (final name in birdNames) {
+      final p = _audioCache.remove(name);
+      if (p != null) {
+        try { p.dispose(); } catch (_) {}
+        _audioLru.remove(name);
+        if (kDebugMode) debugPrint('🗑️ Audio libéré pour: $name');
+      }
+    }
+  }
+
+  // --------------------- LRU helpers ---------------------
+  static void _putAudioInCache(String birdName, AudioPlayer player) {
+    final existing = _audioCache.remove(birdName);
+    if (existing != null) {
+      try { existing.dispose(); } catch (_) {}
+      _audioLru.remove(birdName);
+    }
+    _audioCache[birdName] = player;
+    _audioLru.addLast(birdName);
+    _enforceAudioCap();
+  }
+
+  static void _touchAudioInCache(String birdName) {
+    if (_audioCache.containsKey(birdName)) {
+      _audioLru.remove(birdName);
+      _audioLru.addLast(birdName);
+    }
+  }
+
+  static void _enforceAudioCap() {
+    while (_audioLru.length > _maxCachedAudioPlayers) {
+      final oldest = _audioLru.removeFirst();
+      final removed = _audioCache.remove(oldest);
+      if (removed != null) {
+        try { removed.dispose(); } catch (_) {}
+        if (kDebugMode) debugPrint('♻️ LRU: audio évincé: $oldest');
+      }
+    }
   }
   
   /// Parse une ligne CSV en tenant compte des guillemets

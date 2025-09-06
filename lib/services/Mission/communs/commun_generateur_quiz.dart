@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:csv/csv.dart';
+import './commun_gestionnaire_assets.dart';
+import '../../../models/bird.dart';
 
 class QuizQuestion {
   final String correctAnswer;
@@ -521,6 +523,106 @@ class QuizGenerator {
     return questions;
   }
 
+  /// Génère un quiz depuis une liste d'oiseaux sélectionnés par l'utilisateur.
+  /// - Une question par oiseau (max 20, paramétrable)
+  /// - Distracteurs priorisés: autres sélectionnés, puis même genre, puis mêmes milieux, puis global.
+  static Future<List<QuizQuestion>> generateQuizFromBirds(List<Bird> selected, {int maxQuestions = 20}) async {
+    try {
+      await MissionPreloader.loadBirdifyData();
+
+      final List<Bird> birdsWithAudio = selected
+          .where((b) => b.urlMp3.trim().isNotEmpty && b.nomFr.trim().isNotEmpty)
+          .toList();
+      if (birdsWithAudio.isEmpty) return <QuizQuestion>[];
+
+      final Random rng = Random();
+      final List<Bird> pool = List<Bird>.from(birdsWithAudio)..shuffle(rng);
+      final List<Bird> questionsBirds = pool.take(maxQuestions).toList();
+
+      // Index global
+      final List<String> allNames = MissionPreloader.getAllBirdNames();
+      final Map<String, Bird> allBirds = {};
+      for (final n in allNames) {
+        final b = MissionPreloader.getBirdData(n) ?? MissionPreloader.findBirdByName(n);
+        if (b != null) allBirds[n] = b;
+      }
+
+      final Set<String> selectedNames = pool.map((b) => b.nomFr).toSet();
+      final List<QuizQuestion> questions = [];
+
+      for (final bird in questionsBirds) {
+        final String correct = bird.nomFr;
+        final String audioUrl = bird.urlMp3;
+
+        final List<String> options = [correct];
+        final List<String> picked = <String>[];
+
+        // 1) Autres de la sélection
+        final List<String> localPool = pool
+            .where((b) => b.nomFr != correct)
+            .map((b) => b.nomFr)
+            .toList()
+          ..shuffle(rng);
+        picked.addAll(localPool.take(3));
+
+        // 2) Même genre
+        if (picked.length < 3) {
+          final String genus = bird.genus.toLowerCase().trim();
+          final List<String> sameGenus = allBirds.values
+              .where((b) => b.genus.toLowerCase().trim() == genus && b.nomFr != correct && !selectedNames.contains(b.nomFr))
+              .map((b) => b.nomFr)
+              .toList()
+            ..shuffle(rng);
+          for (final n in sameGenus) {
+            if (picked.length >= 3) break;
+            if (!picked.contains(n)) picked.add(n);
+          }
+        }
+
+        // 3) Mêmes milieux
+        if (picked.length < 3) {
+          final Set<String> milieux = bird.milieux.map((m) => m.toLowerCase().trim()).toSet();
+          final List<String> sameBiomes = allBirds.values
+              .where((b) => b.nomFr != correct && !selectedNames.contains(b.nomFr) && b.milieux.any((m) => milieux.contains(m.toLowerCase().trim())))
+              .map((b) => b.nomFr)
+              .toList()
+            ..shuffle(rng);
+          for (final n in sameBiomes) {
+            if (picked.length >= 3) break;
+            if (!picked.contains(n)) picked.add(n);
+          }
+        }
+
+        // 4) Fallback global
+        if (picked.length < 3) {
+          final List<String> globals = allBirds.keys
+              .where((n) => n != correct && !selectedNames.contains(n))
+              .toList()
+            ..shuffle(rng);
+          for (final n in globals) {
+            if (picked.length >= 3) break;
+            if (!picked.contains(n)) picked.add(n);
+          }
+        }
+
+        options.addAll(picked.take(3));
+        options.shuffle(rng);
+        final int correctIndex = options.indexOf(correct);
+
+        questions.add(QuizQuestion(
+          correctAnswer: correct,
+          audioUrl: audioUrl,
+          options: options,
+          correctIndex: correctIndex,
+        ));
+      }
+
+      return questions;
+    } catch (e) {
+      if (kDebugMode) debugPrint('Erreur generateQuizFromBirds: $e');
+      return <QuizQuestion>[];
+    }
+  }
 
 
   static String generateMissionId(String milieuType, int missionNumber) {

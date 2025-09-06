@@ -4,22 +4,26 @@ import '../ui/responsive/responsive.dart';
 
 class BiomeCarouselEnhanced extends StatefulWidget {
   final Function(Biome)? onBiomeSelected;
+  final Function(Biome)? onBiomeTapped; // callback distinct pour le tap
   final Function(String)? isBiomeUnlocked; // Fonction pour vérifier si un biome est déverrouillé
   final bool loopInfinite;
   final bool showDots;
   final double viewportFraction;
   final bool compactStyle; // style compact (Profil) vs style par défaut (Home)
   final bool selectOnPageChange; // sélection auto lors du slide
+  final bool disableTapCenterAnimation; // désactiver l'animation de recentrage au tap
 
   const BiomeCarouselEnhanced({
     super.key,
     this.onBiomeSelected,
+    this.onBiomeTapped,
     this.isBiomeUnlocked,
     this.loopInfinite = false,
     this.showDots = true,
     this.viewportFraction = 0.55,
     this.compactStyle = false,
     this.selectOnPageChange = false,
+    this.disableTapCenterAnimation = false,
   });
 
   @override
@@ -230,13 +234,18 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced>
                             onTap: () {
                               final isCentered = mapped == _currentPage;
                               if (isCentered) {
-                                widget.onBiomeSelected?.call(biomes[mapped]);
+                                // Tap sur l'élément centré: notifier explicitement via onBiomeTapped
+                                widget.onBiomeTapped?.call(biomes[mapped]);
                               } else {
-                                _pageController.animateToPage(
-                                  index,
-                                  duration: const Duration(milliseconds: 200),
-                                  curve: Curves.easeOutCubic,
-                                );
+                                if (widget.disableTapCenterAnimation) {
+                                  _pageController.jumpToPage(index);
+                                } else {
+                                  _pageController.animateToPage(
+                                    index,
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeOutCubic,
+                                  );
+                                }
                               }
                             },
                             child: Column(

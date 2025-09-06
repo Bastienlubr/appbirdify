@@ -16,7 +16,7 @@ class StreakService {
       final userRef = _firestore.collection('utilisateurs').doc(uid);
       await _firestore.runTransaction((txn) async {
         final snap = await txn.get(userRef);
-        final data = snap.data() as Map<String, dynamic>? ?? {};
+        final data = snap.data() ?? <String, dynamic>{};
         final Map<String, dynamic> serie = (data['serie'] as Map<String, dynamic>?) ?? <String, dynamic>{};
         final List<String> jours = ((serie['derniersJoursActifs'] as List<dynamic>?)?.map((e) => e.toString()).toList()) ?? <String>[];
         final int currentStreak = (serie['serieEnCours'] as int?) ?? 0;

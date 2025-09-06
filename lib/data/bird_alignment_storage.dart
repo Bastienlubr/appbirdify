@@ -97,7 +97,7 @@ class BirdAlignmentStorage {
     
     try {
       final prefs = await SharedPreferences.getInstance();
-      final mode = prefs.getString(_modeKey) ?? modeDev; // Par défaut en dev
+      final mode = prefs.getString(_modeKey) ?? modeProduction; // Par défaut en production (UI recadrage masquée)
       _isDevMode = (mode == modeDev);
       return mode;
     } catch (e) {

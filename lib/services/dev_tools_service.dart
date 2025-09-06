@@ -476,3 +476,20 @@ class DevToolsService {
     }
   }
 }
+
+/// Contrôle global d'affichage des outils de développement (overlays, boutons de test, etc.).
+/// Ne masque PAS le bouton DevToolsMenu lui-même.
+class DevVisibilityService {
+  // Par défaut: visible en debug, masqué en release
+  static final ValueNotifier<bool> overlaysEnabled = ValueNotifier<bool>(kDebugMode);
+
+  static bool get isOverlaysEnabled => overlaysEnabled.value;
+
+  static void setOverlaysEnabled(bool enabled) {
+    if (overlaysEnabled.value != enabled) {
+      overlaysEnabled.value = enabled;
+    }
+  }
+
+  static void toggle() => setOverlaysEnabled(!isOverlaysEnabled);
+}

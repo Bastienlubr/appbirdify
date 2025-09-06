@@ -7,12 +7,25 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:788742862967:android:e696a8bdc40772aceb2e72",
+        "mobilesdk_app_id": "1:788742862967:android:915e1dd8b96d7c81eb2e72",
         "android_client_info": {
-          "package_name": "com.example.appbirdify"
+          "package_name": "com.mindbird.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "788742862967-n1obpih2r6jjc571k3rpg2o96gqdt9b6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mindbird.app",
+            "certificate_hash": "6e5cbeeb484fad9048b53831196b9f447100f5ba"
+          }
+        },
+        {
+          "client_id": "788742862967-fmh0qf2rs923n0oceg0tiqnkc14lj5sq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBlbc3Ij3snenH34bDs12_Lfb_FFmkLvAA"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "788742862967-fmh0qf2rs923n0oceg0tiqnkc14lj5sq.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "788742862967-0rt4n65qqgrid51t7kemsbnlnkui5k6a.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.appbirdify"
+              }
+            }
+          ]
         }
       }
     }

@@ -16,6 +16,8 @@ import 'dart:async';
 import '../../ui/responsive/responsive.dart';
 import '../../widgets/biome_carousel_enhanced.dart';
 import 'bilan_quiz_page.dart';
+import '../Parametres/parametres_page.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 /// Page Profil (squelette UI basé sur Figma) — fonctionnalités à brancher ensuite.
 class ProfilPage extends StatefulWidget {
@@ -105,21 +107,26 @@ class _ProfilPageState extends State<ProfilPage> {
         return Scaffold(
           backgroundColor: const Color(0xFFF2F5F8),
           body: SafeArea(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(m.spacing, m.gapLarge(), m.spacing, m.dp(48)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(nameSize, m),
-                  SizedBox(height: sectionGap * 0.6),
-                  // Nouveau tableau de bord conforme à la maquette fournie
-                  TableauDeBord(totalEpreuves: _totalSessions, habitatFavori: _favoriteHabitat, currentStreak: _currentStreak),
-                  SizedBox(height: sectionGap * 0.8),
-                  _buildBilanOrnithologique(titleSize, m),
-                  const SizedBox(height: 0),
-                  _buildBadges(titleSize, m),
-                ],
-              ),
+            child: Stack(
+              children: [
+                // Contenu scrollable
+                SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(m.spacing, m.gapLarge() + m.dp(8), m.spacing, m.dp(48)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(nameSize, m),
+                      SizedBox(height: sectionGap * 0.6),
+                      // Nouveau tableau de bord conforme à la maquette fournie
+                      TableauDeBord(totalEpreuves: _totalSessions, habitatFavori: _favoriteHabitat, currentStreak: _currentStreak),
+                      SizedBox(height: sectionGap * 0.8),
+                      _buildBilanOrnithologique(titleSize, m),
+                      const SizedBox(height: 0),
+                      _buildBadges(titleSize, m),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -130,7 +137,39 @@ class _ProfilPageState extends State<ProfilPage> {
   Widget _buildHeader(double nameSize, ResponsiveMetrics m) {
     final double avatarOuter = m.isTablet ? m.dp(183, tabletFactor: 1.1, min: 160, max: 240) : 183;
     final double avatarInner = m.isTablet ? m.dp(158, tabletFactor: 1.1, min: 140, max: 210) : 158;
-    return Center(
+    return Stack(
+      children: [
+        Positioned(
+          right: m.spacing,
+          top: 0,
+          child: SizedBox(
+            width: m.dp(44),
+            height: m.dp(44),
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => const ParametresPage()),
+                  );
+                },
+                child: Padding(
+                  padding: EdgeInsets.all(m.dp(8)),
+                  child: SvgPicture.asset(
+                    'assets/PAGE/Paramètre/parametre.svg',
+                    width: m.dp(24),
+                    height: m.dp(24),
+                    fit: BoxFit.contain,
+                    colorFilter: const ColorFilter.mode(Color(0xFF334355), BlendMode.srcIn),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Center(
       child: Column(
         children: [
           Stack(
@@ -220,6 +259,8 @@ class _ProfilPageState extends State<ProfilPage> {
           ),
         ],
       ),
+    ),
+      ],
     );
   }
 
@@ -512,7 +553,7 @@ class _ProfilPageState extends State<ProfilPage> {
                 showDots: false,
                 viewportFraction: 0.5,
                 compactStyle: true,
-                onBiomeSelected: (biome) {
+                onBiomeTapped: (biome) {
                   final String name = biome.name;
                   final String code = name.isNotEmpty ? name[0].toUpperCase() : '';
                   Navigator.of(context).push(
@@ -524,6 +565,9 @@ class _ProfilPageState extends State<ProfilPage> {
                     ),
                   );
                 },
+                // Pas de sélection au slide dans le Profil: action au tap uniquement
+                selectOnPageChange: false,
+                disableTapCenterAnimation: false,
               ),
               // Fade gauche
               Positioned(

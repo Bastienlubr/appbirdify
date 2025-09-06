@@ -33,6 +33,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- QUIZ VARIÉ (lecture publique) ----
+    // Règle générique pour la collection dont le nom contient un espace/accents
+    match /{colName}/{quizId} {
+      allow read: if colName == "Quiz varié";
+      allow write: if false;
+    }
+
     // Banque de sons : lecture réservée aux utilisateurs connectés (comme la version Cursor)
     match /sons_oiseaux/{id} {
       allow read: if isSignedIn();
@@ -51,6 +58,22 @@ service cloud.firestore {
       allow read, write: if isOwner(uid);
 
       // ...et tout sous-document / sous-collection
+      match /{subpath=**} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ---- QUIZ PERSONNALISÉS ----
+    match /users/{uid} {
+      // Le propriétaire peut lire/écrire son doc racine...
+      allow read, write: if isOwner(uid);
+
+      // Collection des quiz personnalisés de l'utilisateur
+      match /custom_quiz/{quizId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // ...et tout autre sous-document / sous-collection
       match /{subpath=**} {
         allow read, write: if isOwner(uid);
       }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
+import '../../services/dev_tools_service.dart';
 // import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -910,54 +911,62 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
          ),
          ],
       ),
-      floatingActionButton: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Bouton pour afficher/masquer les bordures
-          Container(
-            width: 56,
-            height: 56,
-      decoration: BoxDecoration(
-              color: _showBlockBorders ? Colors.red : Colors.grey,
-              shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-                  color: Colors.black.withAlpha(25),
-                  blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-                onTap: () {
-                  setState(() {
-                    _showBlockBorders = !_showBlockBorders;
-                  });
-                },
-                borderRadius: BorderRadius.circular(28),
-                child: Icon(
-                  _showBlockBorders ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Bouton de rafraîchissement existant
-          FloatingActionButton(
-            onPressed: _resetView,
-            backgroundColor: const Color(0xFF6A994E),
-            tooltip: 'Tester différents scores (0-10)',
-            child: const Icon(
-              Icons.refresh,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
+      floatingActionButton: kDebugMode
+          ? ValueListenableBuilder<bool>(
+              valueListenable: DevVisibilityService.overlaysEnabled,
+              builder: (context, visible, _) {
+                if (!visible) return const SizedBox.shrink();
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Bouton pour afficher/masquer les bordures
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: _showBlockBorders ? Colors.red : Colors.grey,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              _showBlockBorders = !_showBlockBorders;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(28),
+                          child: Icon(
+                            _showBlockBorders ? Icons.visibility_off : Icons.visibility,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Bouton de rafraîchissement existant
+                    FloatingActionButton(
+                      onPressed: _resetView,
+                      backgroundColor: const Color(0xFF6A994E),
+                      tooltip: 'Tester différents scores (0-10)',
+                      child: const Icon(
+                        Icons.refresh,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            )
+          : null,
     );
   }
 

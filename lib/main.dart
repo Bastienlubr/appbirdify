@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'pages/home_screen.dart';
+import 'pages/auth/login_screen.dart';
+import 'pages/auth/register_screen.dart';
+// import 'pages/auth/questionnaire_screen.dart'; // Unused
 import 'services/Users/auth_service.dart';
 
 void main() async {
@@ -52,7 +57,49 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF386641)),
         fontFamily: 'Quicksand',
       ),
-      home: const HomeScreen(),
+      home: const RootDecider(),
+    );
+  }
+}
+
+class RootDecider extends StatelessWidget {
+  const RootDecider({super.key});
+
+  Future<bool> _isFirstLaunch() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasLaunched = prefs.getBool('firstLaunchDone') ?? false;
+    if (!hasLaunched) {
+      await prefs.setBool('firstLaunchDone', true);
+      return true; // C'est le premier lancement
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _isFirstLaunch(),
+      builder: (context, snapshot) {
+        // Si un utilisateur est déjà connecté → Home directement
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          return const HomeScreen();
+        }
+
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // Premier lancement : aller à l'inscription directement
+        if (snapshot.data == true) {
+          return const RegisterScreen();
+        }
+
+        // Sinon, écran de connexion
+        return const LoginScreen();
+      },
     );
   }
 }

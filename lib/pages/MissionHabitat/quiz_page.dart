@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:animations/animations.dart';
 import 'package:rive/rive.dart' as rive;
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../services/dev_tools_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/Mission/communs/commun_generateur_quiz.dart';
 import '../../services/Users/user_orchestra_service.dart';
@@ -56,12 +58,14 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   bool _isLivesSyncing = false;
   
   late AudioPlayer _audioPlayer;
+  StreamSubscription<PlayerState>? _playerStateSub;
   String _currentAudioUrl = '';
   bool _isAudioLooping = false;
   bool _audioAnimationOn = true;
   
   bool _showCorrectAnswerImage = false;
   String _correctAnswerImageUrl = '';
+  bool _answerImageReady = false;
   
   // Système de préchargement de la prochaine question
   String _nextAudioUrl = '';
@@ -115,6 +119,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_questions.isNotEmpty) {
           _loadAndPlayAudio(_questions[0].audioUrl);
+          // Précharger l'image de la bonne réponse de la question courante
+          _precacheCurrentQuestionImage();
         }
       });
     } else {
@@ -123,7 +129,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   }
 
   void _setupAudioLooping() {
-    _audioPlayer.playerStateStream.listen((state) {
+    _playerStateSub = _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed && _isAudioLooping && mounted) {
         Future.microtask(() => _restartAudioAtRandomPosition());
       }
@@ -147,6 +153,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
         _loadAndPlayAudio(_questions[0].audioUrl);
         // Précharger la question suivante dès le début
         Future.microtask(() => _preloadNextQuestion());
+        // Précharger l'image de la bonne réponse de la question courante
+        Future.microtask(() => _precacheCurrentQuestionImage());
       }
       return;
     }
@@ -213,6 +221,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    try { _playerStateSub?.cancel(); } catch (_) {}
     _audioPlayer.dispose();
     _progressBurstController?.dispose();
     _glowController?.dispose();
@@ -332,7 +341,10 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                   ],
                 ),
               ),
-            ],
+            ].map((w) => ValueListenableBuilder<bool>(
+                  valueListenable: DevVisibilityService.overlaysEnabled,
+                  builder: (context, visible, child) => visible ? w : const SizedBox.shrink(),
+                )).toList(),
             // Effet d'auréole animé: se révèle du bas vers le haut
             if (_showFeedback)
               Positioned.fill(
@@ -411,30 +423,36 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                   
                   SizedBox(width: 20 * ui),
                   
-                  // Bouton de test caché (pour simuler une réussite)
-                  GestureDetector(
-                    onTap: _simulateQuizSuccess,
-                    child: Container(
-                      width: 100 * ui,
-                      height: 32 * ui,
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.orange, width: 1.5 * ui),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          '🎯 Test',
-                          style: TextStyle(
-                            fontFamily: 'Quicksand',
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
+                  // Bouton de test (simuler 10/10) — outil de développement
+                  if (kDebugMode)
+                    ValueListenableBuilder<bool>(
+                      valueListenable: DevVisibilityService.overlaysEnabled,
+                      builder: (context, visible, _) => visible
+                          ? GestureDetector(
+                              onTap: _simulateQuizSuccess,
+                              child: Container(
+                                width: 100 * ui,
+                                height: 32 * ui,
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.8),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.orange, width: 1.5 * ui),
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    '🎯 Test',
+                                    style: TextStyle(
+                                      fontFamily: 'Quicksand',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -615,6 +633,22 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                                   child: Stack(
                                     clipBehavior: Clip.none,
                                     children: [
+                                      if (!_answerImageReady)
+                                        Positioned.fill(
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(imageRadius),
+                                            ),
+                                            child: const Center(
+                                              child: SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child: CircularProgressIndicator(strokeWidth: 2.2),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       // Contour en arrière-plan - positionné précisément
                                       Positioned.fill(
                                         child: Container(
@@ -1012,6 +1046,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       // Charger et lancer l'audio de la première question
       if (questions.isNotEmpty) {
         _loadAndPlayAudio(questions[0].audioUrl);
+        Future.microtask(() => _precacheCurrentQuestionImage());
       }
     } catch (e) {
       setState(() {
@@ -1105,6 +1140,39 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     } catch (_) {}
   }
 
+  Future<void> _precacheCurrentQuestionImage() async {
+    try {
+      _answerImageReady = false;
+      _showCorrectAnswerImage = false;
+      _correctAnswerImageUrl = '';
+      if (_questions.isEmpty || _currentQuestionIndex >= _questions.length) return;
+      // Trouver l'image de la bonne réponse
+      String img = '';
+      try {
+        final birdData = MissionPreloader.getBirdData(_questions[_currentQuestionIndex].correctAnswer)
+            ?? MissionPreloader.findBirdByName(_questions[_currentQuestionIndex].correctAnswer);
+        if (birdData != null && birdData.urlImage.isNotEmpty) {
+          img = birdData.urlImage;
+        }
+      } catch (_) {}
+      if (img.isEmpty) return;
+      final normalized = _normalizeImageUrl(img);
+      // Précharger avec timeout pour éviter blocage
+      bool done = false;
+      Future.wait([
+        _precacheAnswerImage(normalized).whenComplete(() => done = true),
+        Future.delayed(const Duration(milliseconds: 450)),
+      ]);
+      // Attendre brièvement sans bloquer UI
+      await Future.delayed(const Duration(milliseconds: 10));
+      if (!mounted) return;
+      setState(() {
+        _correctAnswerImageUrl = normalized;
+        _answerImageReady = done; // si pas prêt, on affichera quand prêt
+      });
+    } catch (_) {}
+  }
+
   // Préchargement de la prochaine question
   Future<void> _preloadNextQuestion() async {
     if (_isPreloadingNext || _questions.isEmpty) return;
@@ -1162,6 +1230,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       setState(() {
         _correctAnswerImageUrl = normalizedUrl;
         _showCorrectAnswerImage = true;
+        _answerImageReady = true;
       });
       // Reset l'image préchargée après utilisation
       _nextImageUrl = '';
@@ -1171,6 +1240,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
         _correctAnswerImageUrl = normalizedUrl;
         // Toujours afficher le conteneur image; _buildCachedImage gère les cas vides/erreurs
         _showCorrectAnswerImage = true;
+        _answerImageReady = true;
       });
       // Lancer le précache sans bloquer ni re-set l'état ensuite
       _precacheAnswerImage(_correctAnswerImageUrl);
@@ -1515,6 +1585,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       _showFeedback = false;
       _showCorrectAnswerImage = false;
       _correctAnswerImageUrl = '';
+      _answerImageReady = false;
       
       _audioAnimationOn = true;
       // Mettre à jour la progression: aller de la valeur atteinte vers la suivante
@@ -1529,6 +1600,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     
     // Déclencher le préchargement de la prochaine question
     Future.microtask(() => _preloadNextQuestion());
+    // Précharger l'image de la nouvelle question courante
+    Future.microtask(() => _precacheCurrentQuestionImage());
   }
 
   void _exitQuiz() async {

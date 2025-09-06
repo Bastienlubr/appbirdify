@@ -15,10 +15,10 @@ class FavoritesService {
       await _firestore
           .collection('utilisateurs')
           .doc(user.uid)
-          .collection('favoris_oiseaux')
+          .collection('favoris')
           .doc(birdId)
           .set({
-        'birdId': birdId,
+        'oiseauId': birdId,
         'ajouteLe': FieldValue.serverTimestamp(),
       });
 
@@ -39,12 +39,22 @@ class FavoritesService {
       final user = _auth.currentUser;
       if (user == null) return;
 
+      // Supprimer dans la collection finale
+      await _firestore
+          .collection('utilisateurs')
+          .doc(user.uid)
+          .collection('favoris')
+          .doc(birdId)
+          .delete();
+
+      // Compat desc.: tenter aussi dans l'ancienne collection s'il existe
       await _firestore
           .collection('utilisateurs')
           .doc(user.uid)
           .collection('favoris_oiseaux')
           .doc(birdId)
-          .delete();
+          .delete()
+          .catchError((_) {});
 
       if (kDebugMode) {
         debugPrint('💔 Oiseau $birdId retiré des favoris');
@@ -63,14 +73,25 @@ class FavoritesService {
       final user = _auth.currentUser;
       if (user == null) return false;
 
+      // Vérifie d'abord dans la collection finale
       final doc = await _firestore
+          .collection('utilisateurs')
+          .doc(user.uid)
+          .collection('favoris')
+          .doc(birdId)
+          .get();
+
+      if (doc.exists) return true;
+
+      // Sinon, compat desc.: regarder l'ancienne collection
+      final legacy = await _firestore
           .collection('utilisateurs')
           .doc(user.uid)
           .collection('favoris_oiseaux')
           .doc(birdId)
           .get();
 
-      return doc.exists;
+      return legacy.exists;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Erreur lors de la vérification des favoris: $e');
@@ -85,13 +106,26 @@ class FavoritesService {
       final user = _auth.currentUser;
       if (user == null) return {};
 
+      // Récupère les favoris actuels
       final snapshot = await _firestore
           .collection('utilisateurs')
           .doc(user.uid)
-          .collection('favoris_oiseaux')
+          .collection('favoris')
           .get();
 
-      return snapshot.docs.map((doc) => doc.id).toSet();
+      final current = snapshot.docs.map((doc) => doc.id).toSet();
+
+      // Compat desc.: inclure aussi l'ancienne collection s'il reste des entrées
+      try {
+        final legacySnap = await _firestore
+            .collection('utilisateurs')
+            .doc(user.uid)
+            .collection('favoris_oiseaux')
+            .get();
+        current.addAll(legacySnap.docs.map((d) => d.id));
+      } catch (_) {}
+
+      return current;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Erreur lors de la récupération des favoris: $e');
