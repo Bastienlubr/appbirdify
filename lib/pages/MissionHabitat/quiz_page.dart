@@ -970,15 +970,18 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                               ],
                             ),
                             child: Center(
-                              child: Text(
-                                option,
-                                style: TextStyle(
+                              child: _AutoShrinkTwoLineText(
+                                text: option,
+                                baseStyle: TextStyle(
                                   fontFamily: 'Quicksand',
                                   fontSize: answerFont,
                                   fontWeight: FontWeight.w600,
                                   color: textColor,
                                 ),
+                                minFontSize: 11.0,
+                                maxLines: 2,
                                 textAlign: TextAlign.center,
+                                lineHeight: 0.98,
                               ),
                             ),
                           ),
@@ -1830,6 +1833,66 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                     ),
                   ),
       ),
+    );
+  }
+}
+
+class _AutoShrinkTwoLineText extends StatelessWidget {
+  final String text;
+  final TextStyle baseStyle;
+  final double minFontSize;
+  final int maxLines;
+  final TextAlign textAlign;
+  final double lineHeight;
+
+  const _AutoShrinkTwoLineText({
+    required this.text,
+    required this.baseStyle,
+    this.minFontSize = 12.0,
+    this.maxLines = 2,
+    this.textAlign = TextAlign.center,
+    this.lineHeight = 1.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double availableWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : double.infinity;
+        final double availableHeight = constraints.maxHeight.isFinite ? constraints.maxHeight : double.infinity;
+
+        double lo = minFontSize;
+        double hi = baseStyle.fontSize ?? 16.0;
+        double best = hi;
+
+        // Essai binaire de taille de police pour tenir en maxLines et largeur
+        for (int i = 0; i < 10; i++) {
+          final mid = (lo + hi) / 2.0;
+          final tp = TextPainter(
+            text: TextSpan(text: text, style: baseStyle.copyWith(fontSize: mid, height: lineHeight)),
+            textDirection: TextDirection.ltr,
+            maxLines: maxLines,
+          )..layout(maxWidth: availableWidth);
+          final fitsWidth = tp.size.width <= availableWidth + 0.5;
+          final fitsLines = !tp.didExceedMaxLines;
+          final fitsHeight = tp.size.height <= availableHeight + 0.5;
+          final fits = fitsWidth && fitsLines && fitsHeight;
+          if (fits) {
+            best = mid;
+            lo = mid; // on peut tenter plus grand
+          } else {
+            hi = mid;
+          }
+        }
+
+        return Text(
+          text,
+          textAlign: textAlign,
+          maxLines: maxLines,
+          softWrap: true,
+          style: baseStyle.copyWith(fontSize: best, height: lineHeight),
+        );
+      },
     );
   }
 }

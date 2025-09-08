@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/Users/life_service.dart';
-import '../../../widgets/recap_button.dart';
+import '../../../widgets/boutons/bouton_universel.dart';
 
 class LivesPopover extends StatefulWidget {
   final int currentLives;
@@ -163,43 +163,166 @@ class _PopoverCard extends StatelessWidget {
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: RecapButton(
-                text: 'Regarder une pub\npour +1 vie',
+              child: BoutonUniversel(
                 onPressed: onClose,
-                size: RecapButtonSize.small,
-                fontSize: 16,
-                visualScale: 1.5,
-                lineHeight: 0.95,
+                size: BoutonUniverselTaille.small,
+                decorClipToOuter: true,
+                decorPadding: EdgeInsets.zero,
+                decorElements: [
+                  // Sablier en bas-gauche (légèrement surdimensionné, rogné par le clip)
+                  DecorElement(
+                    assetPath: 'assets/PAGE/Homescreen/sablier.svg',
+                    position: Offset(0.01, 0.35),
+                    scale: 1.05,
+                    zIndex: -6,
+                    rotationDeg: 20,
+                  ),
+                  // Coeur
+                  DecorElement(
+                    assetPath: 'assets/PAGE/Homescreen/coeur.svg',
+                    position: Offset(-0.05, 0.47),
+                    scale: 0.75,
+                    rotationDeg: -16,
+                  ),
+                ],
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 borderRadius: 10,
-                fontFamily: 'Fredoka',
                 backgroundColor: const Color(0xFFABC270),
                 hoverBackgroundColor: const Color(0xFFABC270),
-                textColor: Colors.white,
+                backgroundGradient: const LinearGradient(
+                  begin: Alignment(0.04, 1.30),
+                  end: Alignment(1.00, 0.50),
+                  colors: [Color(0xFFABC270), Color(0xFFC2D397)],
+                ),
+                hoverBackgroundGradient: const LinearGradient(
+                  begin: Alignment(0.04, 1.30),
+                  end: Alignment(1.00, 0.50),
+                  colors: [Color(0xFFABC270), Color(0xFFC2D397)],
+                ),
                 borderColor: const Color(0xFF6A994E),
                 hoverBorderColor: const Color(0xFF6A994E),
                 shadowColor: const Color(0xFF6A994E),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Outline (stroke) layer
+                    Text(
+                      'Regarder une pub\npour +1 vie',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w700,
+                        height: 0.95,
+                        letterSpacing: 0.5,
+                        foreground: Paint()
+                          ..style = PaintingStyle.stroke
+                          ..strokeWidth = 0.8
+                          ..color = const Color(0x22000000),
+                      ),
+                    ),
+                    // Fill layer with strong shadows
+                    const Text(
+                      'Regarder une pub\npour +1 vie',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w700,
+                        height: 0.95,
+                        letterSpacing: 0.5,
+                        shadows: [
+                          Shadow(color: Color(0x4D000000), blurRadius: 8, offset: Offset(0, 2)),
+                          Shadow(color: Color(0x26000000), blurRadius: 16, offset: Offset(0, 4)),
+                          Shadow(color: Color(0x14000000), blurRadius: 28, offset: Offset(0, 6)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
-              child: RecapButton(
-                text: 'Avec Premium \nPasse en mode illimité',
+              child: BoutonUniversel(
                 onPressed: onClose,
-                size: RecapButtonSize.small,
-                fontSize: 16,
-                visualScale: 1.5,
-                lineHeight: 0.95,
+                size: BoutonUniverselTaille.small,
+                decorClipToOuter: true,
+                decorPadding: EdgeInsets.zero,
+                decorElements: [
+                  // Cadeau (placé par défaut en haut-droite, ajustable)
+                  DecorElement(
+                    assetPath: 'assets/PAGE/Homescreen/cadeau.svg',
+                    position: Offset(0.76, -0.00),
+                    scale: 1.60,
+                    rotationDeg: -15,
+                    zIndex: -1,
+                  ),
+                  // Confetti (déplacé en haut-droite, plus grand)
+                  DecorElement(
+                    assetPath: 'assets/PGE/Homescreen/Confetti.svg',
+                    position: Offset(-0.08, -1.32),
+                    scale: 5.20,
+                    rotationDeg: 0,
+                    zIndex: -2,
+                  ),
+                ],
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 borderRadius: 10,
-                fontFamily: 'Fredoka',
                 backgroundColor: const Color(0xFFFEC868),
                 hoverBackgroundColor: const Color(0xFFFEC868),
-                textColor: Colors.white,
+                backgroundGradient: const LinearGradient(
+                  begin: Alignment(0.02, 2.39),
+                  end: Alignment(0.86, -0.76),
+                  colors: [Color(0xDBFEC868), Color(0xFFFFA327)],
+                ),
+                hoverBackgroundGradient: const LinearGradient(
+                  begin: Alignment(0.02, 2.39),
+                  end: Alignment(0.86, -0.76),
+                  colors: [Color(0xDBFEC868), Color(0xFFFFA327)],
+                ),
                 borderColor: const Color(0xFFE89E1C),
                 hoverBorderColor: const Color(0xFFE89E1C),
                 shadowColor: const Color(0xFFE89E1C),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Text(
+                      'Avec Premium \nPasse en mode illimité',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w700,
+                        height: 0.95,
+                        letterSpacing: 0.5,
+                        foreground: Paint()
+                          ..style = PaintingStyle.stroke
+                          ..strokeWidth = 0.8
+                          ..color = const Color(0x22000000),
+                      ),
+                    ),
+                    const Text(
+                      'Avec Premium \nPasse en mode illimité',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w700,
+                        height: 0.95,
+                        letterSpacing: 0.5,
+                        shadows: [
+                          Shadow(color: Color(0x4D000000), blurRadius: 8, offset: Offset(0, 2)),
+                          Shadow(color: Color(0x26000000), blurRadius: 16, offset: Offset(0, 4)),
+                          Shadow(color: Color(0x14000000), blurRadius: 28, offset: Offset(0, 6)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -208,6 +331,8 @@ class _PopoverCard extends StatelessWidget {
     );
   }
 }
+
+// Habillage dédié supprimé au profit des presets partagés (voir HabillageBouton)
 
 // ignore: unused_element
 class _ArrowPainter extends CustomPainter {

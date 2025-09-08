@@ -111,6 +111,7 @@ flutter:
     - assets/PAGE/Profil/
     - assets/PAGE/Paramètre/
     - assets/PAGE/Authentification/
+    - assets/PAGE/Homescreen/
     - assets/PAGE/Detail especes/
 
 

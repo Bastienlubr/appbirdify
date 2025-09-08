@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import '../../services/dev_tools_service.dart';
@@ -12,6 +13,7 @@ import '../../models/mission.dart';
 import '../../ui/responsive/responsive.dart';
 import '../../ui/scaffold/adaptive_scaffold.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../models/answer_recap.dart';
 import '../../pages/home_screen.dart';
@@ -91,9 +93,12 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
   int? _starsAfterUpdate;
   final AudioPlayer _recapPlayer = AudioPlayer();
   String _recapPlayingUrl = '';
+  String _recapPlayingKey = '';
   bool _recapIsPlaying = false;
+  bool _recapBusy = false;
   int _lottieVersion = 0; // permet de forcer le rechargement de l'animation Lottie
   bool _showBlockBorders = false; // Nouvel état pour les bordures temporaires
+  StreamSubscription<PlayerState>? _recapPlayerStateSub;
   
   // Confettis: deux animations en plein écran, la seconde démarre après 1 seconde
   final bool _showConfetti1 = true; // démarre immédiatement
@@ -160,6 +165,28 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
 
     // Sélectionner les messages une seule fois à l'arrivée
     _selectMessagesOnce();
+
+    // Écouter l'état du player pour tenir l'UI à jour et stopper à la fin
+    _recapPlayerStateSub = _recapPlayer.playerStateStream.listen((state) {
+      final bool isPlayingNow = state.playing;
+      if (!mounted) return;
+      if (!isPlayingNow && _recapIsPlaying) {
+        setState(() {
+          _recapIsPlaying = false;
+        });
+      } else if (isPlayingNow && !_recapIsPlaying) {
+        setState(() {
+          _recapIsPlaying = true;
+        });
+      }
+      if (state.processingState == ProcessingState.completed) {
+        // Assurer l'arrêt complet à la fin
+        _recapPlayer.stop();
+        setState(() {
+          _recapIsPlaying = false;
+        });
+      }
+    });
   }
 
   void _selectMessagesOnce() {
@@ -1260,6 +1287,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
     _checkController?.dispose();
     _checkGlowController?.dispose();
     _recapPlayer.dispose();
+    _recapPlayerStateSub?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -1478,55 +1506,85 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Récapitulatif',
-                        style: TextStyle(
-                          fontFamily: 'Quicksand',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 22,
-                          color: Color(0xFF334355),
+                const SizedBox(height: 6),
+                // Barre de saisie (grabber) centrée au-dessus du panel
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE1E7EE),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // En-tête avec titre centré et bouton fermer à droite
+                SizedBox(
+                  height: 40,
+                  width: double.infinity,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      const Center(
+                        child: Text(
+                          'Récapitulatif',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Quicksand',
+                            fontWeight: FontWeight.w900,
+                            fontSize: 22,
+                            color: Color(0xFF334355),
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      icon: const Icon(Icons.close),
-                    )
-                  ],
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          icon: const Icon(Icons.close),
+                          tooltip: 'Fermer',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Expanded(
-                  child: ListView.separated(
-                    itemCount: entries.isEmpty ? 1 : entries.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      if (entries.isEmpty) {
-                        return _RecapCard(
-                          indexOneBased: 1,
-                          isCorrect: true,
-                          displayName: 'Rien à afficher',
-                          expected: '',
-                          selected: '',
-                          audioUrl: '',
-                          isActive: false,
-                          onToggle: _toggleRecapAudio,
-                        );
-                      }
-                      final a = entries[index];
-                      final bool correct = a.isCorrect;
-                      // Affichage: montrer le nom attendu (oiseau correct). En dessous, si faux, "Vous avez mis <selected>".
-                      return _RecapCard(
-                        indexOneBased: index + 1,
-                        isCorrect: correct,
-                        displayName: a.questionBird,
-                        expected: a.questionBird,
-                        selected: a.selected,
-                        audioUrl: a.audioUrl,
-                        isActive: (_recapPlayingUrl == a.audioUrl) && _recapIsPlaying,
-                        onToggle: _toggleRecapAudio,
+                  child: StreamBuilder<PlayerState>(
+                    stream: _recapPlayer.playerStateStream,
+                    builder: (context, snapshot) {
+                      final bool isPlayingNow = snapshot.data?.playing == true;
+                      return ListView.separated(
+                        itemCount: entries.isEmpty ? 1 : entries.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          if (entries.isEmpty) {
+                            return _RecapCard(
+                              indexOneBased: 1,
+                              isCorrect: true,
+                              displayName: 'Rien à afficher',
+                              expected: '',
+                              selected: '',
+                              audioUrl: '',
+                              isActive: false,
+                              onToggle: _toggleRecapAudio,
+                            );
+                          }
+                          final a = entries[index];
+                          final bool correct = a.isCorrect;
+                          final bool isActive = (_normalizeAudioKey(a.audioUrl) == _recapPlayingKey) && (isPlayingNow || _recapBusy);
+                          return _RecapCard(
+                            indexOneBased: index + 1,
+                            isCorrect: correct,
+                            displayName: a.questionBird,
+                            expected: a.questionBird,
+                            selected: a.selected,
+                            audioUrl: a.audioUrl,
+                            isActive: isActive,
+                            onToggle: _toggleRecapAudio,
+                          );
+                        },
                       );
                     },
                   ),
@@ -1539,28 +1597,119 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
     );
   }
 
-  Future<void> _toggleRecapAudio(String url) async {
-    if (url.isEmpty) return;
+  String _normalizeAudioKey(String url) {
     try {
-      // Si on clique sur le même son et qu'il joue, on stoppe
-      if (_recapIsPlaying && _recapPlayingUrl == url) {
-        await _recapPlayer.stop();
-        setState(() {
-          _recapIsPlaying = false;
-        });
-        return;
+      final uri = Uri.parse(url);
+      if (uri.pathSegments.isNotEmpty) {
+        return uri.pathSegments.last;
       }
-      // Sinon on (re)lance ce son
+      return uri.path;
+    } catch (_) {
+      return url;
+    }
+  }
+
+  Future<void> _toggleRecapAudio(String url) async {
+    if (url.isEmpty) {
+      // Requête explicite d'arrêt (clic sur le même bouton actif)
+      try {
+        await _recapPlayer.stop();
+        await _recapPlayer.seek(Duration.zero);
+      } finally {
+        if (mounted) {
+          setState(() {
+            _recapIsPlaying = false;
+            _recapPlayingUrl = '';
+            _recapPlayingKey = '';
+            _recapBusy = false;
+          });
+        }
+      }
+      return;
+    }
+    try {
+      final String key = _normalizeAudioKey(url);
+      final bool isSame = (_recapPlayingKey == key) || (_recapPlayingUrl == url);
+
+      if (isSame) {
+        // Toggle strict on/off sur la même entrée
+        if (_recapPlayer.playing || _recapIsPlaying) {
+          // ON -> OFF
+          await _recapPlayer.pause();
+          if (mounted) {
+            setState(() {
+              _recapIsPlaying = false;
+            });
+          }
+          return;
+        } else {
+          // OFF -> ON (relance)
+          if (mounted) {
+            setState(() {
+              _recapBusy = true;
+              _recapPlayingUrl = url;
+              _recapPlayingKey = key;
+            });
+          }
+          try {
+            await _recapPlayer.setUrl(url);
+            await _recapPlayer.play();
+            if (mounted) {
+              setState(() {
+                _recapIsPlaying = true;
+              });
+            }
+          } catch (_) {
+            if (mounted) {
+              setState(() {
+                _recapIsPlaying = false;
+              });
+            }
+          } finally {
+            if (mounted) {
+              setState(() {
+                _recapBusy = false;
+              });
+            }
+          }
+          return;
+        }
+      }
+
+      // Son différent → stopper l’actuel si nécessaire
       await _recapPlayer.stop();
-      await _recapPlayer.setUrl(url);
-      await _recapPlayer.play();
-      setState(() {
-        _recapPlayingUrl = url;
-        _recapIsPlaying = true;
-      });
+      await _recapPlayer.seek(Duration.zero);
+
+      // Marquer immédiatement l'état comme actif pour assurer le on/off au 2e clic
+      if (mounted) {
+        setState(() {
+          _recapPlayingUrl = url;
+          _recapPlayingKey = key;
+          _recapIsPlaying = true;
+          _recapBusy = true;
+        });
+      }
+
+      try {
+        await _recapPlayer.setUrl(url);
+        await _recapPlayer.play();
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _recapIsPlaying = false;
+          });
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _recapBusy = false;
+          });
+        }
+      }
     } catch (_) {
       setState(() {
         _recapIsPlaying = false;
+        _recapBusy = false;
       });
     }
   }
@@ -1589,14 +1738,16 @@ class _RecapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color borderColor = isCorrect ? const Color(0xFF6A994E) : const Color(0xFFBC4749);
-    final Color chipColor = isCorrect ? const Color(0x1A6A994E) : const Color(0x1ABC4749);
+    // Contour marron (comme le popover "Vies") + couleurs statut (vert/rouge)
+    final Color borderColor = const Color(0xFF606D7C);
+    final Color statusColor = isCorrect ? const Color(0xFF6A994E) : const Color(0xFFBC4749);
+    final Color chipColor = statusColor.withValues(alpha: 0.10);
 
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor, width: 2),
+        border: Border.all(color: statusColor, width: 2),
         boxShadow: const [
           BoxShadow(color: Color(0x11000000), blurRadius: 12, offset: Offset(0, 6)),
         ],
@@ -1620,7 +1771,7 @@ class _RecapCard extends StatelessWidget {
                   fontFamily: 'Quicksand',
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
-                  color: borderColor,
+                  color: statusColor,
                 ),
               ),
             ),
@@ -1634,7 +1785,7 @@ class _RecapCard extends StatelessWidget {
               ),
               child: Icon(
                 isCorrect ? Icons.check : Icons.close,
-                color: borderColor,
+                color: statusColor,
               ),
             ),
             const SizedBox(width: 12),
@@ -1667,7 +1818,7 @@ class _RecapCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            _PlayAudioButton(color: borderColor, audioUrl: audioUrl, isActive: isActive, onToggle: onToggle),
+            _PlayAudioButton(color: statusColor, audioUrl: audioUrl, isActive: isActive, onToggle: onToggle),
           ],
         ),
       ),
@@ -1686,38 +1837,129 @@ class _PlayAudioButton extends StatefulWidget {
   State<_PlayAudioButton> createState() => _PlayAudioButtonState();
 }
 
-class _PlayAudioButtonState extends State<_PlayAudioButton> {
-  bool _loading = false;
+class _PlayAudioButtonState extends State<_PlayAudioButton>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _spinController; // nullable pour éviter LateInitializationError sur hot-reload
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: (_loading || widget.audioUrl.isEmpty) ? null : _onToggleTap,
+      onTap: (widget.audioUrl.isEmpty) ? null : _onToggleTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: widget.color.withValues(alpha: 0.12),
+          color: const Color(0xFFF3F5F9),
           shape: BoxShape.circle,
         ),
-        child: _loading
-            ? const Padding(
-                padding: EdgeInsets.all(10.0),
-                child: CircularProgressIndicator(strokeWidth: 2),
+        child: widget.isActive
+            ? Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: RotationTransition(
+                    turns: _spinController ?? const AlwaysStoppedAnimation(0.0),
+                    child: CustomPaint(
+                      painter: _RoundedArcSpinnerPainter(
+                        color: const Color(0xFF606D7C),
+                        strokeWidth: 3.6,
+                      ),
+                    ),
+                  ),
+                ),
               )
-            : Icon(widget.isActive ? Icons.stop : Icons.mic,
-                color: widget.audioUrl.isEmpty ? widget.color.withValues(alpha: 0.4) : widget.color),
+            : Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: SvgPicture.asset(
+                  'assets/PAGE/Score resultat/icon micro.svg',
+                  colorFilter: ColorFilter.mode(
+                    widget.audioUrl.isEmpty
+                        ? const Color(0xFF606D7C).withValues(alpha: 0.4)
+                        : const Color(0xFF606D7C),
+                    BlendMode.srcIn,
+                  ),
+                  fit: BoxFit.contain,
+                ),
+              ),
       ),
     );
   }
 
   Future<void> _onToggleTap() async {
-    setState(() => _loading = true);
-    try {
+    if (widget.isActive) {
+      await widget.onToggle('');
+    } else {
       await widget.onToggle(widget.audioUrl);
-    } finally {
-      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _spinController = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    if (widget.isActive) {
+      _spinController!.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _PlayAudioButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_spinController == null) return;
+    if (widget.isActive && !_spinController!.isAnimating) {
+      _spinController!.repeat();
+    } else if (!widget.isActive && _spinController!.isAnimating) {
+      _spinController!.stop();
+      _spinController!.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _spinController?.dispose();
+    super.dispose();
+  }
+}
+
+class _SpinnerDisk extends StatelessWidget {
+  const _SpinnerDisk();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0x33000000), width: 2),
+      ),
+      child: const SizedBox.shrink(),
+    );
+  }
+}
+
+class _RoundedArcSpinnerPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+
+  _RoundedArcSpinnerPainter({required this.color, required this.strokeWidth});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+
+    final Rect rect = Offset.zero & size;
+    final Rect arcRect = rect.deflate(strokeWidth / 2);
+
+    final double sweep = math.pi * 1.4; // environ 252°
+    canvas.drawArc(arcRect, 0.0, sweep, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoundedArcSpinnerPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
   }
 }
 

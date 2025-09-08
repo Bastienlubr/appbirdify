@@ -36,6 +36,7 @@ class _ProfilPageState extends State<ProfilPage> {
   String _favoriteHabitat = '';
   int _currentStreak = 0;
   StreamSubscription<Map<String, dynamic>?>? _profileSub;
+  String _nemesisSpecies = '';
 
   @override
   void initState() {
@@ -53,11 +54,22 @@ class _ProfilPageState extends State<ProfilPage> {
         if (!mounted) return;
         // Calculer le nombre de sessions par milieu et déterminer l'habitat favori
         final Map<String, int> countsByMilieu = {};
+        // Agréger les erreurs par espèce pour déterminer la Bête noire
+        final Map<String, int> mistakesBySpecies = {};
         for (final s in sessions) {
           final dynamic m = s['milieu'];
           if (m is String && m.trim().isNotEmpty) {
             final key = m.trim();
             countsByMilieu[key] = (countsByMilieu[key] ?? 0) + 1;
+          }
+          final dynamic missed = s['especesRateesIds'];
+          if (missed is List) {
+            for (final e in missed) {
+              if (e is String && e.trim().isNotEmpty) {
+                final key = e.trim();
+                mistakesBySpecies[key] = (mistakesBySpecies[key] ?? 0) + 1;
+              }
+            }
           }
         }
         String best = '';
@@ -68,9 +80,21 @@ class _ProfilPageState extends State<ProfilPage> {
             bestCount = v;
           }
         });
+        // Déterminer la Bête noire via ratio erreurs/épreuves
+        String nemesis = '';
+        double bestRatio = -1;
+        final int denom = sessions.isEmpty ? 1 : sessions.length;
+        mistakesBySpecies.forEach((name, count) {
+          final double ratio = count / denom;
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            nemesis = name;
+          }
+        });
         setState(() {
           _totalSessions = sessions.length;
           _favoriteHabitat = _formatMilieu(best);
+          _nemesisSpecies = nemesis;
         });
       });
     }
@@ -118,7 +142,12 @@ class _ProfilPageState extends State<ProfilPage> {
                       _buildHeader(nameSize, m),
                       SizedBox(height: sectionGap * 0.6),
                       // Nouveau tableau de bord conforme à la maquette fournie
-                      TableauDeBord(totalEpreuves: _totalSessions, habitatFavori: _favoriteHabitat, currentStreak: _currentStreak),
+                      TableauDeBord(
+                        totalEpreuves: _totalSessions,
+                        habitatFavori: _favoriteHabitat,
+                        currentStreak: _currentStreak,
+                        nemesis: _nemesisSpecies,
+                      ),
                       SizedBox(height: sectionGap * 0.8),
                       _buildBilanOrnithologique(titleSize, m),
                       const SizedBox(height: 0),
@@ -778,7 +807,8 @@ class TableauDeBord extends StatelessWidget {
   final int totalEpreuves;
   final String? habitatFavori;
   final int currentStreak;
-  const TableauDeBord({super.key, this.totalEpreuves = 0, this.habitatFavori, this.currentStreak = 0});
+  final String? nemesis;
+  const TableauDeBord({super.key, this.totalEpreuves = 0, this.habitatFavori, this.currentStreak = 0, this.nemesis});
 
   @override
   Widget build(BuildContext context) {
@@ -836,8 +866,8 @@ class TableauDeBord extends StatelessWidget {
                         height: chipHeight,
                         assetPath: 'assets/PAGE/Profil/Famille favorite.png',
                         numberText: null,
-                        label: 'Famille favorite',
-                        secondary: 'Corvidés',
+                        label: 'Bête noire',
+                        secondary: (nemesis != null && nemesis!.isNotEmpty) ? nemesis! : '—',
                       ),
                       const SizedBox(height: innerGap),
                       _StatChipAsset(
@@ -929,17 +959,29 @@ class _StatChipAsset extends StatelessWidget {
                           height: 1.2,
                         ),
                       ),
-                      Text(
-                        secondary!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xC4334355),
-                          fontSize: 14,
-                          fontFamily: 'Quicksand',
-                          fontWeight: FontWeight.w400,
-                          height: 1.2,
-                        ),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SizedBox(
+                            width: constraints.maxWidth,
+                            child: FittedBox(
+                              alignment: Alignment.centerLeft,
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                secondary!,
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.visible,
+                                style: const TextStyle(
+                                  color: Color(0xC4334355),
+                                  fontSize: 14,
+                                  fontFamily: 'Quicksand',
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   )

@@ -357,7 +357,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                     
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 14),
+                    // Séparateur "ou"
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            color: const Color(0xFF344356).withAlpha((0.15 * 255).toInt()),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            'ou',
+                            style: const TextStyle(
+                              fontFamily: 'Quicksand',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF606D7C),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            color: const Color(0xFF344356).withAlpha((0.15 * 255).toInt()),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     // Boutons sociaux (Google + Téléphone) entre Mot de passe et S'INSCRIRE
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
