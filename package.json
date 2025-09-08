@@ -20,7 +20,15 @@
     "import:missions:direct": "node scripts/import-missions-direct-id.mjs",
     "approve:missions": "node scripts/approve-missions.mjs",
     "import:all": "node scripts/import-all.mjs",
-    "import:verify": "node scripts/import-all.mjs --verify"
+    "import:verify": "node scripts/import-all.mjs --verify",
+    "missions:creer-ou-completer-progression": "node scripts/missions/creer_ou_completer_progression_utilisateur.mjs",
+    "missions:creer-ou-completer-progression:apply": "node scripts/missions/creer_ou_completer_progression_utilisateur.mjs --apply",
+    "quiz:remplir-id-oiseau": "node scripts/quiz/fill_species_ids.mjs",
+    "quiz:remplir-id-oiseau:apply": "node scripts/quiz/fill_species_ids.mjs --apply",
+    "quiz:generer-mauvaises-reponses": "node scripts/quiz/generer_mauvaises_reponses_quiz.mjs",
+    "quiz:generer-mauvaises-reponses:export": "node scripts/quiz/generer_mauvaises_reponses_quiz.mjs --out=distracteurs.json",
+    "quiz:normaliser-ids": "node scripts/quiz/normalize_quiz_ids.mjs",
+    "quiz:publier": "node scripts/quiz/publier_quiz_vers_firestore.mjs"
   },
   "repository": {
     "type": "git",

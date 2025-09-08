@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../services/Users/auth_service.dart';
+import '../../services/Users/user_orchestra_service.dart';
+import '../../services/Users/user_profile_service.dart';
 import '../../pages/home_screen.dart';
+import 'questionnaire_screen.dart';
+import '../../services/Users/onboarding_service.dart';
+import '../../ui/responsive/responsive.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -78,40 +84,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     try {
-      // Créer l'utilisateur avec Firebase Auth
-      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final navigator = Navigator.of(context);
+      // Créer l'utilisateur via AuthService
+      final userCredential = await AuthService.signUpWithEmail(email, password);
 
       // Mettre à jour le profil utilisateur avec le nom
       if (userCredential.user != null) {
         await userCredential.user!.updateDisplayName(name);
-        
-        // Sauvegarder les informations utilisateur dans Firestore
+
+        // Écrire la structure complète du profil et démarrer la synchronisation
         try {
-          await FirebaseFirestore.instance
-              .collection('utilisateurs')
-              .doc(userCredential.user!.uid)
-              .set({
-            'name': name,
-            'email': email,
-            'createdAt': FieldValue.serverTimestamp(),
-            'lastLogin': FieldValue.serverTimestamp(),
-          });
-        } catch (firestoreError) {
-          // Log l'erreur Firestore mais ne pas bloquer l'inscription
-          debugPrint('Firestore error: $firestoreError');
+          await UserProfileService.createOrUpdateUserProfile(
+              uid: userCredential.user!.uid,
+              displayName: name,
+              email: email,
+              photoURL: userCredential.user!.photoURL);
+          await UserOrchestra.startRealtime();
+        } catch (syncError) {
+          debugPrint('Profil/sync error: $syncError');
         }
       }
 
       if (!mounted) return;
 
-      // Navigation vers l'écran principal avec pushReplacement
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      // Vérifier si onboarding requis, sinon Home
+      final needs = await QuestionnaireService.needsOnboarding();
+      if (needs) {
+        await navigator.push<bool>(
+          MaterialPageRoute(builder: (_) => const QuestionnaireScreen()),
+        );
+        navigator.pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+      } else {
+        navigator.pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+      }
       
     } on FirebaseAuthException catch (e) {
       debugPrint('FirebaseAuthException: ${e.code} - ${e.message}');
@@ -130,29 +135,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final screenWidth = screenSize.width;
-    final screenHeight = screenSize.height;
-    
-    // Calculer les dimensions responsives
-    final contentWidth = screenWidth * 0.85; // 85% de la largeur d'écran
-    final maxContentWidth = 400.0; // Largeur maximale pour les grands écrans
-    final actualContentWidth = contentWidth > maxContentWidth ? maxContentWidth : contentWidth;
-    
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
-      body: Stack(
-        children: [
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final m = buildResponsiveMetrics(context, constraints);
+          final double contentTop = m.isTablet
+              ? m.dp(70, tabletFactor: 1.0, min: 56, max: 120)
+              : m.dp(70, min: 48, max: 110);
+          final double rawContentWidth = constraints.maxWidth * 0.85;
+          final double actualContentWidth = m.isTablet
+              ? rawContentWidth.clamp(360.0, 520.0)
+              : rawContentWidth.clamp(300.0, 400.0);
+          final double fieldHeight = m.dp(70, tabletFactor: 1.05, min: 58, max: 84);
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
           // Contenu principal centré
           Positioned(
-            top: screenHeight * 0.15, // Plus haut pour accommoder 3 champs
+            top: contentTop, // Responsive top
             left: 0,
             right: 0,
             child: Center(
               child: Container(
                 width: actualContentWidth,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Titre principal
@@ -184,11 +195,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     
                     const SizedBox(height: 50),
                     
-                    // Champ Nom
-                    Container(
-                      width: double.infinity,
-                      height: 70,
-                      decoration: BoxDecoration(
+                    // Champ Nom avec mascotte ancrée au carré
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          height: fieldHeight,
+                          decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: const [
@@ -198,29 +212,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             offset: Offset(0, 12),
                           ),
                         ],
-                      ),
-                      child: TextField(
-                        controller: _nameController,
-                        keyboardType: TextInputType.name,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          color: Color(0xFF334355),
-                          fontFamily: 'Quicksand',
                         ),
-                        decoration: InputDecoration(
-                          hintText: 'Nom complet',
-                          hintStyle: TextStyle(
-                            color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
+                        child: TextField(
+                          controller: _nameController,
+                          keyboardType: TextInputType.name,
+                          style: const TextStyle(
                             fontSize: 20,
+                            color: Color(0xFF334355),
                             fontFamily: 'Quicksand',
                           ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                          decoration: InputDecoration(
+                            hintText: 'Nom complet',
+                            hintStyle: TextStyle(
+                              color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
+                              fontSize: 20,
+                              fontFamily: 'Quicksand',
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                          ),
                         ),
-                      ),
+                        ),
+                        Positioned(
+                          right: m.dp(20, min: 6, max: 20),
+                          top: -(fieldHeight * 0.67),
+                          child: Image.asset(
+                            'assets/Images/Bouton/mascotte.png',
+                            width: m.dp(60, tabletFactor: 1.2, min: 40, max: 64),
+                            height: m.dp(60, tabletFactor: 1.2, min: 40, max: 64),
+                          ),
+                        ),
+                      ],
                     ),
-                    
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
                     
                     // Champ Email
                     Container(
@@ -296,7 +320,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 20),
                     
                     // Affichage du message d'erreur
                     if (_errorMessage != null)
@@ -333,7 +357,187 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                     
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 14),
+                    // Séparateur "ou"
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            color: const Color(0xFF344356).withAlpha((0.15 * 255).toInt()),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            'ou',
+                            style: const TextStyle(
+                              fontFamily: 'Quicksand',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF606D7C),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            color: const Color(0xFF344356).withAlpha((0.15 * 255).toInt()),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Boutons sociaux (Google + Téléphone) entre Mot de passe et S'INSCRIRE
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Google
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final navigator = Navigator.of(context);
+                            final cred = await AuthService.signInWithGoogle();
+                            if (cred == null) return;
+                            if (!mounted) return;
+                            await UserOrchestra.startRealtime();
+                            if (!mounted) return;
+                            navigator.pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF334355),
+                            elevation: 1,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          icon: SvgPicture.asset('assets/PAGE/Authentification/google icon.svg', width: 20, height: 20),
+                          label: const Text('Google'),
+                        ),
+                        const SizedBox(width: 12),
+                        // Téléphone
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final phone = await showDialog<String>(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (ctx) {
+                                final entries = const [
+                                  ['🇫🇷', '+33'], ['🇧🇪', '+32'], ['🇨🇭', '+41'], ['🇪🇸', '+34'], ['🇮🇹', '+39'],
+                                  ['🇵🇹', '+351'], ['🇳🇱', '+31'], ['🇱🇺', '+352'], ['🇮🇪', '+353'], ['🇩🇪', '+49'],
+                                  ['🇬🇧', '+44'], ['🇺🇸', '+1'], ['🇨🇦', '+1'], ['🇲🇦', '+212'], ['🇩🇿', '+213'],
+                                  ['🇹🇳', '+216'], ['🇳🇴', '+47'], ['🇸🇪', '+46'], ['🇫🇮', '+358'], ['🇩🇰', '+45'],
+                                  ['🇵🇱', '+48'], ['🇨🇿', '+420'], ['🇸🇰', '+421'], ['🇷🇴', '+40'], ['🇭🇺', '+36'],
+                                  ['🇬🇷', '+30'], ['🇹🇷', '+90']
+                                ];
+                                String selectedPrefix = '+33';
+                                final localCtrl = TextEditingController();
+                                return StatefulBuilder(
+                                  builder: (ctx, setState) => AlertDialog(
+                                    title: const Text('Numéro de téléphone'),
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFEFF3F7),
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: DropdownButtonHideUnderline(
+                                                child: DropdownButton<String>(
+                                                  value: selectedPrefix,
+                                                  menuMaxHeight: 320,
+                                                  isDense: true,
+                                                  items: entries.map((e) {
+                                                    return DropdownMenuItem<String>(
+                                                      value: e[1],
+                                                      child: Row(children: [Text('${e[0]}  ${e[1]}')]),
+                                                    );
+                                                  }).toList(),
+                                                  onChanged: (v) { if (v != null) setState(() => selectedPrefix = v); },
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: TextField(
+                                                controller: localCtrl,
+                                                keyboardType: TextInputType.phone,
+                                                decoration: const InputDecoration(hintText: '6 12 34 56 78'),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          final local = localCtrl.text.replaceAll(' ', '').trim();
+                                          Navigator.pop(ctx, '$selectedPrefix$local');
+                                        },
+                                        child: const Text('Continuer'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                            if (phone == null || phone.isEmpty) {
+                              if (!mounted) return;
+                              setState(() => _errorMessage = 'Entrez un numéro valide au format international (+33...)');
+                              return;
+                            }
+                            await AuthService.verifyPhoneNumber(
+                              phoneNumber: phone,
+                              onCodeSent: (vId) async {
+                                if (!mounted) return;
+                                final messenger = ScaffoldMessenger.of(context);
+                                final navigator = Navigator.of(context);
+                                messenger.showSnackBar(const SnackBar(content: Text('SMS envoyé.')));
+                                final code = await showDialog<String>(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (ctx) {
+                                    final ctrl = TextEditingController();
+                                    return AlertDialog(
+                                      title: const Text('Code SMS'),
+                                      content: TextField(controller: ctrl, keyboardType: TextInputType.number, decoration: const InputDecoration(hintText: 'Code à 6 chiffres')),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+                                        ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Valider')),
+                                      ],
+                                    );
+                                  },
+                                );
+                                if (code == null) return;
+                                final cred = await AuthService.signInWithSmsCode(verificationId: vId, smsCode: code);
+                                if (cred == null) return;
+                                await UserOrchestra.startRealtime();
+                                navigator.pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+                              },
+                              onError: (msg) {
+                                if (!mounted) return;
+                                setState(() => _errorMessage = msg);
+                                _isLoading = false;
+                              },
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF334355),
+                            elevation: 1,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.phone_iphone, size: 20),
+                          label: const Text('Téléphone'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
                     
                     // Bouton S'INSCRIRE
                     GestureDetector(
@@ -433,21 +637,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ],
                 ),
+              ],
+            ),
               ),
             ),
           ),
           
-          // Mascotte (oiseau) - positionnée en pourcentages pour tous les écrans
-          Positioned(
-            top: screenHeight * 0.275, // Ajusté pour les 3 champs
-            right: screenWidth * 0.19,
-            child: Image.asset(
-              'assets/Images/Bouton/mascotte.png',
-              width: 60,
-              height: 60,
-            ),
-          ),
+          // (Supprimé) mascotte globale
         ],
+          );
+        },
       ),
     );
   }

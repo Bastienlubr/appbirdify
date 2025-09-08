@@ -43,11 +43,16 @@ dependencies:
   rive: ^0.12.4
   flutter_svg: ^2.0.7
   lottie: ^2.7.0
+  google_sign_in: ^6.2.1
+  sign_in_with_apple: ^6.1.2
   
   # Firebase dependencies
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.3
   cloud_firestore: ^5.4.3
+  firebase_storage: ^12.3.6
+  firebase_app_check: ^0.3.0+5
+  image_cropper: ^9.1.0
   
   # HTTP client for API calls
   http: ^1.2.0
@@ -57,6 +62,9 @@ dependencies:
   
   # Shared preferences for persistent storage
   shared_preferences: ^2.2.2
+  cached_network_image: ^3.4.1
+  image_picker: ^1.1.2
+  country_picker: ^2.0.27
   
 
 
@@ -99,6 +107,12 @@ flutter:
     - assets/animations/
     - assets/PAGE/Score resultat/
     - assets/PAGE/Chargement/
+    - assets/PAGE/Recompenses utiles/
+    - assets/PAGE/Profil/
+    - assets/PAGE/Paramètre/
+    - assets/PAGE/Authentification/
+    - assets/PAGE/Homescreen/
+    - assets/PAGE/Detail especes/
 
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -130,12 +144,22 @@ flutter:
   fonts:
     - family: Quicksand
       fonts:
-        - asset: assets/fonts/Quicksand-Regular.ttf
-        - asset: assets/fonts/Quicksand-Bold.ttf
+        - asset: assets/fonts/Quicksand/Quicksand-Regular.ttf
+        - asset: assets/fonts/Quicksand/Quicksand-Bold.ttf
           weight: 700
-        - asset: assets/fonts/Quicksand-Medium.ttf
+        - asset: assets/fonts/Quicksand/Quicksand-Medium.ttf
           weight: 500
-        - asset: assets/fonts/Quicksand-Light.ttf
+        - asset: assets/fonts/Quicksand/Quicksand-Light.ttf
           weight: 300
-        - asset: assets/fonts/Quicksand-SemiBold.ttf
+        - asset: assets/fonts/Quicksand/Quicksand-SemiBold.ttf
           weight: 600
+    - family: Fredoka
+      fonts:
+        - asset: assets/fonts/Fredoka-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Fredoka-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Fredoka-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Fredoka-Bold.ttf
+          weight: 700

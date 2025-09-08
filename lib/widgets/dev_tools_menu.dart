@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../services/dev_tools_service.dart';
 import '../theme/colors.dart';
-import '../services/mission_persistence_service.dart'; // Added import for MissionPersistenceService
+import '../services/Mission/communs/commun_persistance_consultation.dart';
 import '../pages/auth/login_screen.dart';
+import '../pages/RecompensesUtiles/test_recompenses_access.dart';
+import '../pages/RecompensesUtiles/recompenses_utiles_page.dart';
+import '../services/Users/recompenses_utiles_service.dart';
+import '../data/bird_image_alignments.dart';
 
 class DevToolsMenu extends StatefulWidget {
   final VoidCallback? onLivesRestored;
@@ -65,32 +69,68 @@ class _DevToolsMenuState extends State<DevToolsMenu> {
   @override
   Widget build(BuildContext context) {
     if (!kDebugMode) return const SizedBox.shrink();
-    
+
     return Positioned(
       top: 20,
       left: 20,
-      child: GestureDetector(
-        onTap: _showDevToolsPopup,
-        child: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(25),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Bouton principal (ouvre le menu DevTools)
+          GestureDetector(
+            onTap: _showDevToolsPopup,
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
+              child: const Icon(
+                Icons.developer_mode,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
           ),
-          child: const Icon(
-            Icons.developer_mode,
-            color: Colors.white,
-            size: 24,
+          const SizedBox(width: 10),
+          // Toggle global d'affichage des overlays/outils inline
+          ValueListenableBuilder<bool>(
+            valueListenable: DevVisibilityService.overlaysEnabled,
+            builder: (context, enabled, _) {
+              return GestureDetector(
+                onTap: () => DevVisibilityService.toggle(),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: (enabled ? Colors.green : Colors.grey).withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    enabled ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              );
+            },
           ),
-        ),
+        ],
       ),
     );
   }
@@ -354,7 +394,10 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           _buildInfoRow('👤 Email', widget.userInfo?['profil']?['email'] ?? 'N/A'),
           _buildInfoRow('🎯 Missions déverrouillées', '${widget.unlockedMissions}'),
           _buildInfoRow('⭐ Total étoiles', '${widget.totalStars}'),
-          _buildInfoRow('💚 Vies actuelles', '${widget.userInfo?['vies']?['compte'] ?? 'N/A'}'),
+          _buildInfoRow(
+            '💚 Vies restantes',
+            '${widget.userInfo?['vie']?['vieRestante'] ?? 'N/A'}',
+          ),
         ],
       ),
     );
@@ -401,6 +444,22 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           ),
         ),
         const SizedBox(height: 12),
+        // Toggle Mode Cadrage (DEV)
+        _buildActionButton(
+          icon: Icons.tune,
+          label: '🖼️ Basculer mode cadrage (DEV)',
+          onPressed: () async {
+            await _executeAction(() async {
+              final current = await BirdImageAlignments.isDevModeEnabled();
+              if (current) {
+                // Sauvegarde tous les cadrages calibrés et verrouille en mode production
+                await BirdImageAlignments.lockAllAlignments();
+              } else {
+                await BirdImageAlignments.enableDevMode();
+              }
+            });
+          },
+        ),
         _buildActionButton(
           icon: Icons.favorite,
           label: '💚 Restaurer 5 vies',
@@ -422,6 +481,14 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           }),
         ),
         _buildActionButton(
+          icon: Icons.favorite_border,
+          label: '💚 Ajouter 1 vie (sans dépasser max)',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.addOneLife();
+            if (widget.onLivesRestored != null) widget.onLivesRestored!();
+          }),
+        ),
+        _buildActionButton(
           icon: Icons.block,
           label: '⛔ Désactiver vies infinies',
           onPressed: () => _executeAction(() async {
@@ -430,11 +497,87 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           }),
         ),
         _buildActionButton(
-          icon: Icons.refresh,
-          label: '🔄 Recharger les infos',
+          icon: Icons.add_circle,
+          label: '➕ Augmenter vieMaximum (+1)',
+          onPressed: () => _executeAction(() async {
+            final info = await DevToolsService.getCurrentUserInfo();
+            final current = (info?['vie']?['vieMaximum'] as int? ?? 5).clamp(1, 50);
+            await DevToolsService.setMaxLives((current + 1).clamp(1, 50));
+            if (widget.onLivesRestored != null) widget.onLivesRestored!();
+          }),
+        ),
+        _buildActionButton(
+          icon: Icons.restore,
+          label: '↩️ Réinitialiser vieMaximum à 5',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.resetMaxLivesToFive();
+            if (widget.onLivesRestored != null) widget.onLivesRestored!();
+          }),
+        ),
+        
+        _buildActionButton(
+          icon: Icons.star,
+          label: '🏆 Tester page Récompenses',
           onPressed: () {
-            widget.onAction();
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(); // Fermer le popup d'abord
+            TestRecompensesAccess.showRecompensesPage(context);
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐ Simuler 1 étoile',
+          onPressed: () async {
+            // Fermer le popup sans attendre pour conserver un context valide
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
+            }
+            // Déférer la suite après fermeture du dialog (évite d'utiliser le même BuildContext après await)
+            Future<void>(() async {
+              final service = RecompensesUtilesService();
+              await service.simulerEtoiles(TypeEtoile.uneEtoile);
+              if (kDebugMode) debugPrint('🌟 Simulation 1 étoile terminée');
+              // Utiliser le navigator capturé pour éviter d'utiliser BuildContext après un await
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const RecompensesUtilesPage()),
+              );
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐⭐ Simuler 2 étoiles',
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
+            }
+            Future<void>(() async {
+              final service = RecompensesUtilesService();
+              await service.simulerEtoiles(TypeEtoile.deuxEtoiles);
+              if (kDebugMode) debugPrint('🌟 Simulation 2 étoiles terminée');
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const RecompensesUtilesPage()),
+              );
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐⭐⭐ Simuler 3 étoiles',
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
+            }
+            Future<void>(() async {
+              final service = RecompensesUtilesService();
+              await service.simulerEtoiles(TypeEtoile.troisEtoiles);
+              if (kDebugMode) debugPrint('🌟 Simulation 3 étoiles terminée');
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const RecompensesUtilesPage()),
+              );
+            });
           },
         ),
       ],
@@ -456,38 +599,20 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
         const SizedBox(height: 12),
         _buildActionButton(
           icon: Icons.lock_open,
-          label: '🌆 Déverrouiller toutes les missions Urbaines',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('U')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
-          label: '🌲 Déverrouiller toutes les missions Forestières',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('F')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
-          label: '🚜 Déverrouiller toutes les missions Agricoles',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('A')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
-          label: '💧 Déverrouiller toutes les missions Humides',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('H')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
-          label: '🏔️ Déverrouiller toutes les missions Montagnardes',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('M')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
-          label: '🏖️ Déverrouiller toutes les missions Littorales',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('L')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
           label: '🔓 Déverrouiller TOUTES les missions',
           onPressed: () => _executeAction(DevToolsService.unlockAllMissions),
+        ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐ Déverrouiller TOUTES les étoiles (3★ partout)',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.unlockAllStars();
+            // Appeler le callback pour forcer le rechargement des étoiles
+            if (widget.onStarsReset != null) {
+              if (kDebugMode) debugPrint('🔄 Appel du callback de rechargement des étoiles...');
+              widget.onStarsReset!();
+            }
+          }),
         ),
       ],
     );

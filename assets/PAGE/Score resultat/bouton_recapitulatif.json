@@ -1,0 +1,154 @@
+{
+  "name": "RecapButton Project",
+  "version": "1.0.0",
+  "description": "Projet avec un bouton Récapitulatif de style Duolingo avec effet 3D",
+  "framework": "React",
+  "styling": "Tailwind CSS v4",
+  "language": "TypeScript",
+  "created": "2025-01-21",
+  "author": "Figma Make",
+  
+  "project_structure": {
+    "entry_point": "/App.tsx",
+    "components": [
+      {
+        "name": "RecapButton",
+        "path": "/components/RecapButton.tsx",
+        "type": "custom",
+        "description": "Bouton avec design Duolingo et effet 3D",
+        "props": {
+          "children": "React.ReactNode (optionnel)",
+          "onClick": "() => void (optionnel)",
+          "disabled": "boolean (défaut: false)",
+          "size": "'sm' | 'md' | 'lg' (défaut: 'md')",
+          "className": "string (optionnel)"
+        },
+        "features": [
+          "Effet 3D avec ombres",
+          "Animation au clic",
+          "Trois tailles disponibles",
+          "État désactivé",
+          "Couleurs personnalisées Duolingo"
+        ]
+      }
+    ],
+    "styles": {
+      "globals": "/styles/globals.css",
+      "framework": "Tailwind CSS v4",
+      "custom_properties": [
+        "--font-size: 14px",
+        "Thème sombre/clair",
+        "Variables de couleurs personnalisées"
+      ]
+    },
+    "shadcn_components_available": [
+      "accordion", "alert-dialog", "alert", "aspect-ratio", "avatar",
+      "badge", "breadcrumb", "button", "calendar", "card", "carousel",
+      "chart", "checkbox", "collapsible", "command", "context-menu",
+      "dialog", "drawer", "dropdown-menu", "form", "hover-card",
+      "input-otp", "input", "label", "menubar", "navigation-menu",
+      "pagination", "popover", "progress", "radio-group", "resizable",
+      "scroll-area", "select", "separator", "sheet", "sidebar",
+      "skeleton", "slider", "sonner", "switch", "table", "tabs",
+      "textarea", "toggle-group", "toggle", "tooltip"
+    ]
+  },
+
+  "dependencies": {
+    "react": "latest",
+    "typescript": "latest",
+    "tailwindcss": "v4",
+    "lucide-react": "latest"
+  },
+
+  "features": {
+    "responsive_design": true,
+    "dark_mode_support": true,
+    "accessibility": true,
+    "typescript_support": true,
+    "component_reusability": true
+  },
+
+  "app_configuration": {
+    "main_component": "App",
+    "layout": "Centered with gradient background",
+    "interactions": [
+      {
+        "type": "button_click",
+        "component": "RecapButton",
+        "action": "Display random congratulatory message",
+        "messages": [
+          "Excellent travail! 🎉",
+          "Fantastique! ⭐",
+          "Bravo! 👏",
+          "Parfait! 💪"
+        ]
+      }
+    ]
+  },
+
+  "design_system": {
+    "colors": {
+      "button_normal": "#D2DBB2",
+      "button_hover": "#C8D1A8",
+      "button_text": "#F2F5F8",
+      "button_shadow": "#ABC270",
+      "button_border": "#ABC270",
+      "button_hover_border": "#9FB866",
+      "background_gradient": "from-blue-50 to-indigo-100"
+    },
+    "typography": {
+      "base_font_size": "14px",
+      "heading_weight": "500",
+      "button_weight": "bold",
+      "button_tracking": "wide"
+    },
+    "spacing": {
+      "button_padding_sm": "px-4 py-2",
+      "button_padding_md": "px-6 py-3",
+      "button_padding_lg": "px-8 py-4"
+    },
+    "border_radius": {
+      "button_sm": "rounded-lg",
+      "button_md": "rounded-xl",
+      "button_lg": "rounded-2xl"
+    },
+    "effects": {
+      "button_shadow": "shadow-[0_4px_0_#ABC270]",
+      "button_shadow_hover": "shadow-[0_3px_0_#ABC270]",
+      "button_shadow_active": "shadow-[0_1px_0_#ABC270]",
+      "button_transform": "active:scale-95 active:translate-y-0.5"
+    }
+  },
+
+  "ui_guidelines": {
+    "language": "French",
+    "button_style": "Duolingo-inspired 3D effect",
+    "color_scheme": "Green tones with soft gradients",
+    "interaction_feedback": "Visual and tactile (alerts)",
+    "accessibility_features": [
+      "Keyboard navigation",
+      "Focus states",
+      "Disabled states",
+      "Screen reader compatible"
+    ]
+  },
+
+  "build_info": {
+    "build_tool": "Figma Make",
+    "optimization": "Production ready",
+    "bundle_size": "Minimal",
+    "performance": "Optimized for web"
+  },
+
+  "usage_instructions": {
+    "installation": "Ready to use - no additional setup required",
+    "customization": [
+      "Modify colors in RecapButton component",
+      "Add new size variants",
+      "Customize interaction messages",
+      "Extend with additional props"
+    ],
+    "deployment": "Compatible with any React hosting platform"
+  }
+}
