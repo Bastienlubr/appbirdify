@@ -1671,6 +1671,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFF3F5F9),
         title: const Text(
           'Quiz échoué !',
           style: TextStyle(
@@ -1687,7 +1688,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
           ),
         ),
         actions: [
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop();
               Navigator.pushReplacement(
@@ -1700,11 +1701,21 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                 ),
               );
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE1E7EE),
+              foregroundColor: const Color(0xFF334355),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFDADADA), width: 1),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
             child: const Text(
               'Retour',
               style: TextStyle(
                 fontFamily: 'Quicksand',
-                color: Color(0xFF6A994E),
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),

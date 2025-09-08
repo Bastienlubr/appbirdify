@@ -104,6 +104,11 @@ class LivesPopoverState extends State<LivesPopover>
                 arrowCenterX: arrowCenterX,
                 arrowSize: 12.0,
                 onClose: widget.onClose,
+                onNavigateToInfo: () {
+                  dismissWithAnimation(onCompleted: () {
+                    Navigator.of(context).pushNamed('/abonnement/information');
+                  });
+                },
               ),
             ),
           ),
@@ -118,12 +123,14 @@ class _PopoverCard extends StatelessWidget {
   final double arrowCenterX;
   final double arrowSize;
   final VoidCallback onClose;
+  final VoidCallback onNavigateToInfo;
 
   const _PopoverCard({
     required this.currentLives,
     required this.arrowCenterX,
     required this.arrowSize,
     required this.onClose,
+    required this.onNavigateToInfo,
   });
 
   @override
@@ -164,7 +171,7 @@ class _PopoverCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: BoutonUniversel(
-                onPressed: onClose,
+                onPressed: onNavigateToInfo,
                 size: BoutonUniverselTaille.small,
                 decorClipToOuter: true,
                 decorPadding: EdgeInsets.zero,
@@ -247,7 +254,7 @@ class _PopoverCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: BoutonUniversel(
-                onPressed: onClose,
+                onPressed: onNavigateToInfo,
                 size: BoutonUniverselTaille.small,
                 decorClipToOuter: true,
                 decorPadding: EdgeInsets.zero,

@@ -10,6 +10,9 @@ import 'pages/auth/login_screen.dart';
 import 'pages/auth/register_screen.dart';
 // import 'pages/auth/questionnaire_screen.dart'; // Unused
 import 'services/Users/auth_service.dart';
+import 'pages/Abonnement/information_abonnement_page.dart';
+import 'pages/Abonnement/choix_offre_page.dart';
+import 'pages/Abonnement/gerer_mon_abonnement_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +61,11 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Quicksand',
       ),
       home: const RootDecider(),
+      routes: {
+        '/abonnement/information': (context) => const InformationAbonnementPage(),
+        '/abonnement/choix-offre': (context) => const ChoixOffrePage(),
+        '/abonnement/gerer': (context) => GererMonAbonnementPage(titleHorizontalOffset: 10),
+      },
     );
   }
 }

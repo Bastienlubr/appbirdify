@@ -1531,7 +1531,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                           'Récapitulatif',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontFamily: 'Quicksand',
+                            fontFamily: 'Q',
                             fontWeight: FontWeight.w900,
                             fontSize: 22,
                             color: Color(0xFF334355),
@@ -1569,6 +1569,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                               audioUrl: '',
                               isActive: false,
                               onToggle: _toggleRecapAudio,
+                              onFlag: () {},
                             );
                           }
                           final a = entries[index];
@@ -1583,6 +1584,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                             audioUrl: a.audioUrl,
                             isActive: isActive,
                             onToggle: _toggleRecapAudio,
+                            onFlag: () => _openClaimDialogForRecap(context, a, index + 1, correct),
                           );
                         },
                       );
@@ -1595,6 +1597,160 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
         );
       },
     );
+  }
+
+  Future<void> _openClaimDialogForRecap(BuildContext context, AnswerRecap a, int indexOneBased, bool isCorrect) async {
+    final TextEditingController ctrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFF3F5F9),
+        title: const Text(
+          'Signaler un problème',
+          style: TextStyle(
+            fontFamily: 'Quicksand',
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF334355),
+          ),
+        ),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: ctrl,
+            autofocus: true,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: 'Décrivez ce qui ne va pas (faute, son, logique...)',
+            ),
+            validator: (v) => (v == null || v.trim().length < 5) ? 'Au moins 5 caractères' : null,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF334355)),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE1E7EE), // légèrement plus sombre que F3F5F9
+              foregroundColor: const Color(0xFF334355),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFDADADA), width: 1),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            onPressed: () async {
+              if (formKey.currentState?.validate() != true) return;
+              try {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) {
+                  if (kDebugMode) debugPrint('❌ Réclamation: utilisateur non connecté');
+                  if (ctx.mounted) Navigator.pop(ctx, false);
+                  return;
+                }
+                final String uid = user.uid;
+                final missionId = widget.mission?.id;
+                final milieu = widget.mission?.milieu;
+                Map<String, dynamic>? q;
+                List<dynamic> rawOptions = const [];
+                String? questionId;
+                try {
+                  final int qLen = widget.mission?.questions.length ?? 0;
+                  final int qIndex0 = indexOneBased - 1;
+                  if (qLen > 0 && qIndex0 >= 0 && qIndex0 < qLen) {
+                    q = widget.mission!.questions[qIndex0];
+                    if (q != null) {
+                      if (q['options'] is List) rawOptions = List<dynamic>.from(q['options']);
+                      if (q['id'] is String) questionId = q['id'] as String;
+                    }
+                  }
+                } catch (e) {
+                  if (kDebugMode) debugPrint('⚠️ Extraction question/options impossible: $e');
+                }
+                // Sanitize options into List<String>
+                final List<String> safeOptions = <String>[];
+                for (final o in rawOptions) {
+                  if (o is String) {
+                    safeOptions.add(o);
+                  } else if (o is Map && o['text'] is String) {
+                    safeOptions.add((o['text'] as String));
+                  } else if (o != null) {
+                    safeOptions.add(o.toString());
+                  }
+                }
+
+                final fs = FirebaseFirestore.instance;
+                // Récupérer la dernière session liée à cette mission pour inclure son ID
+                String? sessionId;
+                try {
+                  if (missionId != null) {
+                    final qSnap = await fs
+                        .collection('utilisateurs')
+                        .doc(uid)
+                        .collection('sessions')
+                        .where('idMission', isEqualTo: missionId)
+                        .orderBy('commenceLe', descending: true)
+                        .limit(1)
+                        .get();
+                    if (qSnap.docs.isNotEmpty) {
+                      sessionId = qSnap.docs.first.id;
+                    }
+                  }
+                } catch (e) {
+                  if (kDebugMode) debugPrint('⚠️ Impossible de récupérer idSession: $e');
+                }
+
+                final Map<String, dynamic> payload = {
+                  'uid': uid,
+                  'missionId': missionId,
+                  if (sessionId != null) 'idSession': sessionId,
+                  'questionIndex': indexOneBased,
+                  'questionBird': a.questionBird,
+                  'selected': a.selected,
+                  'isCorrect': isCorrect,
+                  'audioUrl': a.audioUrl,
+                  'options': safeOptions,
+                  'message': ctrl.text.trim(),
+                  'source': 'recap',
+                  // aligné sur le schéma sessions
+                  'commenceLe': FieldValue.serverTimestamp(),
+                };
+
+                // S'assurer que le doc utilisateur existe (merge no-op si déjà présent)
+                await fs.collection('utilisateurs').doc(uid).set({'hasReclamations': true}, SetOptions(merge: true));
+                // Écriture sous l'utilisateur
+                final userWrite = await fs.collection('utilisateurs').doc(uid).collection('reclamations').add(payload);
+                if (kDebugMode) debugPrint('✅ Réclamation écrite sous utilisateurs/$uid/reclamations/${userWrite.id}');
+                // Miroir top-level (facilite debug/modération globale)
+                try {
+                  final topWrite = await fs.collection('reclamations').add(payload);
+                  if (kDebugMode) debugPrint('ℹ️ Miroir top-level écrit: reclamations/${topWrite.id}');
+                } catch (e) {
+                  if (kDebugMode) debugPrint('⚠️ Échec miroir top-level: $e');
+                }
+
+                if (ctx.mounted) Navigator.pop(ctx, true);
+              } catch (e) {
+                if (kDebugMode) debugPrint('💥 Erreur écriture réclamation: $e');
+                if (ctx.mounted) Navigator.pop(ctx, false);
+              }
+            },
+            child: const Text('Envoyer'),
+          ),
+        ],
+      ),
+    );
+    if (result == true) {
+      messenger.showSnackBar(const SnackBar(content: Text('Merci, votre réclamation a été envoyée.')));
+    } else if (result == false) {
+      messenger.showSnackBar(const SnackBar(content: Text('Échec de l\'envoi. Réessayez plus tard.')));
+    }
   }
 
   String _normalizeAudioKey(String url) {
@@ -1724,6 +1880,7 @@ class _RecapCard extends StatelessWidget {
   final String audioUrl;
   final bool isActive;
   final Future<void> Function(String url) onToggle;
+  final VoidCallback onFlag;
 
   const _RecapCard({
     required this.indexOneBased,
@@ -1734,14 +1891,14 @@ class _RecapCard extends StatelessWidget {
     required this.audioUrl,
     required this.isActive,
     required this.onToggle,
+    required this.onFlag,
   });
 
   @override
   Widget build(BuildContext context) {
     // Contour marron (comme le popover "Vies") + couleurs statut (vert/rouge)
-    final Color borderColor = const Color(0xFF606D7C);
     final Color statusColor = isCorrect ? const Color(0xFF6A994E) : const Color(0xFFBC4749);
-    final Color chipColor = statusColor.withValues(alpha: 0.10);
+    final Color chipColor = statusColor.withValues(alpha: 0.10); // fond coloré en fonction du statut
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1776,16 +1933,24 @@ class _RecapCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: chipColor,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isCorrect ? Icons.check : Icons.close,
-                color: statusColor,
+            InkWell(
+              onTap: onFlag,
+              borderRadius: BorderRadius.circular(22),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: chipColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: SvgPicture.asset(
+                    'assets/PAGE/Paramètre/reclamation.svg',
+                    fit: BoxFit.contain,
+                    colorFilter: ColorFilter.mode(statusColor, BlendMode.srcIn),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),

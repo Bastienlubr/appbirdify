@@ -600,29 +600,45 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      _weightedGoodAnswersPct.toStringAsFixed(0),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF6A994E),
-                        fontSize: 34,
-                        fontFamily: 'Fredoka',
-                        fontWeight: FontWeight.w600,
-                        height: 1.0,
-                      ),
-                    ),
+                    Builder(builder: (context) {
+                      final double pct = _weightedGoodAnswersPct;
+                      final Color color = (pct < 40.0)
+                          ? const Color(0xFFBC4749) // rouge
+                          : (pct < 60.0)
+                              ? const Color(0xFFF2AE00) // jaune
+                              : const Color(0xFF6A994E); // vert
+                      return Text(
+                        _weightedGoodAnswersPct.toStringAsFixed(0),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 34,
+                          fontFamily: 'Fredoka',
+                          fontWeight: FontWeight.w600,
+                          height: 1.0,
+                        ),
+                      );
+                    }),
                     const SizedBox(width: 2),
-                    const Text(
-                      '%',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Color(0xFF6A994E),
-                        fontSize: 26,
-                        fontFamily: 'Fredoka',
-                        fontWeight: FontWeight.w600,
-                        height: 1.0,
-                      ),
-                    ),
+                    Builder(builder: (context) {
+                      final double pct = _weightedGoodAnswersPct;
+                      final Color color = (pct < 40.0)
+                          ? const Color(0xFFBC4749)
+                          : (pct < 60.0)
+                              ? const Color(0xFFF2AE00)
+                              : const Color(0xFF6A994E);
+                      return Text(
+                        '%',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 26,
+                          fontFamily: 'Fredoka',
+                          fontWeight: FontWeight.w600,
+                          height: 1.0,
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),

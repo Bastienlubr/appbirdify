@@ -724,6 +724,7 @@ class _HomeContentState extends State<HomeContent> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFFF3F5F9),
           title: const Text(
             "Plus de vies",
             style: TextStyle(
@@ -740,14 +741,23 @@ class _HomeContentState extends State<HomeContent> {
             ),
           ),
           actions: [
-            TextButton(
+            ElevatedButton(
               onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE1E7EE),
+                foregroundColor: const Color(0xFF334355),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFFDADADA), width: 1),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
               child: const Text(
                 "OK",
                 style: TextStyle(
                   fontFamily: 'Quicksand',
-                  color: Color(0xFF6A994E),
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

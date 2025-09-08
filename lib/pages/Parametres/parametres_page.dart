@@ -381,7 +381,7 @@ class _ParametresPageState extends State<ParametresPage> {
         const Color bg = Color(0xFFF2F5F8);
         const Color textColor = Color(0xFF334355);
         const Color iconBg = Color(0xFFD2DBB2);
-        const Color iconColor = Color(0xFF334355);
+        const Color iconColor = Colors.white;
 
         return Scaffold(
           backgroundColor: bg,
@@ -466,6 +466,24 @@ class _ParametresPageState extends State<ParametresPage> {
                       ),
 
                       SizedBox(height: m.gapMedium()),
+                      _SectionTitle(title: 'Abonnement', m: m),
+                      _CardContainer(
+                        m: m,
+                        child: Column(
+                          children: [
+                            _SettingsTile(
+                              m: m,
+                              leading: Icons.workspace_premium,
+                              title: 'Gérer mon abonnement',
+                              iconBg: iconBg,
+                              iconColor: iconColor,
+                              onTap: () => Navigator.of(context).pushNamed('/abonnement/gerer'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      SizedBox(height: m.gapMedium()),
                       _SectionTitle(title: "Aide & confidentialité", m: m),
                       _CardContainer(
                         m: m,
@@ -537,7 +555,8 @@ class _SvgBackButton extends StatelessWidget {
   final VoidCallback onTap;
   final double size;
   final double iconSize;
-  const _SvgBackButton({required this.onTap, this.size = 44, this.iconSize = 22});
+  final Color color;
+  const _SvgBackButton({required this.onTap, this.size = 44, this.iconSize = 22, this.color = const Color(0xFF334355)});
 
   @override
   Widget build(BuildContext context) {
@@ -552,7 +571,7 @@ class _SvgBackButton extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: EdgeInsets.all((size - iconSize) / 2),
-            child: _ArrowSvg(size: iconSize),
+            child: _ArrowSvg(size: iconSize, color: color),
           ),
         ),
       ),
@@ -562,7 +581,8 @@ class _SvgBackButton extends StatelessWidget {
 
 class _ArrowSvg extends StatelessWidget {
   final double size;
-  const _ArrowSvg({required this.size});
+  final Color color;
+  const _ArrowSvg({required this.size, this.color = const Color(0xFF334355)});
 
   @override
   Widget build(BuildContext context) {
@@ -571,8 +591,8 @@ class _ArrowSvg extends StatelessWidget {
       width: size,
       height: size,
       fit: BoxFit.contain,
-      colorFilter: const ColorFilter.mode(Color(0xFF334355), BlendMode.srcIn),
-      placeholderBuilder: (_) => Icon(Icons.arrow_back, size: size, color: const Color(0xFF334355)),
+      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+      placeholderBuilder: (_) => Icon(Icons.arrow_back, size: size, color: color),
     );
   }
 }
@@ -659,6 +679,7 @@ class _SettingsTile extends StatelessWidget {
     if (lower.contains('nom')) return 'assets/PAGE/Paramètre/Nom.svg';
     if (lower.contains('email')) return 'assets/PAGE/Paramètre/email.svg';
     if (lower.contains('mot de passe')) return 'assets/PAGE/Paramètre/motdepasse.svg';
+    if (lower.contains('abonnement')) return 'assets/PAGE/Paramètre/abonnement.svg';
     if (lower.contains("centre d'aide") || lower.contains('aide')) return 'assets/PAGE/Paramètre/centre d\'aide.svg';
     if (lower.contains('confidentialité') || lower.contains('conditions')) return 'assets/PAGE/Paramètre/Confidentialité et conditions.svg';
     if (lower.contains('contact')) return 'assets/PAGE/Paramètre/contactez-nous.svg';
