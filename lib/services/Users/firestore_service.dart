@@ -34,9 +34,7 @@ class FirestoreService {
             'son': true,
             'theme': null,
           },
-          'biomesDeverrouilles': [
-            'milieu urbain',
-          ],
+          // (Supprimé) biomesDeverrouilles — non utilisé
           'serie': {
             'derniersJoursActifs': <String>[],
             'serieEnCours': 0,

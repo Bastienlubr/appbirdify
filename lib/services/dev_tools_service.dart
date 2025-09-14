@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'Users/streak_service.dart';
 
 class DevToolsService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -117,17 +118,14 @@ class DevToolsService {
         debugPrint('♾️ Mise à jour du mode vies infinies=$enabled pour ${user.uid}');
       }
 
-      await _firestore
-          .collection('utilisateurs')
-          .doc(user.uid)
-          .set({
-        'livesInfinite': enabled,
-        // plus de champ root lastUpdated
+      await _firestore.collection('utilisateurs').doc(user.uid).set({
+        'vie': {
+          'livesInfinite': enabled,
+        },
+        'livesInfinite': FieldValue.delete(),
       }, SetOptions(merge: true));
 
-      if (kDebugMode) {
-        debugPrint('✅ Mode vies infinies ${enabled ? 'activé' : 'désactivé'}');
-      }
+      if (kDebugMode) debugPrint('✅ Mode vies infinies ${enabled ? 'activé' : 'désactivé'} (vie.livesInfinite)');
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Erreur lors du paramétrage vies infinies: $e');
@@ -303,6 +301,22 @@ class DevToolsService {
     }
   }
 
+  /// Supprime le champ biomesDeverrouilles du document utilisateur (dépoussiérage)
+  static Future<void> removeUnlockedBiomesField() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+      await _firestore.collection('utilisateurs').doc(user.uid).set({
+        'biomesDeverrouilles': FieldValue.delete(),
+        'biomesUnlocked': FieldValue.delete(),
+      }, SetOptions(merge: true));
+      if (kDebugMode) debugPrint('🧹 Champ biomesDeverrouilles supprimé');
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ removeUnlockedBiomesField error: $e');
+      rethrow;
+    }
+  }
+
   /// Déconnexion de l'utilisateur
   static Future<void> signOut() async {
     try {
@@ -388,6 +402,101 @@ class DevToolsService {
       }
       return 0;
     }
+  }
+
+  /// Normalise la série en cours: conserve uniquement les jours consécutifs jusqu'à aujourd'hui
+  static Future<void> normalizeCurrentStreak() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+      await StreakService.normalizeCurrentStreak(user.uid);
+      if (kDebugMode) debugPrint('✅ Série normalisée pour ${user.uid}');
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ normalizeCurrentStreak error: $e');
+      rethrow;
+    }
+  }
+
+  /// Assure l'unicité de livesInfinite: place sous vie.livesInfinite et supprime la racine
+  static Future<void> fixLivesInfinitePlacement() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+      final ref = _firestore.collection('utilisateurs').doc(user.uid);
+      final snap = await ref.get();
+      final data = snap.data() as Map<String, dynamic>?;
+      final bool nested = (data?['vie']?['livesInfinite'] == true);
+      final bool root = (data?['livesInfinite'] == true);
+      final bool value = nested || root;
+      await ref.set({
+        'vie': {
+          'livesInfinite': value,
+        },
+        // Toujours supprimer le champ racine s'il subsiste
+        'livesInfinite': FieldValue.delete(),
+      }, SetOptions(merge: true));
+      if (kDebugMode) debugPrint('🧹 fixLivesInfinitePlacement: vie.livesInfinite=$value, racine supprimée');
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ fixLivesInfinitePlacement error: $e');
+      rethrow;
+    }
+  }
+
+  /// Supprime explicitement l'ancien champ racine livesInfinite (sans toucher à vie.livesInfinite)
+  static Future<void> deleteRootLivesInfinite() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+      final ref = _firestore.collection('utilisateurs').doc(user.uid);
+      await ref.set({
+        'livesInfinite': FieldValue.delete(),
+      }, SetOptions(merge: true));
+      if (kDebugMode) debugPrint('🗑️ Champ racine livesInfinite supprimé');
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ deleteRootLivesInfinite error: $e');
+      rethrow;
+    }
+  }
+
+  /// Lit l'état premium (profil.estPremium)
+  static Future<bool> isPremium() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return false;
+      final doc = await _firestore.collection('utilisateurs').doc(user.uid).get();
+      return (doc.data()?['profil']?['estPremium'] == true);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Définit l'état premium et synchronise livesInfinite en conséquence
+  static Future<void> setPremium(bool enabled) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+      await _firestore.collection('utilisateurs').doc(user.uid).set({
+        'profil': {
+          'estPremium': enabled,
+        },
+        'vie': {
+          'livesInfinite': enabled,
+        },
+        'livesInfinite': FieldValue.delete(),
+      }, SetOptions(merge: true));
+      if (kDebugMode) {
+        debugPrint('✅ Premium ${enabled ? 'activé' : 'désactivé'} pour ${user.uid}');
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ setPremium error: $e');
+      rethrow;
+    }
+  }
+
+  /// Inverse l'état premium actuel
+  static Future<void> togglePremium() async {
+    final current = await isPremium();
+    await setPremium(!current);
   }
 
   /// Déverrouille toutes les étoiles (3 étoiles par mission)

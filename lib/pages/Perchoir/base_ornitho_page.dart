@@ -311,9 +311,9 @@ class _BaseOrnithoPageState extends State<BaseOrnithoPage>
                     Text(
                       'Répertoire des Oiseaux',
                       style: TextStyle(
-                        fontFamily: 'Quicksand',
+                        fontFamily: 'Fredoka',
                         fontSize: m.font(24, tabletFactor: 1.1, min: 20, max: 40),
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w600,
                         color: const Color(0xFF344356),
                       ),
                     ),

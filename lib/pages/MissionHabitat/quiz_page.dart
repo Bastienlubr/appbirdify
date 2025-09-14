@@ -341,10 +341,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                   ],
                 ),
               ),
-            ].map((w) => ValueListenableBuilder<bool>(
-                  valueListenable: DevVisibilityService.overlaysEnabled,
-                  builder: (context, visible, child) => visible ? w : const SizedBox.shrink(),
-                )).toList(),
+            ],
+            // (rien à mapper ici; les boutons de test au-dessus sont déjà conditionnés par DevVisibilityService)
             // Effet d'auréole animé: se révèle du bas vers le haut
             if (_showFeedback)
               Positioned.fill(

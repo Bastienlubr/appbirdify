@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/Users/life_service.dart';
+import '../../../services/ads/ad_service.dart';
 import '../../../widgets/boutons/bouton_universel.dart';
 
 class LivesPopover extends StatefulWidget {
   final int currentLives;
   final Offset anchor;
   final VoidCallback onClose;
+  final void Function(int newLives)? onLivesChanged;
 
   const LivesPopover({
     super.key,
     required this.currentLives,
     required this.anchor,
     required this.onClose,
+    this.onLivesChanged,
   });
 
   @override
@@ -106,9 +109,12 @@ class LivesPopoverState extends State<LivesPopover>
                 onClose: widget.onClose,
                 onNavigateToInfo: () {
                   dismissWithAnimation(onCompleted: () {
+                    // Fermer l'overlay AVANT de naviguer, sinon le premier tap sur la page suivante est absorbé
+                    widget.onClose();
                     Navigator.of(context).pushNamed('/abonnement/information');
                   });
                 },
+                onLivesChanged: widget.onLivesChanged,
               ),
             ),
           ),
@@ -124,6 +130,7 @@ class _PopoverCard extends StatelessWidget {
   final double arrowSize;
   final VoidCallback onClose;
   final VoidCallback onNavigateToInfo;
+  final void Function(int newLives)? onLivesChanged;
 
   const _PopoverCard({
     required this.currentLives,
@@ -131,6 +138,7 @@ class _PopoverCard extends StatelessWidget {
     required this.arrowSize,
     required this.onClose,
     required this.onNavigateToInfo,
+    this.onLivesChanged,
   });
 
   @override
@@ -171,7 +179,28 @@ class _PopoverCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: BoutonUniversel(
-                onPressed: onNavigateToInfo,
+                onPressed: () async {
+                  // Afficher une pub récompensée → +1 vie si récompense obtenue
+                  final uid = LifeService.getCurrentUserId();
+                  if (uid == null) {
+                    onNavigateToInfo();
+                    return;
+                  }
+                  // Lazy import pour éviter dépendance forte ici
+                  try {
+                    // ignore: unused_local_variable
+                    final rewarded = await AdService.instance.showRewardedIfAvailable();
+                    if (rewarded) {
+                      final tx = await LifeService.addLivesTransactional(uid, 1);
+                      final before = tx['before'] ?? 0;
+                      final after = tx['after'] ?? before;
+                      try { onLivesChanged?.call(after); } catch (_) {}
+                    }
+                  } catch (_) {
+                    // Fallback: ouvrir la page info si pas de pub
+                    onNavigateToInfo();
+                  }
+                },
                 size: BoutonUniverselTaille.small,
                 decorClipToOuter: true,
                 decorPadding: EdgeInsets.zero,

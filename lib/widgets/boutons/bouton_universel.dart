@@ -1,7 +1,5 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 enum BoutonUniverselTaille { small, medium, large }
@@ -299,12 +297,12 @@ class _BoutonUniverselState extends State<BoutonUniversel>
   @override
   Widget build(BuildContext context) {
     // Définition du clip interne: rayon réduit de l'épaisseur de bordure
-    const double _borderStrokeWidth = 1.0;
-    final bool _useOuter = widget.decorClipToOuter;
-    final double _innerClipRadius = _useOuter
+    const double borderStrokeWidth = 1.0;
+    final bool useOuter = widget.decorClipToOuter;
+    final double innerClipRadius = useOuter
         ? _resolvedBorderRadius
-        : (_resolvedBorderRadius > _borderStrokeWidth ? (_resolvedBorderRadius - _borderStrokeWidth) : 0.0);
-    final EdgeInsets _innerDecorPadding = widget.decorPadding ?? (_useOuter ? EdgeInsets.zero : const EdgeInsets.all(_borderStrokeWidth));
+        : (_resolvedBorderRadius > borderStrokeWidth ? (_resolvedBorderRadius - borderStrokeWidth) : 0.0);
+    final EdgeInsets innerDecorPadding = widget.decorPadding ?? (useOuter ? EdgeInsets.zero : const EdgeInsets.all(borderStrokeWidth));
 
     final double targetTranslateY = widget.disabled
         ? 0.0
@@ -388,9 +386,9 @@ class _BoutonUniverselState extends State<BoutonUniversel>
                 child: IgnorePointer(
                   ignoring: !widget.enableDecorTuning,
                   child: Padding(
-                    padding: _innerDecorPadding,
+                    padding: innerDecorPadding,
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(_innerClipRadius),
+                      borderRadius: BorderRadius.circular(innerClipRadius),
                       child: _DecorStack(
                         key: ValueKey(
                           (widget.decorElements ?? const [])
@@ -476,7 +474,7 @@ class _BoutonUniverselState extends State<BoutonUniversel>
           right: 8,
           bottom: 8,
           child: Material(
-            color: Colors.black.withOpacity(0.32),
+            color: Colors.black.withValues(alpha: 0.32),
             borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -589,6 +587,7 @@ class _ScaledText extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _DecorElementWidget extends StatelessWidget {
   final DecorElement element;
   const _DecorElementWidget({required this.element});
@@ -629,7 +628,7 @@ class _DecorStack extends StatelessWidget {
   final bool tuning;
   final List<double>? rotationOverrides;
   final void Function(int index)? onSelect;
-  const _DecorStack({Key? key, required this.elements, this.background, this.globalScale = 1.0, this.scaleBasis = DecorScaleBasis.height, this.tuning = false, this.rotationOverrides, this.onSelect}) : super(key: key);
+  const _DecorStack({super.key, required this.elements, this.background, this.globalScale = 1.0, this.scaleBasis = DecorScaleBasis.height, this.tuning = false, this.rotationOverrides, this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -657,7 +656,6 @@ class _DecorStack extends StatelessWidget {
                     base = math.min(w, h);
                     break;
                   case DecorScaleBasis.height:
-                  default:
                     base = h;
                 }
                 final double size = (base * e.scale * globalScale).clamp(4.0, 4000.0);
@@ -694,6 +692,7 @@ class _DecorStack extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _DecorElementSvg extends StatelessWidget {
   final DecorElement element;
   const _DecorElementSvg({required this.element});

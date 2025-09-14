@@ -6,6 +6,7 @@ import '../services/Mission/communs/commun_persistance_consultation.dart';
 import '../pages/auth/login_screen.dart';
 import '../pages/RecompensesUtiles/test_recompenses_access.dart';
 import '../pages/RecompensesUtiles/recompenses_utiles_page.dart';
+import '../pages/RecompensesUtiles/recompenses_utiles_secondaire_page.dart';
 import '../services/Users/recompenses_utiles_service.dart';
 import '../data/bird_image_alignments.dart';
 
@@ -317,9 +318,6 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
                     // Actions de restauration
                     _buildResetSection(),
                     const SizedBox(height: 20),
-                    
-                    // Test des badges NOUVEAU
-                    _buildBadgeTestSection(),
                   ],
                 ),
               ),
@@ -392,6 +390,7 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           ),
           const SizedBox(height: 12),
           _buildInfoRow('👤 Email', widget.userInfo?['profil']?['email'] ?? 'N/A'),
+          _buildInfoRow('⭐ Premium', ((widget.userInfo?['profil']?['estPremium'] == true) ? 'Oui' : 'Non')),
           _buildInfoRow('🎯 Missions déverrouillées', '${widget.unlockedMissions}'),
           _buildInfoRow('⭐ Total étoiles', '${widget.totalStars}'),
           _buildInfoRow(
@@ -473,6 +472,14 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           }),
         ),
         _buildActionButton(
+          icon: Icons.workspace_premium,
+          label: '🌟 Basculer Premium (activer/désactiver)',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.togglePremium();
+            if (kDebugMode) debugPrint('🔁 Premium toggled');
+          }),
+        ),
+        _buildActionButton(
           icon: Icons.all_inclusive,
           label: '♾️ Activer vies infinies (compte courant)',
           onPressed: () => _executeAction(() async {
@@ -514,6 +521,7 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
             if (widget.onLivesRestored != null) widget.onLivesRestored!();
           }),
         ),
+        // (Supprimé) Normaliser la série
         
         _buildActionButton(
           icon: Icons.star,
@@ -521,6 +529,21 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           onPressed: () {
             Navigator.of(context).pop(); // Fermer le popup d'abord
             TestRecompensesAccess.showRecompensesPage(context);
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.favorite,
+          label: '💖 Ouvrir Récompense utile secondaire (coeur)',
+          onPressed: () {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
+            }
+            Future<void>(() async {
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const RecompensesUtilesSecondairePage()),
+              );
+            });
           },
         ),
         _buildActionButton(
@@ -602,6 +625,7 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           label: '🔓 Déverrouiller TOUTES les missions',
           onPressed: () => _executeAction(DevToolsService.unlockAllMissions),
         ),
+        // (Supprimé) Supprimer biomesDeverrouilles
         _buildActionButton(
           icon: Icons.star,
           label: '⭐ Déverrouiller TOUTES les étoiles (3★ partout)',
@@ -640,68 +664,10 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
             }
             _executeAction(() async {
               await DevToolsService.resetAllStars();
-              // Appeler le callback pour forcer le rechargement des missions
               if (widget.onStarsReset != null) {
                 if (kDebugMode) debugPrint('🔄 Appel du callback de rechargement des étoiles...');
                 widget.onStarsReset!();
               }
-            });
-          },
-          isDestructive: true,
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildBadgeTestSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '🏷️ Test Badges NOUVEAU',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Quicksand',
-          ),
-        ),
-        const SizedBox(height: 12),
-        _buildActionButton(
-          icon: Icons.visibility,
-          label: '🔍 Afficher missions consultées',
-          onPressed: () {
-            _executeAction(() async {
-              await MissionPersistenceService.debugConsultedMissions();
-            });
-          },
-        ),
-        _buildActionButton(
-          icon: Icons.refresh,
-          label: '🔄 Réinitialiser statut consulté (U02)',
-          onPressed: () {
-            _executeAction(() async {
-              await MissionPersistenceService.clearMissionConsultedStatus('U02');
-              if (kDebugMode) debugPrint('🔄 Statut consulté réinitialisé pour U02');
-            });
-          },
-        ),
-        _buildActionButton(
-          icon: Icons.refresh,
-          label: '🔄 Réinitialiser statut consulté (F02)',
-          onPressed: () {
-            _executeAction(() async {
-              await MissionPersistenceService.clearMissionConsultedStatus('F02');
-              if (kDebugMode) debugPrint('🔄 Statut consulté réinitialisé pour F02');
-            });
-          },
-        ),
-        _buildActionButton(
-          icon: Icons.clear_all,
-          label: '🗑️ Effacer toutes les missions consultées',
-          onPressed: () {
-            _executeAction(() async {
-              await MissionPersistenceService.clearConsultedMissions();
-              if (kDebugMode) debugPrint('🗑️ Toutes les missions consultées ont été effacées');
             });
           },
           isDestructive: true,

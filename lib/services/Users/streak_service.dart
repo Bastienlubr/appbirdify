@@ -26,18 +26,8 @@ class StreakService {
         final String todayKey = _formatDayKey(nowUtc);
         final String yesterdayKey = _formatDayKey(nowUtc.subtract(const Duration(days: 1)));
 
-        // Si déjà comptabilisé aujourd'hui → ne rien ajouter, mais sécuriser serieMaximum
-        if (jours.contains(todayKey)) {
-          // Dédupliquer/ordonner proprement
-          final List<String> normalized = _normalizeDays(jours);
-          final int fixedBest = currentStreak > bestStreak ? currentStreak : bestStreak;
-          txn.update(userRef, {
-            'serie.derniersJoursActifs': normalized,
-            'serie.serieEnCours': currentStreak,
-            'serie.serieMaximum': fixedBest,
-          });
-          return;
-        }
+        // Construit toujours une liste de jours consécutifs TERMINANT aujourd'hui
+        // Si aujourd'hui est déjà présent, on recalculera quand même la queue consécutive
 
         // Calculer la dernière date d'activité (si existante)
         String? lastDay;
@@ -47,16 +37,25 @@ class StreakService {
           lastDay = sorted.last;
         }
 
+        List<String> updatedDays;
         int newStreak;
-        if (lastDay == yesterdayKey) {
-          newStreak = currentStreak + 1;
+        if (jours.contains(todayKey)) {
+          // Déjà comptabilisé aujourd'hui → extraire la queue consécutive finissant aujourd'hui
+          updatedDays = _consecutiveTailEndingAt(jours, todayKey);
+          newStreak = updatedDays.length;
+        } else if (lastDay == yesterdayKey) {
+          // Continuité: repartir de la queue finissant hier, puis ajouter aujourd'hui
+          final List<String> tail = _consecutiveTailEndingAt(jours, yesterdayKey);
+          updatedDays = [...tail, todayKey];
+          newStreak = updatedDays.length;
         } else {
-          // Soit première activité, soit trou de >= 1 jour
+          // Rupture: repartir à aujourd'hui uniquement
+          updatedDays = [todayKey];
           newStreak = 1;
         }
 
-        // Ajouter aujourd'hui, dédupliquer, trier et borner
-        final List<String> updatedDays = _normalizeDays(<String>{...jours, todayKey}.toList());
+        // Borne (sécurité) même si on ne conserve que la queue consécutive
+        updatedDays = _normalizeDays(updatedDays);
         final int updatedBest = newStreak > bestStreak ? newStreak : bestStreak;
         txn.update(userRef, {
           'serie.derniersJoursActifs': updatedDays,
@@ -87,6 +86,37 @@ class StreakService {
     return sorted.sublist(sorted.length - keep);
   }
 
+  /// Extrait la queue de jours consécutifs se terminant par endKey (inclus).
+  /// Si endKey n'est pas présent, renvoie [].
+  static List<String> _consecutiveTailEndingAt(List<String> days, String endKey) {
+    if (!days.contains(endKey)) return <String>[];
+    final List<String> sorted = List<String>.from(days)..sort();
+    // Remonter à partir de endKey vers l'arrière tant que les jours sont consécutifs
+    final int endIndex = sorted.lastIndexOf(endKey);
+    final List<String> tail = <String>[];
+    if (endIndex < 0) return tail;
+    DateTime prev = _parseDayKey(sorted[endIndex]);
+    tail.insert(0, sorted[endIndex]);
+    for (int i = endIndex - 1; i >= 0; i--) {
+      final DateTime d = _parseDayKey(sorted[i]);
+      if (prev.difference(d).inDays == 1) {
+        tail.insert(0, sorted[i]);
+        prev = d;
+      } else {
+        break;
+      }
+    }
+    return tail;
+  }
+
+  static DateTime _parseDayKey(String key) {
+    final parts = key.split('-');
+    final int y = int.parse(parts[0]);
+    final int m = int.parse(parts[1]);
+    final int d = int.parse(parts[2]);
+    return DateTime.utc(y, m, d);
+  }
+
   static String _formatDayKey(DateTime dtUtc) {
     // dtUtc est supposé en UTC
     final int y = dtUtc.year;
@@ -94,6 +124,42 @@ class StreakService {
     final int d = dtUtc.day;
     String two(int n) => n < 10 ? '0$n' : '$n';
     return '$y-${two(m)}-${two(d)}';
+  }
+
+  /// Normalise la série existante pour ne conserver que la série en cours
+  /// (queue de jours consécutifs se terminant au dernier jour d'activité).
+  static Future<void> normalizeCurrentStreak(String uid) async {
+    try {
+      final ref = _firestore.collection('utilisateurs').doc(uid);
+      await _firestore.runTransaction((txn) async {
+        final snap = await txn.get(ref);
+        final data = snap.data() ?? <String, dynamic>{};
+        final Map<String, dynamic> serie = (data['serie'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+        final List<String> jours = ((serie['derniersJoursActifs'] as List<dynamic>?)?.map((e) => e.toString()).toList()) ?? <String>[];
+        final int bestStreak = (serie['serieMaximum'] as int?) ?? 0;
+        if (jours.isEmpty) {
+          txn.set(ref, {
+            'serie': {
+              'derniersJoursActifs': <String>[],
+              'serieEnCours': 0,
+              'serieMaximum': bestStreak,
+            }
+          }, SetOptions(merge: true));
+          return;
+        }
+        final List<String> sorted = List<String>.from(jours)..sort();
+        final String last = sorted.last;
+        final List<String> tail = _consecutiveTailEndingAt(sorted, last);
+        final int current = tail.length;
+        txn.update(ref, {
+          'serie.derniersJoursActifs': _normalizeDays(tail),
+          'serie.serieEnCours': current,
+          'serie.serieMaximum': current > bestStreak ? current : bestStreak,
+        });
+      });
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ normalizeCurrentStreak erreur: $e');
+    }
   }
 }
 

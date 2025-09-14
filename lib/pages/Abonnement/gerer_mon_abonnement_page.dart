@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../widgets/boutons/bouton_universel.dart';
+import '../../services/abonnement/premium_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class GererMonAbonnementPage extends StatelessWidget {
   const GererMonAbonnementPage({
@@ -142,77 +145,152 @@ class _Canvas extends StatelessWidget {
             ),
           ),
 
-          // Statut
-          const Positioned(
-            left: 81,
+          // Statut (Premium + libellé plan) — centré
+          Positioned(
+            left: 0,
             top: 151,
-            child: Text(
-              ' Abonnement en cours...',
-              style: TextStyle(
-                color: Color(0xFF334355),
-                fontSize: 20,
-                fontFamily: 'Fredoka',
-                fontWeight: FontWeight.w600,
+            child: SizedBox(
+              width: 375,
+              child: Center(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: PremiumService.instance.isPremium,
+                  builder: (context, premium, _) {
+                    if (!premium) {
+                      return const Text(
+                        'Aucun abonnement actif',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFF334355),
+                          fontSize: 20,
+                          fontFamily: 'Fredoka',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    }
+                    return ValueListenableBuilder<Map<String, dynamic>?>(
+                      valueListenable: PremiumService.instance.abonnement,
+                      builder: (context, abo, __) {
+                        final String plan = _resolvePlanLabel(abo);
+                        final String title = plan.isNotEmpty ? 'Abonnement actif — $plan' : 'Abonnement actif';
+                        return Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFF334355),
+                            fontSize: 20,
+                            fontFamily: 'Fredoka',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ),
 
-          // Carte d'information (fond)
+          // Carte d'information avec contenu inclus (aligné à l'intérieur)
           Positioned(
             left: 36,
             top: 192,
-            child: Container(
-              width: 303,
-              height: 101,
-              decoration: ShapeDecoration(
-                color: const Color(0xFFFCFCFE),
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(width: 3, color: Color(0xFFDADADA)),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                shadows: const [
-                  BoxShadow(
-                    color: Color(0x153C7FD0),
-                    blurRadius: 19,
-                    offset: Offset(0, 12),
+            child: ValueListenableBuilder<Map<String, dynamic>?>(
+              valueListenable: PremiumService.instance.abonnement,
+              builder: (context, abo, _) {
+                final int trialDaysLeft = (abo?['joursEssaiRestants'] as int?) ?? 0;
+                final DateTime? nextBilling = (abo?['prochaineFacturation'] is Timestamp)
+                    ? (abo?['prochaineFacturation'] as Timestamp).toDate()
+                    : (abo?['prochaineFacturation'] as DateTime?);
+                final DateTime? periodeDebut = (abo?['periodeCourante']?['debut'] is Timestamp)
+                    ? (abo?['periodeCourante']?['debut'] as Timestamp).toDate()
+                    : (abo?['periodeCourante']?['debut'] as DateTime?);
+                final DateTime? periodeFin = (abo?['periodeCourante']?['fin'] is Timestamp)
+                    ? (abo?['periodeCourante']?['fin'] as Timestamp).toDate()
+                    : (abo?['periodeCourante']?['fin'] as DateTime?);
+
+                final String line1 = (periodeDebut != null && periodeFin != null)
+                    ? 'Période en cours: du ${_formatDateFr(periodeDebut)} au ${_formatDateFr(periodeFin)}'
+                    : '';
+                final String line2 = (nextBilling != null)
+                    ? 'Prochaine facturation: ${_formatDateFr(nextBilling)}'
+                    : (line1.isEmpty ? 'Abonnement en cours' : '');
+                final String? trialText = trialDaysLeft > 0
+                    ? 'Essai gratuit (${trialDaysLeft} jour${trialDaysLeft > 1 ? 's' : ''} restant${trialDaysLeft > 1 ? 's' : ''})'
+                    : null;
+
+                return Container(
+                  width: 303,
+                  decoration: ShapeDecoration(
+                    color: const Color(0xFFFCFCFE),
+                    shape: RoundedRectangleBorder(
+                      side: const BorderSide(width: 3, color: Color(0xFFDADADA)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    shadows: const [
+                      BoxShadow(
+                        color: Color(0x153C7FD0),
+                        blurRadius: 19,
+                        offset: Offset(0, 12),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                  child: SingleChildScrollView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (trialText != null)
+                          Text(
+                            trialText,
+                            style: const TextStyle(
+                              color: Color(0xFF334355),
+                              fontSize: 15,
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        if (line1.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              line1,
+                              style: const TextStyle(
+                                color: Color(0x8C334355),
+                                fontSize: 15,
+                                fontFamily: 'Quicksand',
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        if (line2.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              line2,
+                              style: const TextStyle(
+                                color: Color(0x8C334355),
+                                fontSize: 15,
+                                fontFamily: 'Quicksand',
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
 
-          // Détails d'essai et de facturation
-          const Positioned(
-            left: 48,
-            top: 206,
-            child: Text(
-              'Essai gratuit (2 jours restants)',
-              style: TextStyle(
-                color: Color(0xFF334355),
-                fontSize: 15,
-                fontFamily: 'Fredoka',
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 47,
-            top: 232,
-            child: SizedBox(
-              width: 288,
-              child: Text(
-                'Les paiements mensuels récurrents commenceront le 10 septembre 2025',
-                style: TextStyle(
-                  color: Color(0x8C334355),
-                  fontSize: 15,
-                  fontFamily: 'Quicksand',
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-
-          // Bouton Résilier l'abonnement (BoutonUniversel)
+          // Bouton Gérer sur Google Play (ouverture directe)
           Positioned(
             left: 49.09,
             top: 318.45,
@@ -220,10 +298,15 @@ class _Canvas extends StatelessWidget {
               width: 274.82,
               height: 40.73,
               child: BoutonUniversel(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Action disponible bientôt: résiliation')),
-                  );
+                onPressed: () async {
+                  final url = Uri.parse('https://play.google.com/store/account/subscriptions');
+                  if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Impossible d\'ouvrir Google Play')),
+                      );
+                    }
+                  }
                 },
                 size: BoutonUniverselTaille.small,
                 borderRadius: 10,
@@ -235,14 +318,13 @@ class _Canvas extends StatelessWidget {
                 shadowColor: const Color(0xFFDADADA),
                 child: const Center(
                   child: Text(
-                    ' Résilier l’abonnement',
+                    'Gérer sur Google Play',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(0xFF334355),
-                      fontSize: 17,
+                      fontSize: 16,
                       fontFamily: 'Fredoka',
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 1,
                       height: 1.0,
                     ),
                   ),
@@ -251,28 +333,77 @@ class _Canvas extends StatelessWidget {
             ),
           ),
 
-          // Home indicator
+          // Bouton Résilier mon compte (ouvre le questionnaire motif)
           Positioned(
-            left: 121,
-            top: 799,
-            child: Opacity(
-              opacity: 0.20,
-              child: Container(
-                width: 134,
-                height: 5,
-                decoration: ShapeDecoration(
-                  color: const Color(0xFF334355),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(2.50),
+            left: 49.09,
+            top: 371.00,
+            child: SizedBox(
+              width: 274.82,
+              height: 40.73,
+              child: BoutonUniversel(
+                onPressed: () => Navigator.of(context).pushNamed('/abonnement/annulation-motif'),
+                size: BoutonUniverselTaille.small,
+                borderRadius: 10,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                backgroundColor: const Color(0xFFFCFCFE),
+                hoverBackgroundColor: const Color(0xFFEDEDED),
+                borderColor: const Color(0xFFDADADA),
+                hoverBorderColor: const Color(0xFFDADADA),
+                shadowColor: const Color(0xFFDADADA),
+                child: const Center(
+                  child: Text(
+                    'Résilier mon compte',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF334355),
+                      fontSize: 16,
+                      fontFamily: 'Fredoka',
+                      fontWeight: FontWeight.w600,
+                      height: 1.0,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
+
+          // (Supprimé) Home indicator
         ],
       ),
     );
   }
+}
+
+String _formatDateFr(DateTime date) {
+  // Format très simple JJ mois AAAA (sans dépendance intl)
+  const mois = [
+    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
+  ];
+  final d = date.day;
+  final m = mois[date.month - 1];
+  final y = date.year;
+  return '$d $m $y';
+}
+
+String _resolvePlanLabel(Map<String, dynamic>? abo) {
+  if (abo == null) return '';
+  final String? productId = abo['produitId'] as String?;
+  final String? basePlanId = abo['offre'] is Map<String, dynamic>
+      ? (abo['offre'] as Map<String, dynamic>)['basePlanId'] as String?
+      : null;
+  final String id = (basePlanId ?? productId ?? '').toLowerCase();
+  if (id.isEmpty) return '';
+  if (id.contains('year') || id.contains('annuel') || id.contains('yearly') || id.contains('12')) {
+    return '12 mois';
+  }
+  if (id.contains('6') || id.contains('semestr')) {
+    return '6 mois';
+  }
+  if (id.contains('month') || id.contains('mensuel') || id.contains('monthly') || id.contains('1')) {
+    return '1 mois';
+  }
+  return '';
 }
 
 

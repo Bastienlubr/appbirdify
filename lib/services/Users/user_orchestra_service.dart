@@ -3,8 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firestore_service.dart';
+import '../abonnement/premium_service.dart';
 import 'life_service.dart';
 import 'user_profile_service.dart';
+import 'user_avatar_service.dart';
 
 /// Chef d'orchestre des systèmes utilisateur.
 /// Centralise l'initialisation, l'arrêt et les opérations transverses.
@@ -92,15 +94,16 @@ class UserOrchestra {
         final userDocRef = FirebaseFirestore.instance.collection('utilisateurs').doc(uid);
         final snap = await userDocRef.get();
         final data = snap.data();
-        final hasNewBiomes = data?['biomesDeverrouilles'] != null;
-        final legacyBiomes = (data?['biomesUnlocked'] as List<dynamic>?)?.map((e) => e.toString()).toList();
+        final hasNewBiomes = false; // biomesDeverrouilles supprimé
+        final legacyBiomes = null; // non utilisé
 
         final Map<String, dynamic> updates = {
           // Suppression des anciens champs
           'xp': FieldValue.delete(),
           'isPremium': FieldValue.delete(),
           'currentBiome': FieldValue.delete(),
-          'biomesUnlocked': FieldValue.delete(),
+          'biomesUnlocked': FieldValue.delete(), // legacy supprimé
+          'biomesDeverrouilles': FieldValue.delete(), // supprimer si présent
           'Vie restante': FieldValue.delete(),
           'livesRemaining': FieldValue.delete(),
           'prochaineRecharge': FieldValue.delete(),
@@ -128,6 +131,16 @@ class UserOrchestra {
       // 6) Démarrer la synchronisation temps réel unifiée
       await startRealtime();
 
+      // 7) Démarrer le service Premium (écoute profil + restauration achats)
+      try {
+        await PremiumService.instance.start();
+      } catch (_) {}
+
+      // 8) Avatar: écouter et précharger la photo de profil pour l'UI
+      try {
+        await UserAvatarService.instance.start();
+      } catch (_) {}
+
       if (kDebugMode) debugPrint('✅ UserOrchestra démarré');
     } catch (e) {
       if (kDebugMode) debugPrint('❌ UserOrchestra.start erreur: $e');
@@ -140,6 +153,12 @@ class UserOrchestra {
     if (kDebugMode) debugPrint('🛑 UserOrchestra.stop');
     try {
       stopRealtime();
+    } catch (_) {}
+    try {
+      PremiumService.instance.stop();
+    } catch (_) {}
+    try {
+      UserAvatarService.instance.stop();
     } catch (_) {}
   }
 
@@ -278,7 +297,8 @@ class UserOrchestra {
 
   static int get currentLives => _currentProfile?['vie']?['vieRestante'] ?? 5;
   static int get maxLives => _currentProfile?['vie']?['vieMaximum'] ?? 5;
-  static List<String> get unlockedBiomes => List<String>.from(_currentProfile?['biomesDeverrouilles'] ?? ['milieu urbain']);
+  // (Supprimé) biomesDeverrouilles: non utilisé désormais
+  static List<String> get unlockedBiomes => const <String>[];
   static String get currentBiome => _currentProfile?['biomeActuel'] ?? 'milieu urbain';
 
   static Stream<Map<String, dynamic>?> get profileStream => _profileStream ?? Stream.empty();
@@ -286,6 +306,11 @@ class UserOrchestra {
   static Stream<List<Map<String, dynamic>>> get badgesStream => _badgesStream ?? Stream.empty();
   static Stream<List<Map<String, dynamic>>> get missionProgressStream => _missionProgressStream ?? Stream.empty();
   static Stream<List<Map<String, dynamic>>> get sessionsStream => _sessionsStream ?? Stream.empty();
+
+  // === Premium ===
+  static bool get isPremium => _currentProfile?['profil']?['estPremium'] == true;
+  static Stream<bool> get isPremiumStream => (_profileStream ?? const Stream<Map<String, dynamic>?>.empty())
+      .map((p) => (p?['profil']?['estPremium'] == true));
 
   // Callbacks
   static void addProfileCallback(Function() cb) => _profileCallbacks.add(cb);

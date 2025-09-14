@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../ui/responsive/responsive.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../services/abonnement/premium_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../../services/Users/user_orchestra_service.dart';
+import '../../main.dart';
 
 class ParametresPage extends StatefulWidget {
   const ParametresPage({super.key});
@@ -65,7 +68,15 @@ class _ParametresPageState extends State<ParametresPage> {
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Modifier le nom'),
+          backgroundColor: const Color(0xFFF3F5F9),
+          title: const Text(
+            'Modifier le nom',
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF334355),
+            ),
+          ),
           content: Form(
             key: formKey,
             child: TextFormField(
@@ -82,6 +93,16 @@ class _ParametresPageState extends State<ParametresPage> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE1E7EE),
+                foregroundColor: const Color(0xFF334355),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFFDADADA), width: 1),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
               onPressed: () {
                 if (formKey.currentState?.validate() == true) {
                   Navigator.pop(ctx, controller.text.trim());
@@ -125,7 +146,15 @@ class _ParametresPageState extends State<ParametresPage> {
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Modifier l\'email'),
+          backgroundColor: const Color(0xFFF3F5F9),
+          title: const Text(
+            'Modifier l\'email',
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF334355),
+            ),
+          ),
           content: Form(
             key: formKey,
             child: TextFormField(
@@ -144,6 +173,16 @@ class _ParametresPageState extends State<ParametresPage> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE1E7EE),
+                foregroundColor: const Color(0xFF334355),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFFDADADA), width: 1),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
               onPressed: () {
                 if (formKey.currentState?.validate() == true) {
                   Navigator.pop(ctx, controller.text.trim());
@@ -241,7 +280,15 @@ class _ParametresPageState extends State<ParametresPage> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Réauthentification requise'),
+        backgroundColor: const Color(0xFFF3F5F9),
+        title: const Text(
+          'Réauthentification requise',
+          style: TextStyle(
+            fontFamily: 'Quicksand',
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF334355),
+          ),
+        ),
         content: Form(
           key: formKey,
           child: TextFormField(
@@ -254,6 +301,16 @@ class _ParametresPageState extends State<ParametresPage> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE1E7EE),
+              foregroundColor: const Color(0xFF334355),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFDADADA), width: 1),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
             onPressed: () {
               if (formKey.currentState?.validate() == true) {
                 Navigator.pop(ctx, true);
@@ -298,7 +355,15 @@ class _ParametresPageState extends State<ParametresPage> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Changer le mot de passe'),
+        backgroundColor: const Color(0xFFF3F5F9),
+        title: const Text(
+          'Changer le mot de passe',
+          style: TextStyle(
+            fontFamily: 'Quicksand',
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF334355),
+          ),
+        ),
         content: Form(
           key: formKey,
           child: Column(
@@ -328,6 +393,16 @@ class _ParametresPageState extends State<ParametresPage> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE1E7EE),
+              foregroundColor: const Color(0xFF334355),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFDADADA), width: 1),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
             onPressed: () {
               if (formKey.currentState?.validate() == true) {
                 Navigator.pop(ctx, true);
@@ -373,6 +448,30 @@ class _ParametresPageState extends State<ParametresPage> {
     }
   }
 
+  Future<void> _handleLogout() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      // Arrêter les services temps réel / premium
+      try { UserOrchestra.stop(); } catch (_) {}
+
+      // Déconnexion Google si nécessaire (meilleur nettoyage des sessions)
+      try { await GoogleSignIn().signOut(); } catch (_) {}
+
+      // Déconnexion Firebase
+      await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
+      // Retour à l'écran racine (RootDecider gère la redirection Login)
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const RootDecider()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('Échec de la déconnexion')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -399,6 +498,7 @@ class _ParametresPageState extends State<ParametresPage> {
                         onTap: () => Navigator.of(context).maybePop(),
                         size: m.dp(56),
                         iconSize: m.dp(30),
+                        color: const Color(0xFF334355),
                       ),
                       SizedBox(
                         height: m.dp(56),
@@ -456,7 +556,6 @@ class _ParametresPageState extends State<ParametresPage> {
                               m: m,
                               leading: Icons.lock_outline,
                               title: 'Mot de passe',
-                              subtitle: 'mis à jour il y a 2 semaines',
                               iconBg: iconBg,
                               iconColor: iconColor,
                               onTap: () => _promptEditPassword(m),
@@ -467,20 +566,28 @@ class _ParametresPageState extends State<ParametresPage> {
 
                       SizedBox(height: m.gapMedium()),
                       _SectionTitle(title: 'Abonnement', m: m),
-                      _CardContainer(
-                        m: m,
-                        child: Column(
-                          children: [
-                            _SettingsTile(
-                              m: m,
-                              leading: Icons.workspace_premium,
-                              title: 'Gérer mon abonnement',
-                              iconBg: iconBg,
-                              iconColor: iconColor,
-                              onTap: () => Navigator.of(context).pushNamed('/abonnement/gerer'),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: PremiumService.instance.isPremium,
+                        builder: (context, isPremium, _) {
+                          if (!isPremium) {
+                            return const SizedBox.shrink();
+                          }
+                          return _CardContainer(
+                            m: m,
+                            child: Column(
+                              children: [
+                                _SettingsTile(
+                                  m: m,
+                                  leading: Icons.workspace_premium,
+                                  title: 'Gérer mon abonnement',
+                                  iconBg: iconBg,
+                                  iconColor: iconColor,
+                                  onTap: () => Navigator.of(context).pushNamed('/abonnement/gerer'),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                       
                       SizedBox(height: m.gapMedium()),
@@ -522,7 +629,7 @@ class _ParametresPageState extends State<ParametresPage> {
                       SizedBox(height: m.gapLarge()),
                       Center(
                         child: InkWell(
-                          onTap: () {},
+                          onTap: _handleLogout,
                           borderRadius: BorderRadius.circular(8),
                           child: Padding(
                             padding: EdgeInsets.symmetric(vertical: m.dp(8), horizontal: m.dp(12)),
@@ -565,9 +672,7 @@ class _SvgBackButton extends StatelessWidget {
       height: size,
       child: Material(
         color: Colors.transparent,
-        shape: const CircleBorder(),
         child: InkWell(
-          customBorder: const CircleBorder(),
           onTap: onTap,
           child: Padding(
             padding: EdgeInsets.all((size - iconSize) / 2),

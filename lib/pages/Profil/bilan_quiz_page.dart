@@ -53,6 +53,7 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
 
   // Badges filtrés par périmètre
   List<Map<String, dynamic>> _badges = const [];
+  bool _showAllBadges = false;
 
   // Suivi des préchargements pour éviction mémoire
   List<String> _preloadedImageUrls = const [];
@@ -687,9 +688,9 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Expanded(
-                child: Transform.translate(
-                  offset: const Offset(0, 10),
-                  child: const Text(
+                child: const Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: Text(
                     'Tes espèces piégeuses',
                     style: TextStyle(
                       color: Color(0xFF334355),
@@ -707,8 +708,8 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
                   onTap: () => setState(() => _showAllTrickySpecies = !_showAllTrickySpecies),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Transform.translate(
-                      offset: const Offset(0, 10),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 10),
                       child: Text(
                         _showAllTrickySpecies ? 'Moins' : 'Tout',
                         style: const TextStyle(
@@ -1195,42 +1196,118 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
         final double itemSize = ((availableWidth - (paddingH * 2) - spacing * (cols - 1)) / cols)
             .clamp(72.0, 118.0);
 
-        return Column(
+        final content = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 160,
-              height: 29,
-              child: const Text(
-                'Badges ',
-                style: TextStyle(
-                  color: Color(0xFF334355),
-                  fontSize: 15,
-                  fontFamily: 'Quicksand',
-                  fontWeight: FontWeight.w700,
-                  height: 2.67,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Badges',
+                  style: TextStyle(
+                    color: Color(0xFF334355),
+                    fontSize: 15,
+                    fontFamily: 'Quicksand',
+                    fontWeight: FontWeight.w700,
+                    height: 2.67,
+                  ),
                 ),
+                TextButton(
+                  onPressed: () => setState(() => _showAllBadges = !_showAllBadges),
+                  child: Text(_showAllBadges ? 'Afficher moins' : 'Afficher plus'),
+                ),
+              ],
+            ),
+            SizedBox(height: m.dp(6)),
+            if (!_showAllBadges)
+              SizedBox(
+                // Hauteur = cercle + marge + label pour éviter l'overflow bas
+                height: itemSize + m.dp(32),
+                child: ListView.separated(
+                  padding: EdgeInsets.symmetric(horizontal: paddingH),
+                  scrollDirection: Axis.horizontal,
+                  itemBuilder: (context, index) {
+                    if (index < items.length) {
+                      final b = items[index];
+                      final title = b['badgeId']?.toString() ?? 'Badge';
+                      return _badgeCircle(title, size: itemSize, m: m);
+                    }
+                    return _badgeCircle('', size: itemSize, m: m);
+                  },
+                  separatorBuilder: (_, __) => SizedBox(width: spacing),
+                  itemCount: cols,
+                ),
+              )
+            else ...[
+              SizedBox(height: m.dp(8)),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: paddingH),
+                child: Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: (_badges.isNotEmpty
+                          ? _badges
+                          : List.generate(12, (i) => {'badgeId': 'Badge ${i + 1}'}))
+                      .map((b) => _badgeCircle(b['badgeId']?.toString() ?? 'Badge', size: itemSize, m: m))
+                      .toList(),
+                ),
+              ),
+            ],
+          ],
+        );
+
+        // Section verrouillée pour l’instant (constante volontairement non utilisée supprimée)
+
+        return Stack(
+          children: [
+            AbsorbPointer(
+              absorbing: true,
+              child: ColorFiltered(
+                colorFilter: const ColorFilter.matrix(<double>[
+                  0.2126, 0.7152, 0.0722, 0, 0,
+                  0.2126, 0.7152, 0.0722, 0, 0,
+                  0.2126, 0.7152, 0.0722, 0, 0,
+                  0,      0,      0,      1, 0,
+                ]),
+                child: Opacity(opacity: 0.6, child: content),
               ),
             ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: paddingH, vertical: m.dp(10, tabletFactor: 1.0)),
-              decoration: ShapeDecoration(
-                color: const Color(0xFFF7F7F7),
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(width: 2, color: Color(0xFF473C33)),
-                  borderRadius: BorderRadius.circular(12),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: m.dp(22), vertical: m.dp(10)),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD2DBB2),
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0x33000000), blurRadius: 10, offset: Offset(0, 4)),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lock, color: Color(0xC4334355), size: 18),
+                        SizedBox(width: m.dp(8)),
+                        Text(
+                          'Prochainement disponible',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Fredoka',
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xC4334355),
+                            fontSize: m.dp(18, tabletFactor: 1.05, min: 14, max: 22),
+                            height: 1.0,
+                            letterSpacing: 0.2,
+                            shadows: const [
+                              Shadow(color: Color(0x1A000000), blurRadius: 2, offset: Offset(0, 1)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(3, (i) {
-                  if (i < items.length) {
-                    final b = items[i];
-                    final title = b['badgeId']?.toString() ?? 'Badge';
-                    return _badgeCircle(title, size: itemSize, m: m);
-                  }
-                  return _badgeCircle('', size: itemSize, m: m);
-                }),
               ),
             ),
           ],
@@ -1241,8 +1318,8 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
 
   Widget _badgeCircle(String label, {required double size, required ResponsiveMetrics m}) {
     final double iconSize = (size * 0.33).clamp(18.0, 40.0);
-    return SizedBox(
-      width: size,
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: size, maxWidth: size),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1257,8 +1334,8 @@ class _BilanQuizPageState extends State<BilanQuizPage> {
             child: Icon(Icons.emoji_events, color: const Color(0xFF6A994E), size: iconSize),
           ),
           SizedBox(height: m.dp(6, tabletFactor: 1.0)),
-          SizedBox(
-            width: size + m.dp(8, tabletFactor: 1.0),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: m.dp(4, tabletFactor: 1.0)),
             child: Text(
               label,
               maxLines: 1,

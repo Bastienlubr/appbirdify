@@ -4,6 +4,7 @@ import '../../ui/responsive/responsive.dart';
 import '../MissionHabitat/quiz_page.dart';
 import 'creation_quiz_page.dart';
 import '../../services/Quiz/custom_quiz_service.dart';
+import '../../services/Users/user_orchestra_service.dart';
 
 class QuizSelectionPage extends StatefulWidget {
   const QuizSelectionPage({super.key});
@@ -124,15 +125,23 @@ class _QuizSelectionPageState extends State<QuizSelectionPage> {
                         ],
                       ),
                       SizedBox(height: m.dp(16)),
-                      // Carte d'action: Créer ton quiz (seulement sur l'onglet QUIZ)
-                      if (!_showCustomQuizzes) ...[
-                        _ActionCreateQuizCard(onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const CreationQuizPage()),
-                          );
-                        }),
-                        SizedBox(height: m.dp(16)),
-                      ],
+                      // Carte d'action: Créer ton quiz (premium uniquement)
+                      if (!_showCustomQuizzes)
+                        ...(UserOrchestra.isPremium
+                            ? [
+                                _ActionCreateQuizCard(onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => const CreationQuizPage()),
+                                  );
+                                }),
+                                SizedBox(height: m.dp(16)),
+                              ]
+                            : [
+                                _ActionCreateQuizCardDisabled(onTapPaywall: () {
+                                  Navigator.of(context).pushNamed('/abonnement/information');
+                                }),
+                                SizedBox(height: m.dp(16)),
+                              ]),
                       // Affichage conditionnel: quiz officiels ou quiz personnalisés
                       if (_showCustomQuizzes)
                         _CustomQuizzesSection(cardW: cardW, cardH: cardH, topH: topH, gutter: gutter)
@@ -451,7 +460,13 @@ class _CustomQuizCard extends StatelessWidget {
         width: width,
         height: height,
         clipBehavior: Clip.antiAlias,
-        decoration: const BoxDecoration(),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius.x),
+          boxShadow: const [
+            BoxShadow(color: Color(0x1A000000), blurRadius: 12, offset: Offset(0, 6)),
+            BoxShadow(color: Color(0x14000000), blurRadius: 4, offset: Offset(0, 1)),
+          ],
+        ),
         child: Stack(
           children: [
             Positioned.fill(
@@ -584,6 +599,108 @@ class _ActionCreateQuizCard extends StatelessWidget {
   }
 }
 
+class _ActionCreateQuizCardDisabled extends StatelessWidget {
+  final VoidCallback onTapPaywall;
+  const _ActionCreateQuizCardDisabled({required this.onTapPaywall});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTapPaywall,
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        height: 90,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: const Color(0xFF473C33), width: 2.5),
+        ),
+        child: Stack(
+          children: [
+            Align(
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF9CA3AF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.lock, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Créer ton quiz (Premium)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      color: Color(0xFF334355),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              left: null,
+              child: Container(
+                height: 26,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6A994E),
+                  borderRadius: const BorderRadius.only(
+                    // Ajusté pour correspondre au rayon interne de la carte (15 - 2.5 ≈ 12.5)
+                    topRight: Radius.circular(12.5),
+                    bottomLeft: Radius.circular(10),
+                    topLeft: Radius.circular(0),
+                    bottomRight: Radius.circular(0),
+                  ),
+                  border: const Border(
+                    top: BorderSide.none,
+                    right: BorderSide.none,
+                    left: BorderSide(color: Color(0xFF473C33), width: 2.5),
+                    bottom: BorderSide(color: Color(0xFF473C33), width: 2.5),
+                  ),
+                  // Pas d'ombre pour coller parfaitement au bord
+                ),
+                alignment: Alignment.center,
+                child: ShaderMask(
+                  shaderCallback: (Rect bounds) {
+                    return const LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [Color(0xEDFEB547), Color(0xFFFEC868)],
+                    ).createShader(bounds);
+                  },
+                  blendMode: BlendMode.srcIn,
+                  child: const Text(
+                    'ENVOL',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontFamily: 'Fredoka',
+                      fontWeight: FontWeight.w700,
+                      height: 1.0,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TabLabel extends StatelessWidget {
   final String label;
   final bool selected;
@@ -592,16 +709,59 @@ class _TabLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      ' $label',
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        color: const Color(0xFF334355),
-        fontSize: 14,
-        fontFamily: 'Quicksand',
-        fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-        letterSpacing: 1,
+    final Color baseText = const Color(0xFF334355);
+    final Color muted = const Color(0x8C334355);
+    const Color selectedYellow = Color(0xFFFEC868); // texte actif (bottom bar)
+    const Color selectedGreen = Color(0xFF6A994E);  // contour actif (bottom bar)
+    final Widget pill = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: ShapeDecoration(
+        color: selected ? selectedGreen : Colors.transparent,
+        shape: const StadiumBorder(),
       ),
+      foregroundDecoration: ShapeDecoration(
+        shape: StadiumBorder(
+          side: BorderSide(color: selected ? selectedGreen : const Color(0xFFDADADA), width: 2),
+        ),
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: selected ? selectedYellow : muted,
+          fontSize: 16,
+          fontFamily: 'Fredoka',
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          letterSpacing: 1,
+          height: 1.1,
+        ),
+      ),
+    );
+
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        // Ombre uniquement en dessous
+        Positioned.fill(
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ClipRect(
+              child: FractionallySizedBox(
+                alignment: Alignment.bottomCenter,
+                heightFactor: 0.70,
+                child: const Material(
+                  color: Colors.transparent,
+                  elevation: 8,
+                  shadowColor: Color(0x55000000),
+                  shape: StadiumBorder(),
+                ),
+              ),
+            ),
+          ),
+        ),
+        pill,
+      ],
     );
   }
 }
@@ -635,7 +795,13 @@ class _SmallQuizCard extends StatelessWidget {
         width: width,
         height: height,
         clipBehavior: Clip.antiAlias,
-        decoration: const BoxDecoration(),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius.x),
+          boxShadow: const [
+            BoxShadow(color: Color(0x1A000000), blurRadius: 12, offset: Offset(0, 6)),
+            BoxShadow(color: Color(0x14000000), blurRadius: 4, offset: Offset(0, 1)),
+          ],
+        ),
         child: Stack(
           children: [
             Positioned.fill(

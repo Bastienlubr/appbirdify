@@ -7,6 +7,11 @@ enum TypeEtoile {
   troisEtoiles
 }
 
+/// Types de récompenses utiles secondaires disponibles
+enum TypeRecompenseSecondaire {
+  coeur,
+}
+
 /// Service gérant le système de récompenses utiles
 /// Concentré sur les étoiles pour l'avancement progressif du jeu
 class RecompensesUtilesService {
@@ -24,6 +29,11 @@ class RecompensesUtilesService {
     'etoiles_totales': 0,
     'missions_completees': [],
     'animations_disponibles': [],
+    // État secondaire
+    'secondaire_disponible': false,
+    'derniere_secondaire_type': null,
+    'animations_secondaires': [],
+    'secondaire_vies': 0,
   };
 
   /// Getter pour les récompenses actuelles
@@ -35,6 +45,9 @@ class RecompensesUtilesService {
   /// Obtenir les missions complétées
   List<String> get missionsCompletees => 
       List<String>.from(_recompensesActuelles['missions_completees'] ?? []);
+
+  /// Indique si une récompense secondaire est disponible (à afficher)
+  bool get secondaireDisponible => _recompensesActuelles['secondaire_disponible'] == true;
 
   /// Ajouter des étoiles suite à une mission
   Future<void> ajouterEtoiles(String missionId, TypeEtoile typeEtoile) async {
@@ -54,6 +67,22 @@ class RecompensesUtilesService {
     if (!animations.contains(animationPath)) {
       animations.add(animationPath);
       _recompensesActuelles['animations_disponibles'] = animations;
+    }
+
+    _recompensesController.add(recompensesActuelles);
+  }
+
+  /// Ajouter une récompense utile secondaire (ex: coeur)
+  Future<void> ajouterRecompenseSecondaire(TypeRecompenseSecondaire type, {int lives = 0}) async {
+    _recompensesActuelles['secondaire_disponible'] = true;
+    _recompensesActuelles['derniere_secondaire_type'] = type;
+    _recompensesActuelles['secondaire_vies'] = lives;
+
+    final String animationPath = _getAnimationPathSecondaire(type);
+    final List<String> animations = List<String>.from(_recompensesActuelles['animations_secondaires'] ?? []);
+    if (!animations.contains(animationPath)) {
+      animations.add(animationPath);
+      _recompensesActuelles['animations_secondaires'] = animations;
     }
 
     _recompensesController.add(recompensesActuelles);
@@ -83,14 +112,33 @@ class RecompensesUtilesService {
     }
   }
 
+  /// Obtenir le chemin de l'animation d'une récompense secondaire
+  String _getAnimationPathSecondaire(TypeRecompenseSecondaire type) {
+    switch (type) {
+      case TypeRecompenseSecondaire.coeur:
+        return 'assets/PAGE/Recompenses utiles secondaire/coeur.json';
+    }
+  }
+
   /// Obtenir l'animation pour un type d'étoiles
   String getAnimationPourEtoiles(TypeEtoile type) {
     return _getAnimationPath(type);
   }
 
+  /// Obtenir l'animation pour une récompense secondaire
+  String getAnimationPourSecondaire(TypeRecompenseSecondaire type) {
+    return _getAnimationPathSecondaire(type);
+  }
+
   /// Vérifier si une animation est disponible
   bool isAnimationDisponible(String animationPath) {
     List<String> animations = List<String>.from(_recompensesActuelles['animations_disponibles'] ?? []);
+    return animations.contains(animationPath);
+  }
+
+  /// Vérifier si une animation secondaire est disponible
+  bool isAnimationSecondaireDisponible(String animationPath) {
+    List<String> animations = List<String>.from(_recompensesActuelles['animations_secondaires'] ?? []);
     return animations.contains(animationPath);
   }
 
@@ -104,6 +152,11 @@ class RecompensesUtilesService {
         'missions_completees': [],
         'animations_disponibles': [],
         'derniere_recompense_type': TypeEtoile.uneEtoile, // Type de la dernière récompense
+        // Secondaire
+        'secondaire_disponible': false,
+        'derniere_secondaire_type': null,
+        'animations_secondaires': [],
+        'secondaire_vies': 0,
       };
     }
     
@@ -138,6 +191,17 @@ class RecompensesUtilesService {
   /// Obtenir le type de la dernière récompense
   TypeEtoile get derniereRecompenseType => 
       _recompensesActuelles['derniere_recompense_type'] ?? TypeEtoile.uneEtoile;
+
+  /// Obtenir le type de la dernière récompense secondaire
+  TypeRecompenseSecondaire? get derniereRecompenseSecondaireType => 
+      _recompensesActuelles['derniere_secondaire_type'] as TypeRecompenseSecondaire?;
+
+  /// Marquer la récompense secondaire comme consommée (après affichage)
+  void consommerRecompenseSecondaire() {
+    _recompensesActuelles['secondaire_disponible'] = false;
+    _recompensesActuelles['secondaire_vies'] = 0;
+    _recompensesController.add(recompensesActuelles);
+  }
 
   /// Sauvegarder les récompenses
   Future<void> sauvegarderRecompenses() async {

@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "788742862967-n1obpih2r6jjc571k3rpg2o96gqdt9b6.apps.googleusercontent.com",
+          "client_id": "788742862967-d98qm0qhg9idtdcd3qmtccj2t7bqin24.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.mindbird.app",
-            "certificate_hash": "6e5cbeeb484fad9048b53831196b9f447100f5ba"
+            "certificate_hash": "920168c65089be773e369023f27e20640acb5e9b"
           }
         },
         {

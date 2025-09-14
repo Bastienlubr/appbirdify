@@ -228,8 +228,16 @@ class _CreationQuizPageState extends State<CreationQuizPage> {
                           SizedBox(width: m.gapSmall()),
                           TextButton.icon(
                             onPressed: _toggleSort,
-                            icon: Icon(_sortAsc ? Icons.sort_by_alpha : Icons.sort),
-                            label: const Text('A-Z', style: TextStyle(fontFamily: 'Quicksand')),
+                            icon: Icon(_sortAsc ? Icons.sort_by_alpha : Icons.sort_by_alpha, color: const Color(0xFF344356)),
+                            label: Text(_sortAsc ? 'A-Z' : 'Z-A', style: const TextStyle(fontFamily: 'Quicksand', color: Color(0xFF344356))),
+                            style: TextButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(9999),
+                                side: const BorderSide(color: Color(0xFFD6D3D1), width: 1),
+                              ),
+                              padding: EdgeInsets.symmetric(horizontal: m.dp(14), vertical: m.dp(10)),
+                            ),
                           ),
                         ],
                       ),
@@ -352,7 +360,7 @@ class _CreationQuizPageState extends State<CreationQuizPage> {
       final String letter = key[0].toUpperCase();
       (groups[letter] ??= <Bird>[]).add(b);
     }
-    final sortedKeys = groups.keys.toList()..sort();
+    final sortedKeys = groups.keys.toList()..sort((a, b) => _sortAsc ? a.compareTo(b) : b.compareTo(a));
     final Map<String, List<Bird>> ordered = {};
     for (final k in sortedKeys) {
       ordered[k] = groups[k]!;

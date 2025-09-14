@@ -15,7 +15,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is rqsions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.0+12
 
 environment:
   sdk: ^3.8.1
@@ -52,7 +52,11 @@ dependencies:
   cloud_firestore: ^5.4.3
   firebase_storage: ^12.3.6
   firebase_app_check: ^0.3.0+5
+  cloud_functions: ^5.0.4
   image_cropper: ^9.1.0
+  in_app_purchase: ^3.2.0
+  url_launcher: ^6.3.0
+  google_mobile_ads: ^5.1.0
   
   # HTTP client for API calls
   http: ^1.2.0
@@ -65,6 +69,7 @@ dependencies:
   cached_network_image: ^3.4.1
   image_picker: ^1.1.2
   country_picker: ^2.0.27
+  package_info_plus: ^8.0.2
   
 
 
@@ -108,6 +113,7 @@ flutter:
     - assets/PAGE/Score resultat/
     - assets/PAGE/Chargement/
     - assets/PAGE/Recompenses utiles/
+    - assets/PAGE/Recompenses utiles secondaire/
     - assets/PAGE/Profil/
     - assets/PAGE/Paramètre/
     - assets/PAGE/Authentification/

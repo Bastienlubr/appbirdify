@@ -18,6 +18,9 @@ import '../../widgets/biome_carousel_enhanced.dart';
 import 'bilan_quiz_page.dart';
 import '../Parametres/parametres_page.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+ 
+import '../../services/Users/user_orchestra_service.dart';
+// import '../../widgets/common/locked_overlay.dart'; // unused after global overlay refactor
 
 /// Page Profil (squelette UI basé sur Figma) — fonctionnalités à brancher ensuite.
 class ProfilPage extends StatefulWidget {
@@ -32,6 +35,7 @@ class _ProfilPageState extends State<ProfilPage> {
   bool _isUploadingAvatar = false;
   int _avatarVersion = 0; // pour forcer le rafraîchissement de l'image
   int _totalSessions = 0;
+  
   StreamSubscription<List<Map<String, dynamic>>>? _sessionsSub;
   String _favoriteHabitat = '';
   int _currentStreak = 0;
@@ -84,8 +88,8 @@ class _ProfilPageState extends State<ProfilPage> {
         String nemesis = '';
         double bestRatio = -1;
         final int denom = sessions.isEmpty ? 1 : sessions.length;
-        mistakesBySpecies.forEach((name, count) {
-          final double ratio = count / denom;
+        mistakesBySpecies.forEach((name, errorsCount) {
+          final double ratio = errorsCount / denom;
           if (ratio > bestRatio) {
             bestRatio = ratio;
             nemesis = name;
@@ -203,6 +207,7 @@ class _ProfilPageState extends State<ProfilPage> {
         children: [
           Stack(
             alignment: Alignment.center,
+            clipBehavior: Clip.none,
             children: [
               Container(
                 width: avatarOuter,
@@ -224,9 +229,18 @@ class _ProfilPageState extends State<ProfilPage> {
                 child: Container(
                   width: avatarInner,
                   height: avatarInner,
-                  decoration: const ShapeDecoration(
-                    color: Color(0xFFEBEBEB),
-                    shape: OvalBorder(),
+                  decoration: ShapeDecoration(
+                    color: const Color(0xFFEBEBEB),
+                    shape: const OvalBorder(),
+                    shadows: const [
+                      // Halo doux accentué pour traverser clairement le "padding"
+                      BoxShadow(
+                        color: Color(0x33000000), // ~20% opacité
+                        blurRadius: 14,
+                        spreadRadius: 3,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: FutureBuilder<String?>(
                     future: _fetchPhotoUrl(),
@@ -259,6 +273,71 @@ class _ProfilPageState extends State<ProfilPage> {
                           width: 28,
                           height: 28,
                           child: CircularProgressIndicator(strokeWidth: 2.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (!_isUploadingAvatar)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: ((avatarOuter - avatarInner) / 2) - 14,
+                  child: Center(
+                    child: Material(
+                      color: Colors.transparent,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: _onChangeAvatar,
+                        child: Builder(
+                          builder: (context) {
+                            final double badgeSize = m.dp(36, tabletFactor: 1.0, min: 28, max: 44);
+                            final double plusThickness = (badgeSize * 0.12).clamp(3.0, 7.0);
+                            final double plusLength = badgeSize * 0.56;
+                            return Container
+                            (
+                              width: badgeSize,
+                              height: badgeSize,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFC3D497),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 4),
+                                boxShadow: const [
+                                  BoxShadow(color: Color(0x33000000), blurRadius: 8, spreadRadius: 1, offset: Offset(0, 3)),
+                                ],
+                              ),
+                              child: Center(
+                                child: SizedBox(
+                                  width: plusLength,
+                                  height: plusLength,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      // Barre horizontale (arrondie)
+                                      Container(
+                                        width: plusLength,
+                                        height: plusThickness,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(plusThickness / 2),
+                                        ),
+                                      ),
+                                      // Barre verticale (arrondie)
+                                      Container(
+                                        width: plusThickness,
+                                        height: plusLength,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(plusThickness / 2),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -583,6 +662,10 @@ class _ProfilPageState extends State<ProfilPage> {
                 viewportFraction: 0.5,
                 compactStyle: true,
                 onBiomeTapped: (biome) {
+                  if (!UserOrchestra.isPremium) {
+                    Navigator.of(context).pushNamed('/abonnement/information');
+                    return;
+                  }
                   final String name = biome.name;
                   final String code = name.isNotEmpty ? name[0].toUpperCase() : '';
                   Navigator.of(context).push(
@@ -678,7 +761,7 @@ class _ProfilPageState extends State<ProfilPage> {
 
     final List<Widget> allBadges = List.generate(18, (i) => _BadgeCircle(label: 'Badge ${i + 1}'));
 
-    return Column(
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -719,6 +802,64 @@ class _ProfilPageState extends State<ProfilPage> {
             children: allBadges,
           ),
         ],
+      ],
+    );
+
+    // Section verrouillée pour l’instant
+
+    // Overlay global non-rectangulaire: désaturation + opacité + pastille centrale
+    return Stack(
+      children: [
+        AbsorbPointer(
+          absorbing: true,
+          child: ColorFiltered(
+            colorFilter: const ColorFilter.matrix(<double>[
+              0.2126, 0.7152, 0.0722, 0, 0,
+              0.2126, 0.7152, 0.0722, 0, 0,
+              0.2126, 0.7152, 0.0722, 0, 0,
+              0,      0,      0,      1, 0,
+            ]),
+            child: Opacity(opacity: 0.6, child: content),
+          ),
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: Center(
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: m.dp(22), vertical: m.dp(10)),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD2DBB2),
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x33000000), blurRadius: 10, offset: Offset(0, 4)),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.lock, color: Color(0xC4334355), size: 18),
+                    SizedBox(width: m.dp(8)),
+                    Text(
+                      'Prochainement disponible...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xC4334355),
+                        fontSize: m.dp(18, tabletFactor: 1.05, min: 14, max: 22),
+                        height: 1.0,
+                        letterSpacing: 0.2,
+                        shadows: const [
+                          Shadow(color: Color(0x1A000000), blurRadius: 2, offset: Offset(0, 1)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -764,24 +905,31 @@ class _BadgeCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // overlay global gère l'état (pas de surcouche locale)
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 101,
-          height: 101,
-          decoration: const ShapeDecoration(
-            color: Color(0xFFEBEBEB),
-            shape: OvalBorder(),
-            shadows: [
-              BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 8,
-                offset: Offset(0, 4),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 101,
+              height: 101,
+              decoration: const ShapeDecoration(
+                color: Color(0xFFEBEBEB),
+                shape: OvalBorder(),
+                shadows: [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 4),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: const Icon(Icons.emoji_events, color: Color(0xFF6A994E), size: 40),
+              child: const Icon(Icons.emoji_events, color: Color(0xFF6A994E), size: 40),
+            ),
+            // overlay global gère l'état; pas de surcouche locale ici
+          ],
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -808,7 +956,8 @@ class TableauDeBord extends StatelessWidget {
   final String? habitatFavori;
   final int currentStreak;
   final String? nemesis;
-  const TableauDeBord({super.key, this.totalEpreuves = 0, this.habitatFavori, this.currentStreak = 0, this.nemesis});
+  final VoidCallback? onIncrementTrials;
+  const TableauDeBord({super.key, this.totalEpreuves = 0, this.habitatFavori, this.currentStreak = 0, this.nemesis, this.onIncrementTrials});
 
   @override
   Widget build(BuildContext context) {
@@ -846,13 +995,15 @@ class TableauDeBord extends StatelessWidget {
                         assetPath: 'assets/PAGE/Profil/nombres de sessions.png',
                         numberText: totalEpreuves.toString(),
                         label: "Nombre d'épreuves",
+                        compactBigNumber: totalEpreuves >= 100,
                       ),
                       const SizedBox(height: innerGap),
                       _StatChipAsset(
                         height: chipHeight,
                         assetPath: 'assets/Images/Bouton/strick.png',
                         numberText: currentStreak.toString(),
-                        label: "Jour d’activité\nen cours...",
+                        label: 'Jour d’activité en cours...',
+                        compactBigNumber: currentStreak >= 100,
                       ),
                     ],
                   ),
@@ -895,6 +1046,7 @@ class _StatChipAsset extends StatelessWidget {
   final String? numberText;
   final String label;
   final String? secondary;
+  final bool compactBigNumber; // si true: nombre au-dessus, label sur une ligne petite
 
   const _StatChipAsset({
     required this.height,
@@ -902,6 +1054,7 @@ class _StatChipAsset extends StatelessWidget {
     required this.label,
     this.numberText,
     this.secondary,
+    this.compactBigNumber = false,
   });
 
   @override
@@ -928,66 +1081,71 @@ class _StatChipAsset extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 1),
-          if (numberText != null) ...[
-            Text(
-              numberText!,
-              style: const TextStyle(
-                color: Color(0xC4334355),
-                fontSize: 38,
-                fontFamily: 'Quicksand',
-                fontWeight: FontWeight.w700,
-                height: 1.0,
-              ),
-            ),
-            const SizedBox(width: 3),
-          ],
-          Expanded(
-            child: secondary != null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
+          if (numberText != null && compactBigNumber) ...[
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FittedBox(
+                      alignment: Alignment.centerLeft,
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        numberText!,
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
                         style: const TextStyle(
                           color: Color(0xC4334355),
-                          fontSize: 14,
+                          fontSize: 28,
                           fontFamily: 'Quicksand',
                           fontWeight: FontWeight.w700,
-                          height: 1.2,
+                          height: 1.0,
                         ),
                       ),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          return SizedBox(
-                            width: constraints.maxWidth,
-                            child: FittedBox(
-                              alignment: Alignment.centerLeft,
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                secondary!,
-                                maxLines: 1,
-                                softWrap: false,
-                                overflow: TextOverflow.visible,
-                                style: const TextStyle(
-                                  color: Color(0xC4334355),
-                                  fontSize: 14,
-                                  fontFamily: 'Quicksand',
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.2,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xC4334355),
+                        fontSize: 12,
+                        fontFamily: 'Quicksand',
+                        fontWeight: FontWeight.w700,
+                        height: 1.0,
                       ),
-                    ],
-                  )
-                : Text(
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            if (numberText != null) ...[
+              Text(
+                numberText!,
+                style: const TextStyle(
+                  color: Color(0xC4334355),
+                  fontSize: 38,
+                  fontFamily: 'Quicksand',
+                  fontWeight: FontWeight.w700,
+                  height: 1.0,
+                ),
+              ),
+              const SizedBox(width: 3),
+            ],
+          ],
+          if (secondary != null) ...[
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                     label,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Color(0xC4334355),
@@ -997,7 +1155,49 @@ class _StatChipAsset extends StatelessWidget {
                       height: 1.2,
                     ),
                   ),
-          ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SizedBox(
+                        width: constraints.maxWidth,
+                        child: FittedBox(
+                          alignment: Alignment.centerLeft,
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            secondary!,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.visible,
+                            style: const TextStyle(
+                              color: Color(0xC4334355),
+                              fontSize: 14,
+                              fontFamily: 'Quicksand',
+                              fontWeight: FontWeight.w400,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            )
+          ] else if (!compactBigNumber) ...[
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xC4334355),
+                  fontSize: 14,
+                  fontFamily: 'Quicksand',
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

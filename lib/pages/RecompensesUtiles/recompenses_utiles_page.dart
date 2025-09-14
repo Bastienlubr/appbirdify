@@ -7,6 +7,8 @@ import '../../services/Users/recompenses_utiles_service.dart';
 import '../../ui/responsive/responsive.dart';
 import '../../ui/scaffold/adaptive_scaffold.dart';
 import '../home_screen.dart';
+import '../../ui/animations/page_route_universelle.dart';
+import 'recompenses_utiles_secondaire_page.dart';
 
 /// Layout calculé pour la page des récompenses utiles
 /// Similaire au système de la page Score final
@@ -397,11 +399,18 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
                   child: InkWell(
                     borderRadius: BorderRadius.circular(16),
                     onTap: () {
-                      // Retour propre à la Home si cette page a remplacé la fin de quiz
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const HomeScreen()),
-                        (route) => false,
-                      );
+                      // Si une récompense secondaire est disponible, on l'affiche directement ensuite
+                      if (_recompensesService.secondaireDisponible) {
+                        Navigator.of(context).push(
+                          routePageUniverselle(const RecompensesUtilesSecondairePage(), sens: SensEntree.droite),
+                        );
+                      } else {
+                        // Retour propre à la Home si pas de secondaire
+                        Navigator.of(context).pushAndRemoveUntil(
+                          routePageUniverselle(const HomeScreen(), sens: SensEntree.droite),
+                          (route) => false,
+                        );
+                      }
                     },
                     child: DecoratedBox(
                       decoration: BoxDecoration(

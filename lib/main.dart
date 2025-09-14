@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'services/ads/ad_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
@@ -13,6 +16,7 @@ import 'services/Users/auth_service.dart';
 import 'pages/Abonnement/information_abonnement_page.dart';
 import 'pages/Abonnement/choix_offre_page.dart';
 import 'pages/Abonnement/gerer_mon_abonnement_page.dart';
+import 'pages/Abonnement/annulation_motif_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +40,18 @@ void main() async {
     debugPrint('🛡️ Firebase App Check activé (mode debug)');
   } catch (e) {
     debugPrint('⚠️ App Check non activé: $e');
+  }
+  // Initialisation Google Mobile Ads (mobile uniquement) + préchargement Rewarded
+  if (!kIsWeb) {
+    try {
+      final InitializationStatus status = await MobileAds.instance.initialize();
+      debugPrint('📢 Google Mobile Ads initialisé: ${status.adapterStatuses.keys.join(', ')}');
+      // Précharger une Rewarded au démarrage
+      // ignore: unawaited_futures
+      AdService.instance.preloadRewarded();
+    } catch (e) {
+      debugPrint('⚠️ Mobile Ads non initialisé: $e');
+    }
   }
     debugPrint('❌ Erreur lors de l\'initialisation Firebase: $e');
     // En cas d'échec d'initialisation Firebase, on continue quand même
@@ -64,7 +80,8 @@ class MyApp extends StatelessWidget {
       routes: {
         '/abonnement/information': (context) => const InformationAbonnementPage(),
         '/abonnement/choix-offre': (context) => const ChoixOffrePage(),
-        '/abonnement/gerer': (context) => GererMonAbonnementPage(titleHorizontalOffset: 10),
+        '/abonnement/gerer': (context) => GererMonAbonnementPage(titleHorizontalOffset: 8),
+        '/abonnement/annulation-motif': (context) => const AnnulationMotifPage(),
       },
     );
   }

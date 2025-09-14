@@ -43,6 +43,39 @@ class InformationAbonnementPage extends StatelessWidget {
                     child: _FigmaExactLayer(),
                   ),
                 ),
+                // CTA rendu original à l'intérieur de la couche Figma (comme au départ)
+                Positioned(
+                  left: dx + 35.82 * scale,
+                  top: dy + 688.60 * scale,
+                  child: SizedBox(
+                    width: 303.14 * scale,
+                    height: 44.92 * scale,
+                    child: BoutonUniversel(
+                      onPressed: () => Navigator.of(context).push(_createLeftToRightRoute()),
+                      size: BoutonUniverselTaille.small,
+                      borderRadius: 10 * scale,
+                      padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 10 * scale),
+                      backgroundColor: const Color(0xFFFCFCFE),
+                      borderColor: const Color(0xB3858585),
+                      shadowColor: const Color(0xB3858585),
+                      child: Center(
+                        child: Text(
+                          'Essaye 3 jours gratuits',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: const Color(0xFF334355),
+                            fontSize: 20 * scale,
+                            fontFamily: 'Fredoka',
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1,
+                            height: 1.0,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // (Retiré) Bouton de test
               ],
             ),
           );
@@ -122,12 +155,10 @@ class _FigmaExactLayer extends StatelessWidget {
             ),
           ),
           const _Separators(),
-          const _HomeIndicator(),
           const _Heading(),
           const _FeatureLabels(),
           const _FeatureMarkers(),
           const _PlanBadges(),
-          _TrialPill(onTap: () => Navigator.of(context).push(_createLeftToRightRoute())),
         ],
       ),
     );
@@ -136,7 +167,10 @@ class _FigmaExactLayer extends StatelessWidget {
 
 class _Line extends StatelessWidget {
   final double height;
-  const _Line({this.height = 2});
+  const _Line({
+    // ignore: unused_element_parameter
+    this.height = 2,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -150,6 +184,7 @@ class _Line extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _Separators extends StatelessWidget {
   const _Separators();
   // Positions horizontales comme dans Figma: bloc de 303 px de large à partir de x=36
@@ -171,6 +206,7 @@ class _Separators extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _HomeIndicator extends StatelessWidget {
   const _HomeIndicator();
   @override
@@ -350,9 +386,11 @@ class _FeatureMarkers extends StatelessWidget {
   const _FeatureMarkers();
   // Positions de départ des libellés colonnes
   static const double _labelLeftGratuit = 197;
+  // ignore: unused_field
   static const double _labelLeftEnvol = 281;
 
   // Y centraux des lignes de texte (alignés avec _FeatureLabels)
+  // ignore: unused_field
   static const List<double> _ys = [
     274, // Missions & Quiz (1 ligne)
     318, // Vies illimitées (1 ligne)
@@ -363,6 +401,7 @@ class _FeatureMarkers extends StatelessWidget {
   ];
 
   // Indices des libellés sur 2 lignes pour ajuster le centrage vertical du marqueur
+  // ignore: unused_field
   static const Set<int> _multiline = {3, 4};
 
   double _measureTextWidth(String text, TextStyle style) {
@@ -397,7 +436,7 @@ class _FeatureMarkers extends StatelessWidget {
     // Centre de la zone verte (colonne ENVOL) : rectangle à left=268, width=72 → centre = 304
     const double greenLeft = 268;
     const double greenWidth = 72;
-    final double greenCenterX = greenLeft + greenWidth / 2;
+    // final double greenCenterX = greenLeft + greenWidth / 2; // centre théorique, non nécessaire ici
 
     const double checkSize = 20;
     const double pillWidth = 22; // entre-deux
@@ -487,52 +526,7 @@ class _PillLine extends StatelessWidget {
   }
 }
 
-class _TrialPill extends StatelessWidget {
-  final VoidCallback onTap;
-  const _TrialPill({required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: 35.82,
-      top: 688.60,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: SizedBox(
-          width: 303.14,
-          height: 44.92,
-          child: IgnorePointer(
-            ignoring: true,
-            child: BoutonUniversel(
-              onPressed: null,
-              size: BoutonUniverselTaille.small,
-              borderRadius: 10,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              backgroundColor: const Color(0xFFFCFCFE),
-              borderColor: const Color(0xB3858585),
-              shadowColor: const Color(0xB3858585),
-              child: const Center(
-                child: Text(
-                  'Essaye 3 jours gratuits',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFF334355),
-                    fontSize: 20,
-                    fontFamily: 'Fredoka',
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
-                    height: 1.0,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+// ignore: unused_element
 class _HeaderTitle extends StatelessWidget {
   final ResponsiveMetrics m;
   const _HeaderTitle({required this.m});
@@ -572,6 +566,7 @@ class _HeaderTitle extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _PlansToggle extends StatelessWidget {
   final ResponsiveMetrics m;
   const _PlansToggle({required this.m});
@@ -622,6 +617,7 @@ class _Pill extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _BenefitsList extends StatelessWidget {
   final ResponsiveMetrics m;
   const _BenefitsList({required this.m});

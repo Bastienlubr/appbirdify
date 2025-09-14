@@ -192,6 +192,13 @@ class _HomeContentState extends State<HomeContent> {
           onClose: () {
             _removeLivesPopover();
           },
+          onLivesChanged: (newLives) {
+            if (mounted) {
+              setState(() {
+                _currentLives = newLives;
+              });
+            }
+          },
         );
       },
     );
@@ -380,6 +387,8 @@ class _HomeContentState extends State<HomeContent> {
 
   /// Vérifie si un biome peut être débloqué
   bool _isBiomeUnlocked(String biomeName) {
+    // Premium: tous les biomes sont accessibles
+    if (UserOrchestra.isPremium) return true;
     // Le premier biome (Urbain) est toujours débloqué
     if (biomeName == 'Urbain') return true;
     
@@ -413,8 +422,8 @@ class _HomeContentState extends State<HomeContent> {
   List<Mission> _filterAndOrganizeMissions(List<Mission> allMissions) {
     final List<Mission> filteredMissions = [];
     
-    // Vérifier si le biome actuel est débloqué
-    final isCurrentBiomeUnlocked = _isBiomeUnlocked(_selectedBiome);
+    // Vérifier si le biome actuel est débloqué (premium => true)
+    final isCurrentBiomeUnlocked = UserOrchestra.isPremium || _isBiomeUnlocked(_selectedBiome);
     
     // Trier les missions par niveau
     allMissions.sort((a, b) => a.index.compareTo(b.index));
@@ -429,7 +438,7 @@ class _HomeContentState extends State<HomeContent> {
       }
       
       // Utiliser le statut déjà calculé par le service de chargement des missions
-      // au lieu de recalculer la logique de déverrouillage
+      // Premium: on conserve la logique de progression normale (seule différence: biome toujours déverrouillé)
       if (mission.status == 'available' || mission.status == 'locked') {
         // Le statut est déjà correct, l'utiliser tel quel
         filteredMissions.add(mission);
@@ -507,6 +516,8 @@ class _HomeContentState extends State<HomeContent> {
                   _loadMissionsForBiome(_selectedBiome);
                 },
               ),
+
+              // Bouton debug secondaire déplacé dans le menu développeur
 
               Positioned(
                 top: 10,

@@ -20,9 +20,11 @@ import '../../pages/home_screen.dart';
 import '../../widgets/recap_button.dart';
 // import 'package:google_fonts/google_fonts.dart';
 import '../../pages/RecompensesUtiles/recompenses_utiles_page.dart';
+import '../../pages/RecompensesUtiles/recompenses_utiles_secondaire_page.dart';
 import '../../services/Users/recompenses_utiles_service.dart';
 // import '../../services/Users/firestore_service.dart';
 import '../Mission/communs/commun_gestion_mission.dart';
+import '../../ui/animations/page_route_universelle.dart';
 
 class _EndLayout {
   final double ringSize;
@@ -327,7 +329,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
   void _navigateToHome() {
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      routePageUniverselle(const HomeScreen(), sens: SensEntree.droite),
       (route) => false,
     );
   }
@@ -353,6 +355,18 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
       final int after = afterFromServer ?? afterLocal;
       final int gained = after - before;
 
+      // Calcul du bonus de vies basé sur le score indépendamment des étoiles
+      int lives = 0;
+      if (widget.totalQuestions == 10) {
+        if (widget.score >= 10) lives = 3; else if (widget.score >= 9) lives = 2; else if (widget.score >= 8) lives = 1;
+      } else {
+        final double pct = widget.score / widget.totalQuestions;
+        if (pct >= 1.0) lives = 3; else if (pct >= 0.9) lives = 2; else if (pct >= 0.8) lives = 1;
+      }
+      if (lives > 0) {
+        await _recompensesService.ajouterRecompenseSecondaire(TypeRecompenseSecondaire.coeur, lives: lives);
+      }
+
       if (gained > 0) {
         final TypeEtoile rewardType = (after == 1)
             ? TypeEtoile.uneEtoile
@@ -363,7 +377,16 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
         await _recompensesService.simulerEtoiles(rewardType, missionId: widget.mission?.id ?? 'MISSION');
         _navigateToRewards(forcedType: rewardType);
       } else {
-        _navigateToHome();
+        // Pas d'étoiles gagnées → ouvrir la récompense utile secondaire si disponible
+        if (_recompensesService.secondaireDisponible) {
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            routePageUniverselle(const RecompensesUtilesSecondairePage(), sens: SensEntree.droite),
+            (route) => false,
+          );
+        } else {
+          _navigateToHome();
+        }
       }
     } catch (_) {
       _navigateToHome();
@@ -374,7 +397,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
   void _navigateToRewards({TypeEtoile? forcedType}) {
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => RecompensesUtilesPage(forcedType: forcedType)),
+      routePageUniverselle(RecompensesUtilesPage(forcedType: forcedType), sens: SensEntree.droite),
       (route) => false,
     );
   }
@@ -1656,19 +1679,17 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                 }
                 final String uid = user.uid;
                 final missionId = widget.mission?.id;
-                final milieu = widget.mission?.milieu;
+                // final milieu = widget.mission?.milieu; // non utilisé
                 Map<String, dynamic>? q;
                 List<dynamic> rawOptions = const [];
-                String? questionId;
+                // String? questionId; // retiré: non utilisé
                 try {
                   final int qLen = widget.mission?.questions.length ?? 0;
                   final int qIndex0 = indexOneBased - 1;
-                  if (qLen > 0 && qIndex0 >= 0 && qIndex0 < qLen) {
+                  if (qLen > 0 && qIndex0 < qLen) {
                     q = widget.mission!.questions[qIndex0];
-                    if (q != null) {
-                      if (q['options'] is List) rawOptions = List<dynamic>.from(q['options']);
-                      if (q['id'] is String) questionId = q['id'] as String;
-                    }
+                    if (q['options'] is List) rawOptions = List<dynamic>.from(q['options']);
+                    // id question disponible mais non utilisé ici
                   }
                 } catch (e) {
                   if (kDebugMode) debugPrint('⚠️ Extraction question/options impossible: $e');
@@ -1832,7 +1853,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
         }
       }
 
-      // Son différent → stopper l’actuel si nécessaire
+      // Son différent → stopper l'actuel si nécessaire
       await _recapPlayer.stop();
       await _recapPlayer.seek(Duration.zero);
 
@@ -2083,20 +2104,6 @@ class _PlayAudioButtonState extends State<_PlayAudioButton>
   void dispose() {
     _spinController?.dispose();
     super.dispose();
-  }
-}
-
-class _SpinnerDisk extends StatelessWidget {
-  const _SpinnerDisk();
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: const Color(0x33000000), width: 2),
-      ),
-      child: const SizedBox.shrink(),
-    );
   }
 }
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../widgets/boutons/bouton_universel.dart';
+import '../../services/abonnement/premium_service.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
 enum OffreType { mois1, mois6, mois12 }
 
@@ -61,11 +63,32 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
     );
   }
 
-  void _onContinue() {
-    // TODO: brancher le paiement ensuite
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Étape suivante: paiement')),
-    );
+  Future<void> _onContinue() async {
+    final premium = PremiumService.instance;
+    // Forcer un refresh des produits (utile après ajout d'un nouveau SKU côté Play)
+    await premium.refreshProducts();
+    bool ok = false;
+    switch (_selection) {
+      case OffreType.mois1:
+        ok = await premium.buyMonthly();
+        break;
+      case OffreType.mois6:
+        // Si un SKU 6 mois existe, utilise-le, sinon fallback annuel
+        final has6 = premium.semiAnnualPlan != null;
+        ok = has6 ? await premium.buySemiAnnual() : await premium.buyYearly();
+        break;
+      case OffreType.mois12:
+        ok = await premium.buyYearly();
+        break;
+    }
+    if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Produit indisponible. Réessaie plus tard.')),
+      );
+    } else {
+      Navigator.of(context).maybePop();
+    }
   }
 
   double _computeScale(double w, double h) {
@@ -82,6 +105,7 @@ class _Canvas extends StatelessWidget {
   final VoidCallback onContinue;
   const _Canvas({required this.selection, required this.onSelect, required this.onContinue});
 
+  // ignore: unused_element
   TextStyle get _fredoka24 => const TextStyle(
         color: Color(0xFF334355),
         fontSize: 24,
@@ -91,6 +115,7 @@ class _Canvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final premium = PremiumService.instance;
     return SizedBox(
       width: 375,
       height: 812,
@@ -122,7 +147,7 @@ class _Canvas extends StatelessWidget {
               fit: BoxFit.contain,
             ),
           ),
-          const _HomeIndicator2(),
+          
 
           // Titre
           const Positioned(
@@ -148,7 +173,32 @@ class _Canvas extends StatelessWidget {
           ),
 
           // Groupe unique des offres (3 sections + séparateurs gris)
-          _OffersGroup(selection: selection, onSelect: onSelect),
+          ValueListenableBuilder<List<ProductDetails>>(
+            valueListenable: premium.products,
+            builder: (context, products, _) {
+              final monthly = premium.monthlyPriceLabel ?? '4,99 € / mois';
+              final monthlyRaw = premium.monthlyRawPrice;
+              final monthlyCur = premium.monthlyCurrencyCode;
+              final semiPerMonth = premium.semiAnnualPerMonthLabel ?? '3,83 € / mois';
+              // Si prix mensuel dispo, price barré = 6 * prix mensuel
+              final semiStruck = (monthlyRaw != null && monthlyCur != null)
+                  ? premium.formatCurrency(monthlyRaw * 6.0, monthlyCur)
+                  : null;
+              final semiTotal = premium.semiAnnualTotalPriceLabel ?? '29,94 €';
+              final yearlyPerMonth = premium.yearlyPerMonthLabel ?? '2,83 € / mois';
+              final yearlyTotal = premium.yearlyTotalPriceLabel ?? '39,99 €';
+              return _OffersGroup(
+                selection: selection,
+                onSelect: onSelect,
+                monthlyPriceLabel: monthly,
+                yearlyPerMonthLabel: yearlyPerMonth,
+                yearlyTotalPriceLabel: yearlyTotal,
+                semiAnnualPerMonthLabel: semiPerMonth,
+                semiAnnualTotalPriceLabel: semiTotal,
+                semiAnnualStruckLabel: semiStruck,
+              );
+            },
+          ),
 
           // CTA: Bouton universel style bandeau clair
           Positioned(
@@ -188,6 +238,7 @@ class _Canvas extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _HomeIndicator2 extends StatelessWidget {
   const _HomeIndicator2();
   @override
@@ -212,6 +263,7 @@ class _HomeIndicator2 extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _Offer12 extends StatelessWidget {
   final OffreType selection;
   final ValueChanged<OffreType> onSelect;
@@ -318,6 +370,7 @@ class _Offer12 extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _Offer1 extends StatelessWidget {
   final OffreType selection;
   final ValueChanged<OffreType> onSelect;
@@ -380,6 +433,7 @@ class _Offer1 extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _Offer6 extends StatelessWidget {
   final OffreType selection;
   final ValueChanged<OffreType> onSelect;
@@ -463,7 +517,22 @@ class _Offer6 extends StatelessWidget {
 class _OffersGroup extends StatelessWidget {
   final OffreType selection;
   final ValueChanged<OffreType> onSelect;
-  const _OffersGroup({required this.selection, required this.onSelect});
+  final String monthlyPriceLabel;
+  final String yearlyPerMonthLabel;
+  final String yearlyTotalPriceLabel;
+  final String semiAnnualPerMonthLabel;
+  final String semiAnnualTotalPriceLabel;
+  final String? semiAnnualStruckLabel;
+  const _OffersGroup({
+    required this.selection,
+    required this.onSelect,
+    required this.monthlyPriceLabel,
+    required this.yearlyPerMonthLabel,
+    required this.yearlyTotalPriceLabel,
+    required this.semiAnnualPerMonthLabel,
+    required this.semiAnnualTotalPriceLabel,
+    this.semiAnnualStruckLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -489,9 +558,9 @@ class _OffersGroup extends StatelessWidget {
                     ? BorderRadius.circular(12)
                     : const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
                 leftTitle: '12 mois',
-                rightSubtitle: '2,83 € / mois',
+                rightSubtitle: yearlyPerMonthLabel,
                 bottomStruck: '59,88 €',
-                bottomValue: '  39,99 €',
+                bottomValue: '  $yearlyTotalPriceLabel',
                 outlinedGreen: selection == OffreType.mois12,
                 // centered baseline (no shift)
                 shiftY: 0,
@@ -516,7 +585,7 @@ class _OffersGroup extends StatelessWidget {
                     : const BorderRadius.all(Radius.circular(0)),
                 outlinedGreen: selection == OffreType.mois1,
                 leftTitle: '1 mois',
-                rightSubtitle: '4,99 € / mois',
+                rightSubtitle: monthlyPriceLabel,
               ),
             ),
             // Separator between middle and bottom
@@ -536,9 +605,9 @@ class _OffersGroup extends StatelessWidget {
                     ? BorderRadius.circular(12)
                     : const BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12)),
                 leftTitle: '6 mois',
-                rightSubtitle: '3,83 € / mois',
-                bottomStruck: '29,94 €',
-                bottomValue: '  22,99 €',
+                rightSubtitle: semiAnnualPerMonthLabel,
+                bottomStruck: semiAnnualStruckLabel,
+                bottomValue: '  $semiAnnualTotalPriceLabel',
                 outlinedGreen: selection == OffreType.mois6,
                 shiftY: -6,
                 discountOffset: 10,
@@ -575,6 +644,7 @@ class _SeparatorLine extends StatelessWidget {
 }
 
 class _SelectionBadge extends StatelessWidget {
+  // ignore: unused_element_parameter
   final double size;
   const _SelectionBadge({this.size = 28});
 
@@ -619,6 +689,7 @@ class _OfferRowCentered extends StatelessWidget {
     required this.rightSubtitle,
     this.bottomStruck,
     this.bottomValue,
+    // ignore: unused_element_parameter
     this.centerYOffset = 0,
     this.discountOffset = 10,
     this.shiftY = 0,
@@ -659,7 +730,7 @@ class _OfferRowCentered extends StatelessWidget {
                 const Positioned(
                   right: -6,
                   top: -12,
-                  child: _SelectionBadge(),
+                  child: _SelectionBadge(size: 28),
                 ),
               Align(
                 alignment: Alignment.center,

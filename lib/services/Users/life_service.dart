@@ -45,7 +45,7 @@ class LifeService {
       if (userDocRef != null) {
         final snap = await userDocRef.get();
         final data = snap.data() as Map<String, dynamic>?;
-        if ((data?['livesInfinite'] ?? false) == true) {
+        if ((data?['vie']?['livesInfinite'] == true) || (data?['livesInfinite'] == true)) {
           if (kDebugMode) debugPrint('♾️ Mode vies infinies actif: synchronisation ignorée');
           return;
         }
@@ -129,7 +129,7 @@ class LifeService {
       final snap = await userDoc.get();
       if (!snap.exists) return 0;
       final data = snap.data() as Map<String, dynamic>?;
-      if ((data?['livesInfinite'] ?? false) == true) {
+      if ((data?['vie']?['livesInfinite'] == true) || (data?['livesInfinite'] == true)) {
         return 0;
       }
       final Map<String, dynamic>? vie = data?['vie'] is Map<String, dynamic>
@@ -160,8 +160,8 @@ class LifeService {
       DocumentSnapshot userDocSnapshot = await userDoc.get();
       if (userDocSnapshot.exists) {
         final data = userDocSnapshot.data() as Map<String, dynamic>?;
-        if ((data?['livesInfinite'] ?? false) == true) {
-          if (kDebugMode) debugPrint('♾️ getCurrentLives: mode vies infinies → retour 5 (affichage)');
+        if ((data?['vie']?['livesInfinite'] == true) || (data?['livesInfinite'] == true)) {
+          if (kDebugMode) debugPrint('♾️ getCurrentLives: vies infinies (vie.livesInfinite) → retour 5 (affichage)');
           return 5;
         }
         final Map<String, dynamic>? vie = data?['vie'] is Map<String, dynamic>
@@ -234,8 +234,8 @@ class LifeService {
         }
 
         final data = userDocSnapshot.data() as Map<String, dynamic>?;
-        if ((data?['livesInfinite'] ?? false) == true) {
-          if (kDebugMode) debugPrint('♾️ checkAndResetLives: vies infinies actives → aucune réinitialisation');
+        if ((data?['vie']?['livesInfinite'] == true) || (data?['livesInfinite'] == true)) {
+          if (kDebugMode) debugPrint('♾️ checkAndResetLives: vies infinies actives (vie.livesInfinite) → aucune réinitialisation');
           return 5;
         }
         final Map<String, dynamic>? vie = data?['vie'] is Map<String, dynamic>
@@ -367,8 +367,8 @@ class LifeService {
       }
 
       final data = userDocSnapshot.data() as Map<String, dynamic>?;
-      if ((data?['livesInfinite'] ?? false) == true) {
-        if (kDebugMode) debugPrint('♾️ verifyAndFixLives: vies infinies → rien à corriger');
+      if ((data?['vie']?['livesInfinite'] == true) || (data?['livesInfinite'] == true)) {
+        if (kDebugMode) debugPrint('♾️ verifyAndFixLives: vies infinies (vie.livesInfinite) → rien à corriger');
         return 5;
       }
       final Map<String, dynamic>? vie = data?['vie'] is Map<String, dynamic>
@@ -515,6 +515,19 @@ class LifeService {
         }, SetOptions(merge: true));
         if (kDebugMode) debugPrint('🔁 Migration des vies → mapping "vie.vieRestante" ($value)');
       }
+
+      // Migrer livesInfinite racine vers vie.livesInfinite
+      if (data.containsKey('livesInfinite')) {
+        final bool li = (data['livesInfinite'] == true);
+        await userDoc.set({
+          'vie': {
+            'livesInfinite': li,
+          },
+          // Supprimer toujours l'ancien champ résiduel
+          'livesInfinite': FieldValue.delete(),
+        }, SetOptions(merge: true));
+        if (kDebugMode) debugPrint('🔁 Migration livesInfinite → vie.livesInfinite ($li) + suppression racine');
+      }
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur migration champ vies: $e');
     }
@@ -529,6 +542,61 @@ class LifeService {
   static bool get isUserLoggedIn {
     return _auth.currentUser != null;
   }
+
+  // (supprimé) addLives(uid, delta) remplacé par addLivesTransactional
+
+  /// Version transactionnelle: lit et écrit de façon atomique et renvoie {before, after, max}
+  static Future<Map<String, int>> addLivesTransactional(String uid, int delta) async {
+    final userDoc = _getSecureUserDocument(uid);
+    if (userDoc == null) {
+      return {'before': 5, 'after': 5, 'max': 5};
+    }
+    return await _firestore.runTransaction<Map<String, int>>((txn) async {
+      final snap = await txn.get(userDoc);
+      final data = snap.data() as Map<String, dynamic>?;
+      if ((data?['vie']?['livesInfinite'] == true) || (data?['livesInfinite'] == true)) {
+        return {'before': 5, 'after': 5, 'max': 5};
+      }
+      final Map<String, dynamic>? vie = data?['vie'] is Map<String, dynamic>
+          ? (data?['vie'] as Map<String, dynamic>)
+          : null;
+      final Map<String, dynamic>? vies = data?['vies'] is Map<String, dynamic>
+          ? (data?['vies'] as Map<String, dynamic>)
+          : null;
+
+      // Déterminer max à partir des différentes variantes
+      final int maxLives = (vie?['vieMaximum'] as int?
+            ?? data?['vies']?['max'] as int?
+            ?? 5)
+          .clamp(1, 50);
+
+      // Lire le courant depuis toutes les variantes connues (héritage inclus)
+      final dynamic livesNew = vie?['vieRestante'];
+      final dynamic livesSingular = vie?['Vie restante'];
+      final dynamic livesTopFr = data?['Vie restante'];
+      final dynamic livesNestedFr = vies?['Vie restante'];
+      final dynamic livesLegacy = data?['livesRemaining'];
+      final dynamic livesOldNested = vies?['compte'] ?? vie?['compte'];
+      final int current = (livesNew ?? livesSingular ?? livesTopFr ?? livesNestedFr ?? livesLegacy ?? livesOldNested ?? 5) as int;
+
+      final int currentClamped = current.clamp(0, maxLives);
+      final int updated = (currentClamped + delta).clamp(0, maxLives);
+      txn.set(userDoc, {
+        'vie': {
+          'vieRestante': updated,
+        },
+        'vie.Vie restante': FieldValue.delete(),
+        'Vie restante': FieldValue.delete(),
+        'livesRemaining': FieldValue.delete(),
+        'vies.compte': FieldValue.delete(),
+        'vies.Vie restante': FieldValue.delete(),
+      }, SetOptions(merge: true));
+      if (kDebugMode) debugPrint('❤️ addLivesTransactional: $currentClamped -> $updated (max=$maxLives)');
+      return {'before': currentClamped, 'after': updated, 'max': maxLives};
+    });
+  }
+
+  // (supprimé) ensureMaxLivesAtLeast — non utilisé
 }
 
 
