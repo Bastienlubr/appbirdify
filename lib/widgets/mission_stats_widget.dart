@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/mission_management_service.dart';
+import '../services/Mission/communs/commun_gestion_mission.dart';
 
 /// Widget pour afficher les statistiques d'une mission
 class MissionStatsWidget extends StatefulWidget {

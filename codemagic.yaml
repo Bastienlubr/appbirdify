@@ -1,0 +1,27 @@
+workflows:
+  ios_testflight_staging:
+    name: iOS TestFlight (staging)
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      vars:
+        BUNDLE_ID: com.example.appbirdify
+    scripts:
+      - name: Flutter pub get
+        script: flutter pub get
+      - name: Build iOS IPA (Release)
+        script: flutter build ipa --release
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        api_key:
+          issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+          key_id: $APP_STORE_CONNECT_KEY_ID
+          private_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        submit_to_testflight: true
+        submit_to_app_store: false
+        groups:
+          - internal
+

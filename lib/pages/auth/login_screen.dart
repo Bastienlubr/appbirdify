@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/Users/auth_service.dart';
+// import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform; // Unused
+import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:ui';
 import 'register_screen.dart';
+import '../../ui/responsive/responsive.dart';
 import '../home_screen.dart';
-import '../../services/user_sync_service.dart';
+import '../../services/Users/user_orchestra_service.dart';
+import 'questionnaire_screen.dart';
+import '../../services/Users/onboarding_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -47,15 +53,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       
-      // Démarrer la synchronisation et créer le profil dans `utilisateurs/{uid}` si absent
-      await UserSyncService.startSync();
+      // Démarrer la synchronisation via l'orchestrateur
+      await UserOrchestra.startRealtime();
 
       if (!mounted) return;
-      
-      final navigator = Navigator.of(context);
-      navigator.pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+
+      final needs = await QuestionnaireService.needsOnboarding();
+      if (!mounted) return;
+      if (needs) {
+        await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (_) => const QuestionnaireScreen()),
+        );
+      }
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'user-not-found':
@@ -76,29 +87,230 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleGoogle() async {
+    setState(() => _errorMessage = null);
+    try {
+      final cred = await AuthService.signInWithGoogle();
+      if (cred == null) {
+        setState(() => _errorMessage = 'Connexion Google annulée ou indisponible');
+        return;
+      }
+      if (!mounted) return;
+      await UserOrchestra.startRealtime();
+      if (!mounted) return;
+      final needs = await QuestionnaireService.needsOnboarding();
+      if (!mounted) return;
+      if (needs) {
+        await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (_) => const QuestionnaireScreen()),
+        );
+      }
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = 'Google Sign-In a échoué: ${e.toString()}');
+    }
+  }
+
+  // Facebook retiré du périmètre défini
+
+  // Future<void> _handleApple() async { /* désactivé */ }
+
+  // Future<void> _handleMagicLink() async { /* désactivé */ }
+
+  // Gérer les liens magiques quand l’app est ouverte via un lien (deep link/Dynamic Links)
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Tentative simple: si un lien est reçu via initialLink dans ModalRoute
+    final uri = ModalRoute.of(context)?.settings.name;
+    if (uri != null && uri.contains('link=')) {
+      // Extraire le lien profond s’il est encodé en param
+      final link = Uri.decodeComponent(uri.split('link=').last);
+      _completeMagicLinkIfNeeded(link);
+    }
+  }
+
+  Future<void> _completeMagicLinkIfNeeded(String link) async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) return; // On exige l’email saisi pour finaliser
+    final cred = await AuthService.completeEmailLinkSignIn(email: email, link: link);
+    if (cred == null) {
+      if (!mounted) return;
+      setState(() => _errorMessage = 'Lien invalide ou expiré');
+      return;
+    }
+    if (!mounted) return;
+    await UserOrchestra.startRealtime();
+    if (!mounted) return;
+    final needs = await QuestionnaireService.needsOnboarding();
+    if (!mounted) return;
+    if (needs) {
+      await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const QuestionnaireScreen()),
+      );
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+  }
+
+  Future<void> _handlePhone() async {
+    setState(() => _errorMessage = null);
+    final phone = await _askPhoneNumber();
+    if (phone == null || phone.isEmpty) {
+      if (!mounted) return;
+      setState(() => _errorMessage = 'Entrez un numéro valide au format international (+33...)');
+      return;
+    }
+    await AuthService.verifyPhoneNumber(
+      phoneNumber: phone,
+      onCodeSent: (vId) async {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('SMS envoyé.')));
+        final code = await _askSmsCode();
+        if (code == null) return;
+        final cred = await AuthService.signInWithSmsCode(verificationId: vId, smsCode: code);
+        if (cred == null) {
+          if (!mounted) return;
+          setState(() => _errorMessage = 'Code invalide');
+          return;
+        }
+        if (!mounted) return;
+        await UserOrchestra.startRealtime();
+        if (!mounted) return;
+        final needs = await QuestionnaireService.needsOnboarding();
+        if (!mounted) return;
+        if (needs) {
+          await Navigator.of(context).push<bool>(
+            MaterialPageRoute(builder: (_) => const QuestionnaireScreen()),
+          );
+        }
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+      },
+      onError: (msg) {
+        if (!mounted) return;
+        setState(() => _errorMessage = msg);
+      },
+    );
+  }
+
+  Future<String?> _askPhoneNumber() async {
+    final localCtrl = TextEditingController();
+    final entries = const [
+      ['🇫🇷', '+33'], ['🇧🇪', '+32'], ['🇨🇭', '+41'], ['🇪🇸', '+34'], ['🇮🇹', '+39'],
+      ['🇵🇹', '+351'], ['🇳🇱', '+31'], ['🇱🇺', '+352'], ['🇮🇪', '+353'], ['🇩🇪', '+49'],
+      ['🇬🇧', '+44'], ['🇺🇸', '+1'], ['🇨🇦', '+1'], ['🇲🇦', '+212'], ['🇩🇿', '+213'],
+      ['🇹🇳', '+216'], ['🇳🇴', '+47'], ['🇸🇪', '+46'], ['🇫🇮', '+358'], ['🇩🇰', '+45'],
+      ['🇵🇱', '+48'], ['🇨🇿', '+420'], ['🇸🇰', '+421'], ['🇷🇴', '+40'], ['🇭🇺', '+36'],
+      ['🇬🇷', '+30'], ['🇹🇷', '+90']
+    ];
+    String selectedPrefix = '+33';
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Numéro de téléphone'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF3F7),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedPrefix,
+                        menuMaxHeight: 320,
+                        isDense: true,
+                        items: entries.map((e) {
+                          return DropdownMenuItem<String>(
+                            value: e[1],
+                            child: Row(children: [Text('${e[0]}  ${e[1]}')]),
+                          );
+                        }).toList(),
+                        onChanged: (v) { if (v != null) setState(() => selectedPrefix = v); },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: localCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(hintText: '6 12 34 56 78'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+            ElevatedButton(
+              onPressed: () {
+                final local = localCtrl.text.replaceAll(' ', '').trim();
+                Navigator.pop(ctx, '$selectedPrefix$local');
+              },
+              child: const Text('Continuer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _askSmsCode() async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Code SMS'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(hintText: 'Entrez le code à 6 chiffres'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Valider')),
+        ],
+      ),
+    );
+  }
+
 
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final screenWidth = screenSize.width;
-    final screenHeight = screenSize.height;
-    final contentWidth = screenWidth * 0.85;
-    final maxContentWidth = 400.0;
-    final actualContentWidth = contentWidth > maxContentWidth ? maxContentWidth : contentWidth;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
-      body: Stack(
-        children: [
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final m = buildResponsiveMetrics(context, constraints);
+          final double contentTop = m.isTablet ? m.dp(80, tabletFactor: 1.0, min: 60, max: 140) : m.dp(80, min: 56, max: 120);
+          final double fieldHeight = m.dp(70, tabletFactor: 1.05, min: 58, max: 84);
+          final double rawContentWidth = constraints.maxWidth * 0.85;
+          final double actualContentWidthLB = m.isTablet
+              ? rawContentWidth.clamp(360.0, 520.0)
+              : rawContentWidth.clamp(300.0, 400.0);
+          return Stack(
+            children: [
           // Contenu principal centré
           Positioned(
-            top: screenHeight * 0.2,
+            top: contentTop,
             left: 0,
             right: 0,
             child: Center(
               child: Container(
-                width: actualContentWidth,
+                width: actualContentWidthLB,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -126,39 +338,53 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 50),
-                    Container(
-                      width: double.infinity,
-                      height: 70,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color.fromRGBO(60, 128, 209, 0.085),
-                            blurRadius: 19,
-                            offset: Offset(0, 12),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          height: fieldHeight,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color.fromRGBO(60, 128, 209, 0.085),
+                                blurRadius: 19,
+                                offset: Offset(0, 12),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          color: Color(0xFF334355),
-                          fontFamily: 'Quicksand',
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Adresse email',
-                          hintStyle: TextStyle(
-                            color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
-                            fontSize: 20,
-                            fontFamily: 'Quicksand',
+                          child: TextField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              color: Color(0xFF334355),
+                              fontFamily: 'Quicksand',
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Adresse email',
+                              hintStyle: TextStyle(
+                                color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
+                                fontSize: 20,
+                                fontFamily: 'Quicksand',
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                            ),
                           ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                         ),
-                      ),
+                        Positioned(
+                          right: m.dp(20, min: 6, max: 20),
+                          top: -(fieldHeight * 0.67),
+                          child: Image.asset(
+                            'assets/Images/Bouton/mascotte.png',
+                            width: m.dp(60, tabletFactor: 1.2, min: 40, max: 64),
+                            height: m.dp(60, tabletFactor: 1.2, min: 40, max: 64),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 20),
                     Container(
@@ -222,7 +448,68 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
                       ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 14),
+                    // Séparateur "ou"
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            color: const Color(0xFF344356).withAlpha((0.15 * 255).toInt()),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            'ou',
+                            style: const TextStyle(
+                              fontFamily: 'Quicksand',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF606D7C),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            color: const Color(0xFF344356).withAlpha((0.15 * 255).toInt()),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Boutons sociaux (Google + Téléphone) avec icônes alignées
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _handleGoogle,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF334355),
+                            elevation: 1,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          icon: SvgPicture.asset('assets/PAGE/Authentification/google icon.svg', width: 20, height: 20),
+                          label: const Text('Google'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: _handlePhone,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF334355),
+                            elevation: 1,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.phone_iphone, size: 20),
+                          label: const Text('Téléphone'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
                     GestureDetector(
                       onTap: _handleLogin,
                       child: Container(
@@ -334,17 +621,10 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // Mascotte
-          Positioned(
-            top: screenHeight * 0.295,
-            right: screenWidth * 0.19,
-            child: Image.asset(
-              'assets/Images/Bouton/mascotte.png',
-              width: 60,
-              height: 60,
-            ),
-          ),
+          // (Supprimé) mascotte globale
         ],
+          );
+        },
       ),
     );
   }

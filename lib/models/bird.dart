@@ -55,13 +55,41 @@ class Bird {
     // Créer un ID unique basé sur le nom scientifique
     final id = scientificName.replaceAll(' ', '_').toLowerCase();
 
-    // Extraire les milieux
+    // Extraire et normaliser les milieux
     final milieux = <String>{};
-    // TODO: Mettre à jour avec les vrais milieux basés sur les fichiers CSV
-    final milieuColumns = ['Plaine', 'Forêt', 'Montagne', 'Marais', 'Plan d\'eau', 'Littoral'];
-    for (final milieu in milieuColumns) {
-      if (csvRow[milieu]?.isNotEmpty == true) {
-        milieux.add(milieu.toLowerCase());
+    String normalizeBiome(String raw) {
+      final n = (raw).toLowerCase().trim();
+      if (n.isEmpty) return '';
+      if (n.contains('urbain')) return 'urbain';
+      if (n.contains('forest')) return 'forestier';
+      if (n.contains('agric')) return 'agricole';
+      if (n.contains('mont')) return 'montagnard';
+      if (n.contains('littoral') || n.contains('cote') || n.contains('côte')) return 'littoral';
+      if (n.contains('humide') || n.contains('marais') || n.contains("plan d'eau") || n.contains('eau')) return 'humide';
+      return n; // fallback brut si inconnu
+    }
+
+    // Nouvelles colonnes Birdify
+    final habitatPrincipal = csvRow['Habitat_principal'] ?? '';
+    final habitatSecondaire = csvRow['Habitat_secondaire'] ?? '';
+    final p = normalizeBiome(habitatPrincipal.replaceAll('Milieu', ''));
+    final s = normalizeBiome(habitatSecondaire.replaceAll('Milieu', ''));
+    if (p.isNotEmpty) milieux.add(p);
+    if (s.isNotEmpty) milieux.add(s);
+
+    // Fallback anciennes colonnes éventuelles
+    final legacy = <String, String>{
+      'Plaine': 'agricole',
+      'Forêt': 'forestier',
+      'Montagne': 'montagnard',
+      'Marais': 'humide',
+      "Plan d'eau": 'humide',
+      'Littoral': 'littoral',
+      'Urbain': 'urbain',
+    };
+    for (final entry in legacy.entries) {
+      if ((csvRow[entry.key] ?? '').toString().trim().isNotEmpty) {
+        milieux.add(entry.value);
       }
     }
 

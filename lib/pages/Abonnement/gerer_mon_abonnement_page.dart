@@ -1,0 +1,409 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../widgets/boutons/bouton_universel.dart';
+import '../../services/abonnement/premium_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class GererMonAbonnementPage extends StatelessWidget {
+  const GererMonAbonnementPage({
+    super.key,
+    this.headerLeftMargin = 26,
+    this.headerIconSize = 36,
+    this.headerRightSpacer = 62,
+    this.titleHorizontalOffset = 4,
+    this.headerTop = 52,
+  });
+
+  final double headerLeftMargin; // marge gauche avant la flèche
+  final double headerIconSize; // taille de l'icône/flèche
+  final double headerRightSpacer; // espace à droite pour centrage optique
+  final double titleHorizontalOffset; // micro-ajustement horizontal du texte
+  final double headerTop; // position verticale du header
+
+  static const double _baseW = 375;
+  static const double _baseH = 812;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final double scale = _computeScale(constraints.maxWidth, constraints.maxHeight);
+          final double dx = (constraints.maxWidth - _baseW * scale) / 2;
+          final double dy = (constraints.maxHeight - _baseH * scale) / 2;
+
+          return Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF2F5F8),
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: dx,
+                  top: dy,
+                  width: _baseW * scale,
+                  height: _baseH * scale,
+                  child: Transform.scale(
+                    scale: scale,
+                    alignment: Alignment.topLeft,
+                    child: _Canvas(
+                      headerLeftMargin: headerLeftMargin,
+                      headerIconSize: headerIconSize,
+                      headerRightSpacer: headerRightSpacer,
+                      titleHorizontalOffset: titleHorizontalOffset,
+                      headerTop: headerTop,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  double _computeScale(double w, double h) {
+    if (w <= 0 || h <= 0) return 1.0;
+    final sx = w / _baseW;
+    final sy = h / _baseH;
+    return sx < sy ? sx : sy;
+  }
+}
+
+class _Canvas extends StatelessWidget {
+  const _Canvas({
+    required this.headerLeftMargin,
+    required this.headerIconSize,
+    required this.headerRightSpacer,
+    required this.titleHorizontalOffset,
+    required this.headerTop,
+  });
+
+  final double headerLeftMargin;
+  final double headerIconSize;
+  final double headerRightSpacer;
+  final double titleHorizontalOffset;
+  final double headerTop;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 375,
+      height: 812,
+      child: Stack(
+        children: [
+          // En-tête: flèche gauche + titre centré optiquement (placeholder symétrique à droite)
+          Positioned(
+            left: 0,
+            top: headerTop,
+            child: SizedBox(
+              width: 375,
+              height: 36,
+              child: Row(
+                children: [
+                  SizedBox(width: headerLeftMargin),
+                  SizedBox(
+                    width: headerIconSize,
+                    height: headerIconSize,
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(context).maybePop(),
+                      behavior: HitTestBehavior.opaque,
+                      child: SvgPicture.asset(
+                        'assets/Images/Bouton/flechegauchecercle.svg',
+                        width: headerIconSize,
+                        height: headerIconSize,
+                        fit: BoxFit.contain,
+                        colorFilter: const ColorFilter.mode(Color(0xFF334355), BlendMode.srcIn),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Transform.translate(
+                        offset: Offset(titleHorizontalOffset, 0),
+                        child: const Text(
+                          'Gérer mon abonnement',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Color(0xFF334355),
+                            fontSize: 20,
+                            fontFamily: 'Quicksand',
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: headerRightSpacer),
+                ],
+              ),
+            ),
+          ),
+
+          // Statut (Premium + libellé plan) — centré
+          Positioned(
+            left: 0,
+            top: 151,
+            child: SizedBox(
+              width: 375,
+              child: Center(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: PremiumService.instance.isPremium,
+                  builder: (context, premium, _) {
+                    if (!premium) {
+                      return const Text(
+                        'Aucun abonnement actif',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFF334355),
+                          fontSize: 20,
+                          fontFamily: 'Fredoka',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    }
+                    return ValueListenableBuilder<Map<String, dynamic>?>(
+                      valueListenable: PremiumService.instance.abonnement,
+                      builder: (context, abo, __) {
+                        final String plan = _resolvePlanLabel(abo);
+                        final String title = plan.isNotEmpty ? 'Abonnement actif — $plan' : 'Abonnement actif';
+                        return Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFF334355),
+                            fontSize: 20,
+                            fontFamily: 'Fredoka',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+
+          // Carte d'information avec contenu inclus (aligné à l'intérieur)
+          Positioned(
+            left: 36,
+            top: 192,
+            child: ValueListenableBuilder<Map<String, dynamic>?>(
+              valueListenable: PremiumService.instance.abonnement,
+              builder: (context, abo, _) {
+                final int trialDaysLeft = (abo?['joursEssaiRestants'] as int?) ?? 0;
+                final DateTime? nextBilling = (abo?['prochaineFacturation'] is Timestamp)
+                    ? (abo?['prochaineFacturation'] as Timestamp).toDate()
+                    : (abo?['prochaineFacturation'] as DateTime?);
+                final DateTime? periodeDebut = (abo?['periodeCourante']?['debut'] is Timestamp)
+                    ? (abo?['periodeCourante']?['debut'] as Timestamp).toDate()
+                    : (abo?['periodeCourante']?['debut'] as DateTime?);
+                final DateTime? periodeFin = (abo?['periodeCourante']?['fin'] is Timestamp)
+                    ? (abo?['periodeCourante']?['fin'] as Timestamp).toDate()
+                    : (abo?['periodeCourante']?['fin'] as DateTime?);
+
+                final String line1 = (periodeDebut != null && periodeFin != null)
+                    ? 'Période en cours: du ${_formatDateFr(periodeDebut)} au ${_formatDateFr(periodeFin)}'
+                    : '';
+                final String line2 = (nextBilling != null)
+                    ? 'Prochaine facturation: ${_formatDateFr(nextBilling)}'
+                    : (line1.isEmpty ? 'Abonnement en cours' : '');
+                final String? trialText = trialDaysLeft > 0
+                    ? 'Essai gratuit (${trialDaysLeft} jour${trialDaysLeft > 1 ? 's' : ''} restant${trialDaysLeft > 1 ? 's' : ''})'
+                    : null;
+
+                return Container(
+                  width: 303,
+                  decoration: ShapeDecoration(
+                    color: const Color(0xFFFCFCFE),
+                    shape: RoundedRectangleBorder(
+                      side: const BorderSide(width: 3, color: Color(0xFFDADADA)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    shadows: const [
+                      BoxShadow(
+                        color: Color(0x153C7FD0),
+                        blurRadius: 19,
+                        offset: Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: SingleChildScrollView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (trialText != null)
+                          Text(
+                            trialText,
+                            style: const TextStyle(
+                              color: Color(0xFF334355),
+                              fontSize: 15,
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        if (line1.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              line1,
+                              style: const TextStyle(
+                                color: Color(0x8C334355),
+                                fontSize: 15,
+                                fontFamily: 'Quicksand',
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        if (line2.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              line2,
+                              style: const TextStyle(
+                                color: Color(0x8C334355),
+                                fontSize: 15,
+                                fontFamily: 'Quicksand',
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // Bouton Gérer sur Google Play (ouverture directe)
+          Positioned(
+            left: 49.09,
+            top: 318.45,
+            child: SizedBox(
+              width: 274.82,
+              height: 40.73,
+              child: BoutonUniversel(
+                onPressed: () async {
+                  final url = Uri.parse('https://play.google.com/store/account/subscriptions');
+                  if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Impossible d\'ouvrir Google Play')),
+                      );
+                    }
+                  }
+                },
+                size: BoutonUniverselTaille.small,
+                borderRadius: 10,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                backgroundColor: const Color(0xFFFCFCFE),
+                hoverBackgroundColor: const Color(0xFFEDEDED),
+                borderColor: const Color(0xFFDADADA),
+                hoverBorderColor: const Color(0xFFDADADA),
+                shadowColor: const Color(0xFFDADADA),
+                child: const Center(
+                  child: Text(
+                    'Gérer sur Google Play',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF334355),
+                      fontSize: 16,
+                      fontFamily: 'Fredoka',
+                      fontWeight: FontWeight.w600,
+                      height: 1.0,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Bouton Résilier mon compte (ouvre le questionnaire motif)
+          Positioned(
+            left: 49.09,
+            top: 371.00,
+            child: SizedBox(
+              width: 274.82,
+              height: 40.73,
+              child: BoutonUniversel(
+                onPressed: () => Navigator.of(context).pushNamed('/abonnement/annulation-motif'),
+                size: BoutonUniverselTaille.small,
+                borderRadius: 10,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                backgroundColor: const Color(0xFFFCFCFE),
+                hoverBackgroundColor: const Color(0xFFEDEDED),
+                borderColor: const Color(0xFFDADADA),
+                hoverBorderColor: const Color(0xFFDADADA),
+                shadowColor: const Color(0xFFDADADA),
+                child: const Center(
+                  child: Text(
+                    'Résilier mon compte',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF334355),
+                      fontSize: 16,
+                      fontFamily: 'Fredoka',
+                      fontWeight: FontWeight.w600,
+                      height: 1.0,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // (Supprimé) Home indicator
+        ],
+      ),
+    );
+  }
+}
+
+String _formatDateFr(DateTime date) {
+  // Format très simple JJ mois AAAA (sans dépendance intl)
+  const mois = [
+    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
+  ];
+  final d = date.day;
+  final m = mois[date.month - 1];
+  final y = date.year;
+  return '$d $m $y';
+}
+
+String _resolvePlanLabel(Map<String, dynamic>? abo) {
+  if (abo == null) return '';
+  final String? productId = abo['produitId'] as String?;
+  final String? basePlanId = abo['offre'] is Map<String, dynamic>
+      ? (abo['offre'] as Map<String, dynamic>)['basePlanId'] as String?
+      : null;
+  final String id = (basePlanId ?? productId ?? '').toLowerCase();
+  if (id.isEmpty) return '';
+  if (id.contains('year') || id.contains('annuel') || id.contains('yearly') || id.contains('12')) {
+    return '12 mois';
+  }
+  if (id.contains('6') || id.contains('semestr')) {
+    return '6 mois';
+  }
+  if (id.contains('month') || id.contains('mensuel') || id.contains('monthly') || id.contains('1')) {
+    return '1 mois';
+  }
+  return '';
+}
+
+

@@ -151,8 +151,8 @@ class _NavItem extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Quicksand',
-                  fontSize: labelSize,
-                  fontWeight: FontWeight.w600,
+                  fontSize: isSelected ? (labelSize + 2) : labelSize,
+                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
                   color: isSelected ? selectedColor : Colors.white,
                 ),
               ),
