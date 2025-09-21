@@ -3,8 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firestore_service.dart';
-import '../abonnement/premium_service.dart';
+// import supprimé: premium_service
 import 'life_service.dart';
+import '../premium_service.dart';
 import 'user_profile_service.dart';
 import 'user_avatar_service.dart';
 
@@ -130,10 +131,8 @@ class UserOrchestra {
       // 6) Démarrer la synchronisation temps réel unifiée
       await startRealtime();
 
-      // 7) Démarrer le service Premium (écoute profil + restauration achats)
-      try {
-        await PremiumService.instance.start();
-      } catch (_) {}
+      // 7) Démarrer PremiumService (Android seulement)
+      try { await PremiumService.instance.start(); } catch (_) {}
 
       // 8) Avatar: écouter et précharger la photo de profil pour l'UI
       try {
@@ -153,9 +152,7 @@ class UserOrchestra {
     try {
       stopRealtime();
     } catch (_) {}
-    try {
-      PremiumService.instance.stop();
-    } catch (_) {}
+    try { PremiumService.instance.stop(); } catch (_) {}
     try {
       UserAvatarService.instance.stop();
     } catch (_) {}

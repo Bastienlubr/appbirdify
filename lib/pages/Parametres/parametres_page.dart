@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../ui/responsive/responsive.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../services/abonnement/premium_service.dart';
+// import supprimé: premium_service
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -577,19 +577,10 @@ class _ParametresPageState extends State<ParametresPage> {
                               iconBg: iconBg,
                               iconColor: iconColor,
                               onTap: () async {
-                                try {
-                                  await PremiumService.instance.restore();
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Restauration lancée')),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Restauration impossible: $e')),
-                                    );
-                                  }
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Restauration désactivée')),
+                                  );
                                 }
                               },
                             ),
@@ -601,30 +592,21 @@ class _ParametresPageState extends State<ParametresPage> {
                               iconBg: iconBg,
                               iconColor: iconColor,
                               onTap: () async {
-                                final ok = await PremiumService.instance.forceResync();
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(ok ? 'Statut actualisé' : 'Impossible d\'actualiser')),
+                                    const SnackBar(content: Text('Actualisation désactivée')),
                                   );
                                 }
                               },
                             ),
                             _Divider(m: m),
-                            ValueListenableBuilder<bool>(
-                              valueListenable: PremiumService.instance.isPremium,
-                              builder: (context, isPremium, _) {
-                                if (!isPremium) {
-                                  return const SizedBox.shrink();
-                                }
-                                return _SettingsTile(
-                                  m: m,
-                                  leading: Icons.workspace_premium,
-                                  title: 'Gérer mon abonnement',
-                                  iconBg: iconBg,
-                                  iconColor: iconColor,
-                                  onTap: () => Navigator.of(context).pushNamed('/abonnement/gerer'),
-                                );
-                              },
+                            _SettingsTile(
+                              m: m,
+                              leading: Icons.workspace_premium,
+                              title: 'Gérer mon abonnement',
+                              iconBg: iconBg,
+                              iconColor: iconColor,
+                              onTap: () => Navigator.of(context).pushNamed('/abonnement/gerer'),
                             ),
                           ],
                         ),

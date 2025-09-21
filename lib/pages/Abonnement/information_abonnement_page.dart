@@ -4,7 +4,7 @@ import '../../widgets/boutons/bouton_universel.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'choix_offre_page.dart';
 import '../../ui/animations/page_route_universelle.dart';
-import '../../services/abonnement/premium_service.dart';
+// import supprimé: premium_service
 
 class InformationAbonnementPage extends StatelessWidget {
   const InformationAbonnementPage({super.key});
@@ -53,12 +53,8 @@ class InformationAbonnementPage extends StatelessWidget {
                     height: 44.92 * scale,
                     child: BoutonUniversel(
                       onPressed: () {
-                        final bool isPrem = PremiumService.instance.isPremium.value;
-                        if (isPrem) {
-                          Navigator.of(context).pushNamed('/abonnement/gerer');
-                        } else {
-                          Navigator.of(context).push(_createLeftToRightRoute());
-                        }
+                        // Aller choisir l'offre pour démarrer l'essai
+                        Navigator.of(context).pushNamed('/abonnement/choix-offre');
                       },
                       size: BoutonUniverselTaille.small,
                       borderRadius: 10 * scale,

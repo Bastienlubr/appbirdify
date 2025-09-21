@@ -16,13 +16,10 @@ import 'services/Users/auth_service.dart';
 import 'pages/Abonnement/information_abonnement_page.dart';
 import 'pages/Abonnement/choix_offre_page.dart';
 import 'pages/Abonnement/gerer_mon_abonnement_page.dart';
-import 'pages/Abonnement/annulation_motif_page.dart';
 import 'services/outils_developpement/auto_lock_service.dart';
-import 'services/dev/startup_diagnostics.dart';
 
 void main() async {
-  // Handlers globaux d'erreurs au plus tôt
-  StartupDiagnostics.initGlobalErrorHandlers();
+  // Handlers globaux d'erreurs au plus tôt (supprimés)
   // IMPORTANT: garder ensureInitialized dans la même zone que runApp (zone par défaut)
   WidgetsFlutterBinding.ensureInitialized();
   // Forcer l'orientation en mode portrait uniquement
@@ -76,8 +73,7 @@ void main() async {
   // Démarrer l'écouteur d'auth pour synchroniser automatiquement le profil utilisateur
   await AuthService.startAuthSync();
 
-  // Log de boot rapide
-  await StartupDiagnostics.runOnBoot();
+  // Log de boot rapide (supprimé)
 
   // Démarrage de l'app
   runApp(const MyApp());
@@ -99,7 +95,7 @@ class MyApp extends StatelessWidget {
         '/abonnement/information': (context) => const InformationAbonnementPage(),
         '/abonnement/choix-offre': (context) => const ChoixOffrePage(),
         '/abonnement/gerer': (context) => GererMonAbonnementPage(titleHorizontalOffset: 8),
-        '/abonnement/annulation-motif': (context) => const AnnulationMotifPage(),
+        // route '/abonnement/annulation-motif' supprimée
       },
     ).withAutoLock();
   }

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../widgets/boutons/bouton_universel.dart';
-import '../../services/abonnement/premium_service.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
+import '../../services/premium_service.dart';
 
 enum OffreType { mois1, mois6, mois12 }
 
@@ -64,30 +63,29 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
   }
 
   Future<void> _onContinue() async {
-    final premium = PremiumService.instance;
-    // Forcer un refresh des produits (utile après ajout d'un nouveau SKU côté Play)
-    await premium.refreshProducts();
-    bool ok = false;
-    switch (_selection) {
-      case OffreType.mois1:
-        ok = await premium.buyMonthly();
-        break;
-      case OffreType.mois6:
-        // Si un SKU 6 mois existe, utilise-le, sinon fallback annuel
-        final has6 = premium.semiAnnualPlan != null;
-        ok = has6 ? await premium.buySemiAnnual() : await premium.buyYearly();
-        break;
-      case OffreType.mois12:
-        ok = await premium.buyYearly();
-        break;
-    }
-    if (!mounted) return;
-    if (!ok) {
+    try {
+      bool ok = false;
+      switch (_selection) {
+        case OffreType.mois1:
+          ok = await PremiumService.instance.buyMonthly();
+          break;
+        case OffreType.mois6:
+          ok = await PremiumService.instance.buySemiAnnual();
+          break;
+        case OffreType.mois12:
+          ok = await PremiumService.instance.buyAnnual();
+          break;
+      }
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Offre indisponible sur ce device/compte. Vérifie la publication et le compte test.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Produit indisponible. Réessaie plus tard.')),
+        SnackBar(content: Text('Achat impossible: $e')),
       );
-    } else {
-      Navigator.of(context).maybePop();
     }
   }
 
@@ -115,7 +113,7 @@ class _Canvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final premium = PremiumService.instance;
+    // Premium supprimé: on affiche uniquement l’UI statique
     return SizedBox(
       width: 375,
       height: 812,
@@ -179,36 +177,29 @@ class _Canvas extends StatelessWidget {
           ),
 
           // Groupe unique des offres (3 sections + séparateurs gris)
-          ValueListenableBuilder<List<ProductDetails>>(
-            valueListenable: premium.products,
-            builder: (context, products, _) {
-              // Forcer l’affichage des PRIX FINAUX (ignorer essai gratuit et labels Play pour l’UI)
-              const double forcedMonthly = 4.99; // 1 mois
-              const String forcedSemiTotal = '23,99 €'; // 6 mois (total)
-              const String forcedYearlyTotal = '39,99 €'; // 12 mois (total)
-              const String currencyCode = 'EUR';
-
-              final String monthlyLabel = premium.formatCurrency(forcedMonthly, currencyCode) + ' / mois';
-              final String? semiStruck = premium.formatCurrency(forcedMonthly * 6.0, currencyCode);
-              final String? yearlyStruck = premium.formatCurrency(forcedMonthly * 12.0, currencyCode);
-              // Non utilisés dans l’UI principale mais fournis pour compat
-              const String yearlyPerMonth = '2,83 € / mois';
-              const String semiPerMonth = '3,83 € / mois';
-              final String yearlyTotal = forcedYearlyTotal;
-              final String semiTotal = forcedSemiTotal;
-              return _OffersGroup(
-                selection: selection,
-                onSelect: onSelect,
-                monthlyPriceLabel: monthlyLabel,
-                yearlyPerMonthLabel: yearlyPerMonth,
-                yearlyTotalPriceLabel: yearlyTotal,
-                yearlyStruckLabel: yearlyStruck,
-                semiAnnualPerMonthLabel: semiPerMonth,
-                semiAnnualTotalPriceLabel: semiTotal,
-                semiAnnualStruckLabel: semiStruck,
-              );
-            },
-          ),
+          Builder(builder: (context) {
+            const double forcedMonthly = 4.99; // 1 mois
+            const String forcedSemiTotal = '23,99 €'; // 6 mois (total)
+            const String forcedYearlyTotal = '39,99 €'; // 12 mois (total)
+            final String monthlyLabel = '${forcedMonthly.toStringAsFixed(2).replaceAll('.', ',')} € / mois';
+            const String? semiStruck = '29,94 €';
+            const String? yearlyStruck = '59,88 €';
+            const String yearlyPerMonth = '2,83 € / mois';
+            const String semiPerMonth = '3,83 € / mois';
+            final String yearlyTotal = forcedYearlyTotal;
+            final String semiTotal = forcedSemiTotal;
+            return _OffersGroup(
+              selection: selection,
+              onSelect: onSelect,
+              monthlyPriceLabel: monthlyLabel,
+              yearlyPerMonthLabel: yearlyPerMonth,
+              yearlyTotalPriceLabel: yearlyTotal,
+              yearlyStruckLabel: yearlyStruck,
+              semiAnnualPerMonthLabel: semiPerMonth,
+              semiAnnualTotalPriceLabel: semiTotal,
+              semiAnnualStruckLabel: semiStruck,
+            );
+          }),
 
           // CTA: Bouton universel style bandeau clair
           Positioned(

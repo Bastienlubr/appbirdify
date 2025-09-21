@@ -66,31 +66,27 @@ service cloud.firestore {
       // Création autorisée par le propriétaire
       allow create: if isOwner(uid);
 
-      // Mise à jour autorisée sauf champ sensible 'abonnement' (réservé au backend/Admin SDK)
+      // Mise à jour autorisée sauf champs sensibles
       allow update: if isOwner(uid)
+                    // 1) Interdire toute écriture du champ racine 'abonnement'
                     && !('abonnement' in request.resource.data.diff(resource.data).changedKeys())
-                    // Interdire le changement du statut premium depuis le client
-                    && !(request.resource.data.profil.estPremium != resource.data.profil.estPremium);
+                    // 2) Interdire de modifier le statut premium depuis le client
+                    && !(request.resource.data.profil.estPremium != resource.data.profil.estPremium)
+                    // 3) Interdire d'activer les vies infinies côté client
+                    && !((request.resource.data.vie.livesInfinite == true));
 
       // Suppression client interdite
       allow delete: if false;
 
-      // Diagnostics abonnement (historique de logs)
-      match /diagnostics/abonnement/logs/{logId} {
-        allow read, create: if isOwner(uid);
-        allow update, delete: if false;
-      }
+      // (Supprimé) Diagnostics abonnement
 
-      // Nouvelle structure abonnement: état courant + historique
+      // Abonnement: lecture seule côté client (écritures par backend/Admin SDK)
       match /abonnement/{docId} {
         allow read: if isOwner(uid);
-        allow create, update: if isOwner(uid);
-        allow delete: if false;
-        // Sous-collection cycles historique
+        allow create, update, delete: if false;
         match /cycles/{cycleId} {
           allow read: if isOwner(uid);
-          allow create, update: if isOwner(uid);
-          allow delete: if false;
+          allow create, update, delete: if false;
         }
       }
 

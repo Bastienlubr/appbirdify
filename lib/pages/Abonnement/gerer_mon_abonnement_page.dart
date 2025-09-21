@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../widgets/boutons/bouton_universel.dart';
-import '../../services/abonnement/premium_service.dart';
+// import supprimé: premium_service
 import 'package:url_launcher/url_launcher.dart';
+import '../../services/premium_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../services/abonnement/premium_service.dart';
+// premium_service supprimé
 
 class GererMonAbonnementPage extends StatelessWidget {
   const GererMonAbonnementPage({
@@ -153,44 +154,18 @@ class _Canvas extends StatelessWidget {
             top: 151,
             child: SizedBox(
               width: 375,
-              child: Center(
-                child: ValueListenableBuilder<bool>(
-                  valueListenable: PremiumService.instance.isPremium,
-                  builder: (context, premium, _) {
-                    if (!premium) {
-                      return const Text(
-                        'Aucun abonnement actif',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Color(0xFF334355),
-                          fontSize: 20,
-                          fontFamily: 'Fredoka',
-                          fontWeight: FontWeight.w600,
-                        ),
-                      );
-                    }
-                    return ValueListenableBuilder<Map<String, dynamic>?>(
-                      valueListenable: PremiumService.instance.abonnement,
-                      builder: (context, abo, __) {
-                        final String plan = _resolvePlanLabel(abo);
-                        final String title = plan.isNotEmpty ? 'Abonnement actif — $plan' : 'Abonnement actif';
-                        return Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Color(0xFF334355),
-                            fontSize: 20,
-                            fontFamily: 'Fredoka',
-                            fontWeight: FontWeight.w600,
-                          ),
-                        );
-                      },
-                    );
-                  },
+              child: const Center(
+                child: Text(
+                  'Aucun abonnement actif',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF334355),
+                    fontSize: 20,
+                    fontFamily: 'Fredoka',
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -271,7 +246,7 @@ class _Canvas extends StatelessWidget {
             ),
           ),
 
-          // Bouton Restaurer mes achats (lié au compte Play courant)
+          // Bouton Restaurer mes achats
           Positioned(
             left: 49.09,
             top: 265.0,
@@ -279,22 +254,7 @@ class _Canvas extends StatelessWidget {
               width: 274.82,
               height: 40.73,
               child: BoutonUniversel(
-                onPressed: () async {
-                  try {
-                    await PremiumService.instance.restore();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Restauration lancée')),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Restauration impossible: $e')),
-                      );
-                    }
-                  }
-                },
+                onPressed: () async { try { await PremiumService.instance.restore(); } catch (_) {} },
                 size: BoutonUniverselTaille.small,
                 borderRadius: 10,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -320,7 +280,7 @@ class _Canvas extends StatelessWidget {
             ),
           ),
 
-          // Bouton Actualiser l'état de l'abonnement (force resync via Cloud Function)
+          // Bouton Actualiser l'état de l'abonnement (relance restore pour forcer un event)
           Positioned(
             left: 49.09,
             top: 418.0,
@@ -328,14 +288,7 @@ class _Canvas extends StatelessWidget {
               width: 274.82,
               height: 40.73,
               child: BoutonUniversel(
-                onPressed: () async {
-                  final ok = await PremiumService.instance.forceResync();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(ok ? 'Statut actualisé' : 'Impossible d\'actualiser')),
-                    );
-                  }
-                },
+                onPressed: () async { try { await PremiumService.instance.restore(); } catch (_) {} },
                 size: BoutonUniverselTaille.small,
                 borderRadius: 10,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -361,7 +314,7 @@ class _Canvas extends StatelessWidget {
             ),
           ),
 
-          // Bouton DEV: Forcer synchro (token)
+          // Bouton DEV: Forcer synchro (token) — neutralisé
           Positioned(
             left: 49.09,
             top: 465.0,
@@ -370,53 +323,10 @@ class _Canvas extends StatelessWidget {
               height: 40.73,
               child: BoutonUniversel(
                 onPressed: () async {
-                  final form = await showDialog<(String,String,String)?>(
-                    context: context,
-                    builder: (ctx) {
-                      final subIdCtrl = TextEditingController(text: 'premium_1mois_1');
-                      final tokenCtrl = TextEditingController();
-                      final pkgCtrl = TextEditingController(text: 'com.mindbird.app');
-                      return AlertDialog(
-                        title: const Text('Forcer synchro (token)'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextField(controller: subIdCtrl, decoration: const InputDecoration(labelText: 'subscriptionId')), 
-                            TextField(controller: tokenCtrl, decoration: const InputDecoration(labelText: 'purchaseToken')), 
-                            TextField(controller: pkgCtrl, decoration: const InputDecoration(labelText: 'packageName')),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Annuler')),
-                          TextButton(onPressed: () => Navigator.pop(ctx, (subIdCtrl.text, tokenCtrl.text, pkgCtrl.text)), child: const Text('Envoyer')),
-                        ],
-                      );
-                    },
-                  );
-                  if (form == null) return;
-                  final (subId, token, pkg) = form;
-                  if (subId.isEmpty || token.isEmpty) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Champs requis manquants')));
-                    }
-                    return;
-                  }
-                  try {
-                    final uid = FirebaseAuth.instance.currentUser?.uid;
-                    if (uid == null) throw Exception('Utilisateur non connecté');
-                    await PremiumService.instance.sendVerifierAbonnementHttp(
-                      uid: uid,
-                      purchaseToken: token,
-                      subscriptionId: subId,
-                      packageName: pkg,
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Fonction dev désactivée')),
                     );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Synchro envoyée')));
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Échec: $e')));
-                    }
                   }
                 },
                 size: BoutonUniverselTaille.small,
@@ -444,39 +354,7 @@ class _Canvas extends StatelessWidget {
             ),
           ),
 
-          // Bouton Résilier mon compte (ouvre le questionnaire motif)
-          Positioned(
-            left: 49.09,
-            top: 371.00,
-            child: SizedBox(
-              width: 274.82,
-              height: 40.73,
-              child: BoutonUniversel(
-                onPressed: () => Navigator.of(context).pushNamed('/abonnement/annulation-motif'),
-                size: BoutonUniverselTaille.small,
-                borderRadius: 10,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                backgroundColor: const Color(0xFFFCFCFE),
-                hoverBackgroundColor: const Color(0xFFEDEDED),
-                borderColor: const Color(0xFFDADADA),
-                hoverBorderColor: const Color(0xFFDADADA),
-                shadowColor: const Color(0xFFDADADA),
-                child: const Center(
-                  child: Text(
-                    'Résilier mon compte',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF334355),
-                      fontSize: 16,
-                      fontFamily: 'Fredoka',
-                      fontWeight: FontWeight.w600,
-                      height: 1.0,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          // Bouton Résilier mon compte — supprimé
 
           // Historique simple (3 derniers cycles) — lit abonnement/historique/cycles
           Positioned(
