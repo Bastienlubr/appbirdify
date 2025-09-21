@@ -148,30 +148,14 @@ class _Canvas extends StatelessWidget {
             ),
           ),
 
-          // Statut (Premium + libellé plan) — centré
+          // Statut dynamique (essai/actif)
           Positioned(
             left: 0,
             top: 151,
-            child: SizedBox(
-              width: 375,
-              child: const Center(
-                child: Text(
-                  'Aucun abonnement actif',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFF334355),
-                    fontSize: 20,
-                    fontFamily: 'Fredoka',
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
+            child: const _StatusHeader(),
           ),
 
-          // Carte d'information avec contenu inclus (aligné à l'intérieur) - lit abonnement/current
+          // Cartes d'information (Essai gratuit + Abonnement payant) — lit abonnement/current
           Positioned(
             left: 36,
             top: 192,
@@ -387,89 +371,47 @@ class _CurrentSubscriptionCard extends StatelessWidget {
       stream: stream,
       builder: (context, snap) {
         final abo = snap.data?.data();
-        final int trialDaysLeft = (abo?['joursEssaiRestants'] as int?) ?? 0;
-        final DateTime? nextBilling = (abo?['prochaineFacturation'] is Timestamp)
-            ? (abo?['prochaineFacturation'] as Timestamp).toDate()
-            : (abo?['prochaineFacturation'] as DateTime?);
-        final DateTime? periodeDebut = (abo?['periodeCourante']?['debut'] is Timestamp)
-            ? (abo?['periodeCourante']?['debut'] as Timestamp).toDate()
-            : (abo?['periodeCourante']?['debut'] as DateTime?);
-        final DateTime? periodeFin = (abo?['periodeCourante']?['fin'] is Timestamp)
-            ? (abo?['periodeCourante']?['fin'] as Timestamp).toDate()
-            : (abo?['periodeCourante']?['fin'] as DateTime?);
+        final DateTime? nextBilling = _toDate(abo?['prochaineFacturation']);
+        final DateTime? periodeDebut = _toDate(abo?['periodeCourante']?['debut']);
+        final DateTime? periodeFin = _toDate(abo?['periodeCourante']?['fin']);
+        final Map<String, dynamic>? essai = abo?['essai'] as Map<String, dynamic>?;
+        final Map<String, dynamic>? payant = abo?['payant'] as Map<String, dynamic>?;
+        final Map<String, dynamic>? prix = abo?['prix'] as Map<String, dynamic>?;
+        final String? productId = (abo?['offre']?['productId'] as String?) ?? abo?['subscriptionId'] as String?;
 
-        final String line1 = (periodeDebut != null && periodeFin != null)
-            ? 'Période en cours: du ${_formatDateFr(periodeDebut)} au ${_formatDateFr(periodeFin)}'
-            : '';
-        final String line2 = (nextBilling != null)
-            ? 'Prochaine facturation: ${_formatDateFr(nextBilling)}'
-            : (line1.isEmpty ? 'Abonnement en cours' : '');
-        final String? trialText = trialDaysLeft > 0
-            ? 'Essai gratuit ($trialDaysLeft jour${trialDaysLeft > 1 ? 's' : ''} restant${trialDaysLeft > 1 ? 's' : ''})'
-            : null;
+        final int trialDaysLeft = (essai?['joursRestants'] as int?) ?? 0;
+        final bool trialActif = essai?['actif'] == true;
+        final DateTime? trialDebut = _toDate(essai?['debut']);
+        final DateTime? trialFin = _toDate(essai?['fin']);
+        final DateTime? payantDebut = _toDate(payant?['debut']);
 
-        return Container(
+        return SizedBox(
           width: 303,
-          decoration: ShapeDecoration(
-            color: const Color(0xFFFCFCFE),
-            shape: RoundedRectangleBorder(
-              side: const BorderSide(width: 3, color: Color(0xFFDADADA)),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            shadows: const [
-              BoxShadow(
-                color: Color(0x153C7FD0),
-                blurRadius: 19,
-                offset: Offset(0, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (trialDebut != null && trialFin != null)
+                _InfoCard(
+                  title: 'Essai gratuit',
+                  lines: [
+                    'Du ${_formatDateFr(trialDebut)} au ${_formatDateFr(trialFin)}',
+                    if (trialActif) 'Reste: J-${trialDaysLeft.clamp(0, 999)}',
+                  ],
+                ),
+              const SizedBox(height: 10),
+              _InfoCard(
+                title: 'Abonnement payant',
+                lines: [
+                  if (productId != null) 'Offre: $productId',
+                  if (payantDebut != null) 'Début: ${_formatDateFr(payantDebut)}',
+                  if (periodeDebut != null && periodeFin != null)
+                    'Période: ${_formatDateFr(periodeDebut)} → ${_formatDateFr(periodeFin)}',
+                  if (nextBilling != null) 'Prochaine facturation: ${_formatDateFr(nextBilling)}',
+                  if (prix != null && prix['montant'] != null && prix['devise'] != null)
+                    'Prix: ${prix['montant']} ${prix['devise']}',
+                ],
               ),
             ],
-          ),
-          child: SingleChildScrollView(
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (trialText != null)
-                  Text(
-                    trialText,
-                    style: const TextStyle(
-                      color: Color(0xFF334355),
-                      fontSize: 15,
-                      fontFamily: 'Fredoka',
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                if (line1.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      line1,
-                      style: const TextStyle(
-                        color: Color(0x8C334355),
-                        fontSize: 15,
-                        fontFamily: 'Quicksand',
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                if (line2.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      line2,
-                      style: const TextStyle(
-                        color: Color(0x8C334355),
-                        fontSize: 15,
-                        fontFamily: 'Quicksand',
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
           ),
         );
       },
@@ -604,6 +546,117 @@ String _resolvePlanLabel(Map<String, dynamic>? abo) {
     return '1 mois';
   }
   return '';
+}
+
+DateTime? _toDate(dynamic v) {
+  if (v == null) return null;
+  if (v is DateTime) return v;
+  if (v is Timestamp) return v.toDate();
+  return null;
+}
+
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.title, required this.lines});
+  final String title;
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 303,
+      decoration: ShapeDecoration(
+        color: const Color(0xFFFCFCFE),
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(width: 2, color: Color(0xFFDADADA)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        shadows: const [
+          BoxShadow(
+            color: Color(0x153C7FD0),
+            blurRadius: 19,
+            offset: Offset(0, 12),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF334355),
+              fontSize: 16,
+              fontFamily: 'Fredoka',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ...lines.where((l) => l.isNotEmpty).map((l) => Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  l,
+                  style: const TextStyle(
+                    color: Color(0x8C334355),
+                    fontSize: 15,
+                    fontFamily: 'Quicksand',
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusHeader extends StatelessWidget {
+  const _StatusHeader();
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return SizedBox(
+        width: 375,
+        child: const Center(child: Text('Non connecté', style: TextStyle(color: Color(0xFF334355), fontSize: 20, fontFamily: 'Fredoka', fontWeight: FontWeight.w600))),
+      );
+    }
+    final stream = FirebaseFirestore.instance
+        .collection('utilisateurs')
+        .doc(uid)
+        .collection('abonnement')
+        .doc('current')
+        .snapshots();
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: stream,
+      builder: (context, snap) {
+        final abo = snap.data?.data();
+        final Map<String, dynamic>? essai = abo?['essai'] as Map<String, dynamic>?;
+        final bool trialActif = essai?['actif'] == true;
+        final bool hasAbo = abo != null;
+        final String text = !hasAbo
+            ? 'Aucun abonnement'
+            : (trialActif ? 'Essai gratuit en cours' : 'Abonnement actif');
+        return SizedBox(
+          width: 375,
+          child: Center(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF334355),
+                fontSize: 20,
+                fontFamily: 'Fredoka',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 
