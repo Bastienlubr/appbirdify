@@ -14,19 +14,14 @@ class InAppPurchaseService {
   final InAppPurchase _iap = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
 
-  /// IDs des produits définis dans Play Console
-  /// À aligner avec la console: ex: com.mindbird.appbirdify.premium_monthly, ...
+  /// IDs des produits définis dans Play Console (source unique)firebase deploy --only functions
   static const Set<String> kProductIds = {
-    'premium_monthly',
-    'premium_yearly',
-    // Variantes FR acceptées
-    'premium_mensuel',
-    'premium_annuel',
-    // 6 mois (si créé côté Console)
-    'premium_semestriel',
-    'premium_semestrial',
-    'plan-6mois',
-    'prenium_6mois',
+    'premium_12mois_1',
+    'premium_12mois_2',
+    'premium_1mois_1',
+    'premium_1mois_2',
+    'premium_6mois_1',
+    'premium_6mois_2',
   };
 
   /// Dernier lot de produits récupérés
@@ -154,7 +149,7 @@ class InAppPurchaseService {
   DateTime _computePeriodEnd(DateTime start, String productId) {
     final String id = productId.toLowerCase();
     int monthsToAdd = 1; // défaut = mensuel
-    if (id.contains('year') || id.contains('annuel') || id.contains('yearly')) {
+    if (id.contains('12mois') || id.contains('year') || id.contains('annuel') || id.contains('yearly')) {
       monthsToAdd = 12;
     } else if (id.contains('6mois') || id.contains('semestr')) {
       monthsToAdd = 6;

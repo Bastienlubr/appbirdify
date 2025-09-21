@@ -1,0 +1,68 @@
+{
+  "idOiseau": "o_263",
+  "nomFrancais": "Torcol fourmilier", 
+  "nomAnglais": "Eurasian Wryneck",
+  "nomScientifique": "Jynx torquilla",
+  
+  "classification": {
+    "famille": "Picidae",
+    "ordre": "Piciformes"
+  },
+  
+  "morphologie": {
+    "descriptionPhysique": "Le Torcol fourmilier est un spectacle à voir avec son plumage cryptique qui lui donne l'apparence d'une feuille morte. Leurs pattes solides sont pourvues de quatre longs doigts terminés de griffes puissantes, deux tournés vers l'avant et deux vers l'arrière. Son bec, bien que court pour un pic, est pointu et parfaitement adapté à son régime alimentaire.",
+    "particularitesUniques": "Le Torcol fourmilier est le seul pic de l'Ancien Monde à être véritablement migrateur. Son bec court le rend incapable de creuser son propre nid, une caractéristique unique parmi les pics. Il peut étirer et tendre son cou à plus de 180°, ce qui lui vaut son nom.",
+    "caracteristiquesDistinctives": "Le bec pointu typique des pics, pattes aux 4 doigts griffus, plumage cryptique ressemblant à une feuille morte. Comportement plus proche d'un passereau que d'un pic.",
+    "dimorphismeSexuel": "Non mentionné dans les sources"
+  },
+  
+  "habitat": {
+    "biotopePrecis": "Le Torcol fourmilier préfère les boisements clairs de plaine et de moyenne montagne, jusqu'à 1500 m d'altitude dans les massifs montagneux comme les Alpes. Il affectionne les forêts de feuillus, les clairières, les lisières, les vieux vergers, les friches arborées, les parcs et jardins avec vieux arbres.",
+    "observationEnFrance": "En France, l'arrivée sur les lieux de reproduction commence en deuxième quinzaine de mars mais intervient surtout en avril. Observable dans les Alpes jusqu'à 1500m d'altitude. Rare ou absent dans le nord-ouest de la France.",
+    "milieuxGeneraux": ["Milieu forestier", "Milieu urbain"]
+  },
+  
+  "migration": {
+    "trajet": "Le Torcol fourmilier est un véritable globe-trotter migrateur nocturne. Il survole des paysages dépouillés voire désertiques, faisant halte le jour dans des milieux peu protecteurs. Les oiseaux européens hivernent en Afrique subsaharienne."
+  },
+  
+  "alimentation": {
+    "regime": "Le Torcol fourmilier est essentiellement myrmécophage, un fin gourmet de fourmis qui constituent plus de 90% de son régime alimentaire, et ce en toutes saisons.",
+    "techniquesNourrissage": "Il se nourrit principalement au sol, utilisant sa longue langue collante de picidé pour accéder aux fourmis.",
+    "variationsSaisonnieres": "Reste fidèle à son régime myrmécophage tout au long de l'année."
+  },
+  
+  "reproduction": {
+    "periode": "Mars à mai (arrivée mars, ponte mi-mai)",
+    "oeufsParPonte": "8-10 œufs, parfois plus",
+    "incubationJours": "11-12 jours",
+    "dureeEnvol": "3 semaines (21 jours)",
+    
+    "cycleReproductif": {
+      "periodeNuptiale": "Arrivée sur les lieux de reproduction en deuxième quinzaine de mars, surtout en avril",
+      "ponte": "Le Torcol fourmilier est un cavernicole incapable de creuser dans le bois la cavité qui abritera son nid, son bec est trop faible. Il occupe une cavité existante : cavité naturelle, vieille loge de pic, ou nichoir. Date moyenne de ponte : mi-mai.",
+      "incubation": "L'incubation, assurée par les deux adultes, dure 11-12 jours",
+      "nourrissageJeunes": "Les parents nourrissent les jeunes jusqu'à l'envol",
+      "premierEnvol": "Les jeunes sont volants à l'âge de 3 semaines environ",
+      "productivite": "Productivité annuelle moyenne de 4 à 5 jeunes à l'envol seulement, traduisant une forte déperdition"
+    }
+  },
+  
+  "conservation": {
+    "statutFrance": "Rare ou absent dans le nord-ouest de la France",
+    "repartitionMondiale": "Espèce eurasiatique dont la répartition s'étend de la façade atlantique européenne à la façade pacifique. 6 sous-espèces se partagent ce territoire.",
+    "particularites": "Absent des Îles britanniques. Ne se reproduit en Afrique que dans le nord de l'Algérie et de la Tunisie."
+  },
+  
+  "medias": {
+    "imagePrincipale": "https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/photo%20d'oiseaux%20france%2FTorcol%20fourmilier.jpg?alt=media&token=10d680da-576d-4a79-9a3a-5754001001dd",
+    "audioEchantillon": "https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTorcol%20fourmilier.mp3?alt=media&token=a3c1c53e-2b16-413f-83bf-4ec7634c9fbd"
+  },
+  
+  "enrichissement": {
+    "sources": ["Wikipedia", "Oiseaux.net", "Fusion manuelle experte"],
+    "dateEnrichissement": "2025-09-15T18:50:00.000Z",
+    "version": "3.0-cumulatif-parfait",
+    "qualite": "TOUTES les informations disponibles récupérées"
+  }
+}

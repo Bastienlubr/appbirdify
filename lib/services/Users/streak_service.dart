@@ -19,7 +19,6 @@ class StreakService {
         final data = snap.data() ?? <String, dynamic>{};
         final Map<String, dynamic> serie = (data['serie'] as Map<String, dynamic>?) ?? <String, dynamic>{};
         final List<String> jours = ((serie['derniersJoursActifs'] as List<dynamic>?)?.map((e) => e.toString()).toList()) ?? <String>[];
-        final int currentStreak = (serie['serieEnCours'] as int?) ?? 0;
         final int bestStreak = (serie['serieMaximum'] as int?) ?? 0;
 
         final DateTime nowUtc = DateTime.now().toUtc();

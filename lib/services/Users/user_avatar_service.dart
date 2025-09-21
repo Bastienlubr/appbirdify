@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+// import supprimé: foundation inutilisé
 import 'package:flutter/widgets.dart';
 
 /// Service chargé de suivre et précharger la photo de profil utilisateur.
@@ -29,8 +29,8 @@ class UserAvatarService {
     // Écoute Firestore pour urlAvatar
     _profileSub = _db.collection('utilisateurs').doc(user.uid).snapshots().listen((doc) {
       final String? fsUrl = (doc.data()?['profil']?['urlAvatar'] as String?)?.trim();
-      final String? best = (fsUrl != null && fsUrl.isNotEmpty) ? fsUrl : (authPhoto ?? '');
-      if (best != null && best.isNotEmpty) {
+      final String best = (fsUrl != null && fsUrl.isNotEmpty) ? fsUrl : (authPhoto ?? '');
+      if (best.isNotEmpty) {
         _setAndPrefetch(best);
       }
     });

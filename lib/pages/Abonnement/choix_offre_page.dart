@@ -149,11 +149,17 @@ class _Canvas extends StatelessWidget {
           ),
           
 
-          // Titre
+          // Titre (centré parfaitement)
           const Positioned(
-            left: 60,
+            left: 0,
+            right: 0,
             top: 218,
-            child: Text('Choisis un abonnement', style: TextStyle(color: Colors.white, fontSize: 26, fontFamily: 'Fredoka', fontWeight: FontWeight.w700)),
+            child: Center(
+              child: Text(
+                'Choisis un abonnement',
+                style: TextStyle(color: Colors.white, fontSize: 26, fontFamily: 'Fredoka', fontWeight: FontWeight.w700),
+              ),
+            ),
           ),
 
           // Bande de séparation (plus épaisse)
@@ -176,23 +182,27 @@ class _Canvas extends StatelessWidget {
           ValueListenableBuilder<List<ProductDetails>>(
             valueListenable: premium.products,
             builder: (context, products, _) {
-              final monthly = premium.monthlyPriceLabel ?? '4,99 € / mois';
-              final monthlyRaw = premium.monthlyRawPrice;
-              final monthlyCur = premium.monthlyCurrencyCode;
-              final semiPerMonth = premium.semiAnnualPerMonthLabel ?? '3,83 € / mois';
-              // Si prix mensuel dispo, price barré = 6 * prix mensuel
-              final semiStruck = (monthlyRaw != null && monthlyCur != null)
-                  ? premium.formatCurrency(monthlyRaw * 6.0, monthlyCur)
-                  : null;
-              final semiTotal = premium.semiAnnualTotalPriceLabel ?? '29,94 €';
-              final yearlyPerMonth = premium.yearlyPerMonthLabel ?? '2,83 € / mois';
-              final yearlyTotal = premium.yearlyTotalPriceLabel ?? '39,99 €';
+              // Forcer l’affichage des PRIX FINAUX (ignorer essai gratuit et labels Play pour l’UI)
+              const double forcedMonthly = 4.99; // 1 mois
+              const String forcedSemiTotal = '23,99 €'; // 6 mois (total)
+              const String forcedYearlyTotal = '39,99 €'; // 12 mois (total)
+              const String currencyCode = 'EUR';
+
+              final String monthlyLabel = premium.formatCurrency(forcedMonthly, currencyCode) + ' / mois';
+              final String? semiStruck = premium.formatCurrency(forcedMonthly * 6.0, currencyCode);
+              final String? yearlyStruck = premium.formatCurrency(forcedMonthly * 12.0, currencyCode);
+              // Non utilisés dans l’UI principale mais fournis pour compat
+              const String yearlyPerMonth = '2,83 € / mois';
+              const String semiPerMonth = '3,83 € / mois';
+              final String yearlyTotal = forcedYearlyTotal;
+              final String semiTotal = forcedSemiTotal;
               return _OffersGroup(
                 selection: selection,
                 onSelect: onSelect,
-                monthlyPriceLabel: monthly,
+                monthlyPriceLabel: monthlyLabel,
                 yearlyPerMonthLabel: yearlyPerMonth,
                 yearlyTotalPriceLabel: yearlyTotal,
+                yearlyStruckLabel: yearlyStruck,
                 semiAnnualPerMonthLabel: semiPerMonth,
                 semiAnnualTotalPriceLabel: semiTotal,
                 semiAnnualStruckLabel: semiStruck,
@@ -217,7 +227,7 @@ class _Canvas extends StatelessWidget {
                 shadowColor: const Color(0xB3858585),
                 child: const Center(
                   child: Text(
-                    'Commencer mes 3 jours gratuit',
+                    "Commencer mes 3 jours d'essai",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(0xFF334355),
@@ -520,6 +530,7 @@ class _OffersGroup extends StatelessWidget {
   final String monthlyPriceLabel;
   final String yearlyPerMonthLabel;
   final String yearlyTotalPriceLabel;
+  final String? yearlyStruckLabel;
   final String semiAnnualPerMonthLabel;
   final String semiAnnualTotalPriceLabel;
   final String? semiAnnualStruckLabel;
@@ -529,6 +540,7 @@ class _OffersGroup extends StatelessWidget {
     required this.monthlyPriceLabel,
     required this.yearlyPerMonthLabel,
     required this.yearlyTotalPriceLabel,
+    this.yearlyStruckLabel,
     required this.semiAnnualPerMonthLabel,
     required this.semiAnnualTotalPriceLabel,
     this.semiAnnualStruckLabel,
@@ -559,8 +571,8 @@ class _OffersGroup extends StatelessWidget {
                     : const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
                 leftTitle: '12 mois',
                 rightSubtitle: yearlyPerMonthLabel,
-                bottomStruck: '59,88 €',
-                bottomValue: '  $yearlyTotalPriceLabel',
+                bottomStruck: yearlyStruckLabel,
+                bottomValue: '  → $yearlyTotalPriceLabel',
                 outlinedGreen: selection == OffreType.mois12,
                 // centered baseline (no shift)
                 shiftY: 0,
@@ -607,7 +619,7 @@ class _OffersGroup extends StatelessWidget {
                 leftTitle: '6 mois',
                 rightSubtitle: semiAnnualPerMonthLabel,
                 bottomStruck: semiAnnualStruckLabel,
-                bottomValue: '  $semiAnnualTotalPriceLabel',
+                bottomValue: '  → $semiAnnualTotalPriceLabel',
                 outlinedGreen: selection == OffreType.mois6,
                 shiftY: -6,
                 discountOffset: 10,
@@ -775,7 +787,7 @@ class _OfferRowCentered extends StatelessWidget {
                   ),
                 ),
               ),
-              if (bottomStruck != null && bottomValue != null)
+              if (bottomStruck != null)
                 Positioned(
                   left: 17,
                   top: (height / 2) + effectiveDiscountOffset,
@@ -795,17 +807,18 @@ class _OfferRowCentered extends StatelessWidget {
                             letterSpacing: 1,
                           ),
                         ),
-                        TextSpan(
-                          text: bottomValue!,
-                          style: const TextStyle(
-                            color: Color(0xFF334355),
-                            fontSize: 15,
-                            fontFamily: 'Fredoka',
-                            fontWeight: FontWeight.w600,
-                            height: 1.87,
-                            letterSpacing: 1,
+                        if (bottomValue != null)
+                          TextSpan(
+                            text: bottomValue!,
+                            style: const TextStyle(
+                              color: Color(0xFF334355),
+                              fontSize: 15,
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.w600,
+                              height: 1.87,
+                              letterSpacing: 1,
+                            ),
                           ),
-                        ),
                       ]),
                     ),
                   ),

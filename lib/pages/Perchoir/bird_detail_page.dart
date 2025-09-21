@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:just_audio/just_audio.dart';
+// import 'package:flutter/foundation.dart'; // import non nécessaire (Material suffit)
 import '../../services/dev_tools_service.dart';
 import '../../models/bird.dart';
 import '../../ui/responsive/responsive.dart';
@@ -100,8 +101,8 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   bool _isDevMode = false; // Masqué par défaut (activable via outils de dev)
   int _adminTapCount = 0;
   bool _alignmentJustSaved = false;
-  // ignore: unused_field
-  bool _alignmentLoaded = false; // indique si l'alignement sauvegardé a été récupéré
+  // indique si l'alignement sauvegardé a été récupéré
+  // (supprimé: variable non lue)
 
   // Données et état
   FicheOiseau? _fiche;
@@ -116,6 +117,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   double _audioProgress = 0.0;
   StreamSubscription<Duration>? _posSub;
   StreamSubscription<Duration?>? _durSub;
+  DateTime _lastAudioUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   
   // Alignement optimal pour cette espèce d'oiseau
   late Alignment _optimalImageAlignment;
@@ -191,6 +193,11 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       });
     });
     _posSub = _audioPlayer.positionStream.listen((pos) {
+      if (!mounted) return;
+      final now = DateTime.now();
+      // Throttle UI updates pour limiter les rebuilds
+      if (now.difference(_lastAudioUiUpdate).inMilliseconds < 120) return;
+      _lastAudioUiUpdate = now;
       if (!mounted) return;
       setState(() {
         _audioPosition = pos;
@@ -291,7 +298,6 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       
       if (savedAlignment != null && mounted) {
         _optimalImageAlignment = Alignment(savedAlignment, 0.0);
-        _alignmentLoaded = true;
         // Si le background n'est pas encore affiché, on l'affichera avec l'alignement correct
         // Si le background est déjà visible, on évite un "saut" visuel en n'actualisant pas l'UI immédiatement
         if (!_showBackground) {
@@ -314,13 +320,12 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   
   /// Vérifie le mode développement
   void _checkDevMode() {
-    BirdImageAlignments.isDevModeEnabled().then((isDevMode) {
-      if (mounted) {
-        setState(() {
-          _isDevMode = isDevMode;
-        });
-      }
-    });
+    // Désactivation visuelle des outils de calibration en production
+    if (mounted) {
+      setState(() {
+        _isDevMode = false;
+      });
+    }
   }
 
   /// Programme les animations initiales de manière séquencée
@@ -391,11 +396,36 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     final birdData = _extractBirdData();
 
     // Configuration des streams avec priorité
-    _subscriptions.addAll([
-      _createAppIdStream(birdData.appId),
-      _createScientificNameStream(birdData.scientific),
-      _createFrenchNameStream(birdData.french),
-    ]);
+    // Activer d'abord la résolution la plus probable; n'ajouter les fallbacks qu'en cas d'absence
+    // 0) DocId direct (slug FR) – le plus rapide si la base est standardisée
+    final docId = _toSlug(birdData.french);
+    _subscriptions.add(_createDocIdStream(docId));
+    // 1) Nom français
+    _subscriptions.add(_createFrenchNameStream(birdData.french));
+    Future.delayed(const Duration(milliseconds: 120), () {
+      if (!_hasReceivedFicheData && mounted) {
+        _subscriptions.add(_createScientificNameStream(birdData.scientific));
+      }
+    });
+    Future.delayed(const Duration(milliseconds: 240), () {
+      if (!_hasReceivedFicheData && mounted) {
+        _subscriptions.add(_createAppIdStream(birdData.appId));
+      }
+    });
+  }
+
+  String _toSlug(String input) {
+    final lower = input.trim().toLowerCase();
+    final withoutDiacritics = lower
+        .replaceAll(RegExp(r"[àáâä]"), 'a')
+        .replaceAll(RegExp(r"[ç]"), 'c')
+        .replaceAll(RegExp(r"[èéêë]"), 'e')
+        .replaceAll(RegExp(r"[îï]"), 'i')
+        .replaceAll(RegExp(r"[ôö]"), 'o')
+        .replaceAll(RegExp(r"[ùúûü]"), 'u')
+        .replaceAll(RegExp(r"[^a-z0-9\s-]"), '')
+        .replaceAll(RegExp(r"[\s_]+"), '-');
+    return withoutDiacritics;
   }
 
   /// Extrait les données de l'oiseau de manière structurée
@@ -409,26 +439,58 @@ class _BirdDetailPageState extends State<BirdDetailPage>
 
   /// Crée le stream prioritaire par appId
   StreamSubscription<FicheOiseau?> _createAppIdStream(String appId) {
-    return FicheOiseauService.watchFicheByAppId(appId).listen(
-      (fiche) => _handleFicheReceived(fiche, 'appId=$appId'),
+    late final StreamSubscription<FicheOiseau?> sub;
+    sub = FicheOiseauService.watchFicheByAppId(appId).listen(
+      (fiche) {
+        if (!mounted || fiche == null || _hasReceivedFicheData) return;
+        _handleFicheReceived(fiche, 'appId=$appId');
+        _cancelAllSubscriptionsExcept(sub);
+      },
       onError: (_) => _handleFicheError(),
     );
+    return sub;
   }
 
   /// Crée le stream de fallback par nom scientifique
   StreamSubscription<FicheOiseau?> _createScientificNameStream(String scientific) {
-    return FicheOiseauService.watchFicheByNomScientifique(scientific).listen(
-      (fiche) => _handleFicheReceived(fiche, 'nomSci=$scientific'),
+    late final StreamSubscription<FicheOiseau?> sub;
+    sub = FicheOiseauService.watchFicheByNomScientifique(scientific).listen(
+      (fiche) {
+        if (!mounted || fiche == null || _hasReceivedFicheData) return;
+        _handleFicheReceived(fiche, 'nomSci=$scientific');
+        _cancelAllSubscriptionsExcept(sub);
+      },
       onError: (_) => _handleFicheError(),
     );
+    return sub;
   }
 
   /// Crée le stream de fallback par nom français
   StreamSubscription<FicheOiseau?> _createFrenchNameStream(String french) {
-    return FicheOiseauService.watchFicheByNomFrancais(french).listen(
-      (fiche) => _handleFicheReceived(fiche, 'nomFr=$french'),
+    late final StreamSubscription<FicheOiseau?> sub;
+    sub = FicheOiseauService.watchFicheByNomFrancais(french).listen(
+      (fiche) {
+        if (!mounted || fiche == null || _hasReceivedFicheData) return;
+        _handleFicheReceived(fiche, 'nomFr=$french');
+        _cancelAllSubscriptionsExcept(sub);
+      },
       onError: (_) => _handleFicheError(),
     );
+    return sub;
+  }
+
+  /// Crée le stream prioritaire par docId (slug FR)
+  StreamSubscription<FicheOiseau?> _createDocIdStream(String docId) {
+    late final StreamSubscription<FicheOiseau?> sub;
+    sub = FicheOiseauService.watchFicheByDocId(docId).listen(
+      (fiche) {
+        if (!mounted || fiche == null || _hasReceivedFicheData) return;
+        _handleFicheReceived(fiche, 'docId=$docId');
+        _cancelAllSubscriptionsExcept(sub);
+      },
+      onError: (_) => _handleFicheError(),
+    );
+    return sub;
   }
 
   /// Gère la réception d'une fiche avec logging optimisé
@@ -476,6 +538,19 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       subscription.cancel();
     }
     _subscriptions.clear();
+  }
+
+  /// Annule toutes les subscriptions sauf celle passée et garde uniquement celle-ci
+  void _cancelAllSubscriptionsExcept(StreamSubscription<FicheOiseau?>? keep) {
+    for (final s in _subscriptions) {
+      if (s != keep) {
+        try { s.cancel(); } catch (_) {}
+      }
+    }
+    _subscriptions.clear();
+    if (keep != null) {
+      _subscriptions.add(keep);
+    }
   }
 
   /// Charge le nombre d'espèces de la famille de manière optimisée
@@ -915,8 +990,9 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                if (_showBackground && !_isReturning && widget.useHero && !widget.staticEntrance)
                  _buildImagePanelFade(m, screenHeight),
 
-                             // Bouton retour (masqué pendant le retour)
-              if (_showBackground && !_isReturning) _buildBackButton(m),
+              // Bouton retour (masqué pendant le retour)
+             if (_showBackground && !_isReturning) _buildBackButton(m),
+             
               
               // Interface de calibration (mode développement uniquement)
               if (_showBackground && !_isReturning && _isDevMode)
@@ -1125,6 +1201,9 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       ),
     );
   }
+
+  /// Vide le cache Firestore et recharge la fiche (via DevTools)
+  // (supprimé) _clearCacheAndRefresh non utilisée
 
   // --- Interface de calibration d'alignement --------------------------------
   Widget _buildAlignmentIndicator(ResponsiveMetrics m) {
@@ -1924,11 +2003,6 @@ class _BirdDetailPageState extends State<BirdDetailPage>
           Text('Classification', style: _subtitleTextStyle(m)),
           const SizedBox(height: 6),
           Text(_fmt(_buildClassificationSentence()), style: _contentTextStyle(m)),
-          if ((_familySpeciesCount ?? 0) > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(_fmt('Espèces dans la famille: ${_familySpeciesCount!}'), style: _contentTextStyle(m)),
-            ),
           const SizedBox(height: 12),
 
           // Morphologie
@@ -1981,18 +2055,60 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         break;
       case 'alimentation':
         final alim = _fiche?.alimentation;
-        final parts = <String>[];
-        if (alim?.regimePrincipal != null && alim!.regimePrincipal!.isNotEmpty) {
-          parts.add('Régime: ${alim.regimePrincipal}');
+        final chips = <Widget>[];
+        // Aliments principaux (clé)
+        final proies = alim?.proiesPrincipales ?? const [];
+        if (proies.isNotEmpty) {
+          for (final item in proies.take(3)) {
+            final v = item.trim();
+            if (v.isEmpty) continue;
+            chips.add(_miniInfoCard(
+              title: 'Aliment',
+              value: v,
+              m: m,
+            ));
+          }
+        } else {
+          final regime = alim?.regimePrincipal?.trim();
+          if (regime != null && regime.isNotEmpty) {
+          chips.add(_miniInfoCard(
+            title: 'Aliment principal',
+            value: regime,
+            m: m,
+          ));
+          }
         }
-        if (alim?.proiesPrincipales.isNotEmpty == true) {
-          parts.add('Proies: ${alim!.proiesPrincipales.join(', ')}');
+        // Techniques de recherche/prise
+        final techniques = alim?.techniquesChasse;
+        if (techniques != null && techniques.isNotEmpty) {
+          chips.add(_miniInfoCard(
+            title: 'Techniques',
+            value: techniques.join(', '),
+            m: m,
+          ));
         }
-        if (alim?.description != null && alim!.description!.isNotEmpty) {
-          parts.add(alim.description!);
+        // Description en texte libre
+        final descText = alim?.description?.trim() ?? '';
+        final hasDesc = descText.isNotEmpty;
+        if (chips.isEmpty && !hasDesc) {
+          content = Text('Données d\'alimentation à venir.', style: _contentTextStyle(m));
+        } else {
+          content = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (chips.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Wrap(spacing: 10, runSpacing: 10, children: chips),
+                ),
+              if (hasDesc)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(_fmt(descText), style: _contentTextStyle(m)),
+                ),
+            ],
+          );
         }
-        final alimText = parts.isNotEmpty ? parts.join('. ') : 'Données d\'alimentation à venir.';
-        content = Text(_fmt(alimText), style: _contentTextStyle(m));
         break;
       case 'reproduction':
         content = _buildReproductionSection(m);
@@ -2090,7 +2206,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     String mergeNonEmpty(List<String> parts) {
       final filtered = parts.where((p) => p.trim().isNotEmpty).toList();
       if (filtered.isEmpty) return '';
-      return filtered.join(' — ');
+      return filtered.join(' | ');
     }
 
     final String parade = firstDetail(['paradeNuptiale', 'parade', 'periodeNuptiale']);
@@ -2306,8 +2422,8 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         .replaceAll(' ;', ' ;');
     // Traits d'union fléchés si présents
     s = s.replaceAll('->', '→');
-    // Espaces autour des tirets demi-cadratins
-    s = s.replaceAll(' - ', ' — ');
+      // Séparateur neutre au lieu d'un long tiret
+      s = s.replaceAll(' - ', ' | ');
     // Corriger les doubles points
     s = s.replaceAll('..', '.');
     return s;

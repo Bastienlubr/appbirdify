@@ -21,9 +21,7 @@ class _RecompensesUtilesSecondairePageState extends State<RecompensesUtilesSecon
     with TickerProviderStateMixin {
   final RecompensesUtilesService _service = RecompensesUtilesService();
   late final AnimationController _sunburstController;
-  // Simulation locale: score/total
-  final int _simulatedScore = 8;
-  final int _simulatedTotal = 10;
+  // (supprimé) Variables de simulation non utilisées
 
   @override
   void initState() {

@@ -17,6 +17,7 @@ import '../ui/responsive/responsive.dart';
 import 'Accueil/widgets/lives_popover.dart';
 import 'Quiz/quiz_selection_page.dart';
 // import '../ui/animations/transitions.dart'; // (désactivé) Animations centralisées
+import 'package:flutter_svg/flutter_svg.dart';
 
 
 
@@ -99,6 +100,7 @@ class _HomeContentState extends State<HomeContent> {
   final LayerLink _livesLink = LayerLink();
   OverlayEntry? _livesEntry;
   final GlobalKey<LivesPopoverState> _livesPopoverKey = GlobalKey<LivesPopoverState>();
+  OverlayEntry? _prewarmEntry; // garde le popover chaud pendant qu'on est sur Home
 
 
   @override
@@ -107,6 +109,41 @@ class _HomeContentState extends State<HomeContent> {
     _missionScrollController = ScrollController();
     _loadMissionsForBiome(_selectedBiome);
     _loadCurrentLives();
+
+    // Précharger les assets du popover de vies pour une ouverture sans accroc
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        LivesPopover.precacheAssets(context);
+      } catch (_) {}
+
+      // Préchauffage PERSISTANT: on garde une instance Offstage en overlay tant qu'on reste sur Home
+      try {
+        if (_prewarmEntry == null) {
+          final overlay = Overlay.of(context, rootOverlay: true);
+          if (overlay != null) {
+            final Size screen = MediaQuery.of(context).size;
+            final Offset anchor = Offset(screen.width / 2, 100);
+            _prewarmEntry = OverlayEntry(
+              maintainState: true,
+              opaque: false,
+              builder: (_) => IgnorePointer(
+                ignoring: true,
+                child: Opacity(
+                  opacity: 0.01, // peindre pour remplir les caches GPU sans être visible
+                  child: LivesPopover(
+                    currentLives: _currentLives,
+                    anchor: anchor,
+                    onClose: () {},
+                    prewarm: true,
+                  ),
+                ),
+              ),
+            );
+            overlay.insert(_prewarmEntry!);
+          }
+        }
+      } catch (_) {}
+    });
   }
 
   @override
@@ -167,12 +204,17 @@ class _HomeContentState extends State<HomeContent> {
 
   @override
   void dispose() {
+    // Décharger le préchauffage lorsqu'on quitte Home
+    try { _prewarmEntry?.remove(); } catch (_) {}
+    _prewarmEntry = null;
     _removeLivesPopover();
     _missionScrollController.dispose();
     super.dispose();
   }
 
   void _toggleLivesPopover(BuildContext context, {required double size}) {
+    // Désactive le popover en mode Premium
+    if (UserOrchestra.isPremium) return;
     if (_livesEntry != null) {
       // Fermer avec animation inverse avant de retirer l'overlay
       _livesPopoverKey.currentState?.dismissWithAnimation(onCompleted: _removeLivesPopover);
@@ -182,7 +224,6 @@ class _HomeContentState extends State<HomeContent> {
     final RenderBox box = context.findRenderObject() as RenderBox;
     // Ancre au bas-centre du widget vies pour que la flèche pointe dessous
     final Offset bottomCenter = box.localToGlobal(Offset(box.size.width / 2, box.size.height));
-
     _livesEntry = OverlayEntry(
       builder: (ctx) {
         return LivesPopover(
@@ -529,7 +570,8 @@ class _HomeContentState extends State<HomeContent> {
                     offset: Offset(livesOffsetX, livesOffsetY),
                     fontSize: livesFontSize,
                     lives: _currentLives,
-                    onTap: (ctx) => _toggleLivesPopover(ctx, size: livesSize),
+                    isInfinite: UserOrchestra.isPremium,
+                    onTap: UserOrchestra.isPremium ? null : (ctx) => _toggleLivesPopover(ctx, size: livesSize),
                   ),
                 ),
               ),
@@ -730,54 +772,6 @@ class _HomeContentState extends State<HomeContent> {
   Future<void> _handleQuizLaunch(String missionId) async {
     if (!mounted) return;
     
-    // Vérifier si l'utilisateur a des vies disponibles
-    if (_currentLives == 0) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFFF3F5F9),
-          title: const Text(
-            "Plus de vies",
-            style: TextStyle(
-              fontFamily: 'Quicksand',
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFBC4749),
-            ),
-          ),
-          content: const Text(
-            "Vous n'avez plus de vies disponibles. Revenez demain à minuit pour les restaurer.",
-            style: TextStyle(
-              fontFamily: 'Quicksand',
-              fontSize: 16,
-            ),
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE1E7EE),
-                foregroundColor: const Color(0xFF334355),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Color(0xFFDADADA), width: 1),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-              child: const Text(
-                "OK",
-                style: TextStyle(
-                  fontFamily: 'Quicksand',
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-    
     // Navigation vers l'écran de chargement qui préchargera les images
     await Navigator.push(
       context,
@@ -808,6 +802,7 @@ class _LivesAnchor extends StatelessWidget {
   final Offset offset;
   final double fontSize;
   final int lives;
+  final bool isInfinite;
   final void Function(BuildContext)? onTap;
 
   const _LivesAnchor({
@@ -815,6 +810,7 @@ class _LivesAnchor extends StatelessWidget {
     required this.offset,
     required this.fontSize,
     required this.lives,
+    required this.isInfinite,
     this.onTap,
   });
 
@@ -838,15 +834,58 @@ class _LivesAnchor extends StatelessWidget {
                 offset: offset,
                 child: Align(
                   alignment: Alignment.center,
-                  child: Text(
-                    lives.toString(),
-                    style: TextStyle(
-                      fontFamily: 'Quicksand',
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF473C33),
-                    ),
-                  ),
+                      child: isInfinite
+                          ? SvgPicture.asset(
+                              'assets/Images/Bouton/infinie.svg',
+                              width: fontSize * 1.05,
+                              height: fontSize * 1.05,
+                              fit: BoxFit.contain,
+                              colorFilter: const ColorFilter.mode(
+                                Color(0xFF473C33),
+                                BlendMode.srcIn,
+                              ),
+                            )
+                          : SizedBox(
+                              width: fontSize * 1.32,
+                              height: fontSize * 1.32,
+                              child: Center(
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Outline (stroke) layer
+                                    Text(
+                                      lives.toString(),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontFamily: 'Quicksand',
+                                        fontSize: fontSize * 1.06,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1.0,
+                                        foreground: Paint()
+                                          ..style = PaintingStyle.stroke
+                                          ..strokeWidth = 0.5
+                                          ..color = const Color(0xFF2C241E),
+                                      ),
+                                    ),
+                                    // Fill layer
+                                    Text(
+                                      lives.toString(),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontFamily: 'Quicksand',
+                                        fontSize: fontSize * 1.06,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF473C33),
+                                        height: 1.0,
+                                        shadows: const [
+                                          Shadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                 ),
               ),
             ),

@@ -566,28 +566,68 @@ class _ParametresPageState extends State<ParametresPage> {
 
                       SizedBox(height: m.gapMedium()),
                       _SectionTitle(title: 'Abonnement', m: m),
-                      ValueListenableBuilder<bool>(
-                        valueListenable: PremiumService.instance.isPremium,
-                        builder: (context, isPremium, _) {
-                          if (!isPremium) {
-                            return const SizedBox.shrink();
-                          }
-                          return _CardContainer(
-                            m: m,
-                            child: Column(
-                              children: [
-                                _SettingsTile(
+                      _CardContainer(
+                        m: m,
+                        child: Column(
+                          children: [
+                            _SettingsTile(
+                              m: m,
+                              leading: Icons.restore,
+                              title: 'Restaurer mes achats',
+                              iconBg: iconBg,
+                              iconColor: iconColor,
+                              onTap: () async {
+                                try {
+                                  await PremiumService.instance.restore();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Restauration lancée')),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Restauration impossible: $e')),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                            _Divider(m: m),
+                            _SettingsTile(
+                              m: m,
+                              leading: Icons.sync,
+                              title: "Actualiser l'état de l'abonnement",
+                              iconBg: iconBg,
+                              iconColor: iconColor,
+                              onTap: () async {
+                                final ok = await PremiumService.instance.forceResync();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(ok ? 'Statut actualisé' : 'Impossible d\'actualiser')),
+                                  );
+                                }
+                              },
+                            ),
+                            _Divider(m: m),
+                            ValueListenableBuilder<bool>(
+                              valueListenable: PremiumService.instance.isPremium,
+                              builder: (context, isPremium, _) {
+                                if (!isPremium) {
+                                  return const SizedBox.shrink();
+                                }
+                                return _SettingsTile(
                                   m: m,
                                   leading: Icons.workspace_premium,
                                   title: 'Gérer mon abonnement',
                                   iconBg: iconBg,
                                   iconColor: iconColor,
                                   onTap: () => Navigator.of(context).pushNamed('/abonnement/gerer'),
-                                ),
-                              ],
+                                );
+                              },
                             ),
-                          );
-                        },
+                          ],
+                        ),
                       ),
                       
                       SizedBox(height: m.gapMedium()),

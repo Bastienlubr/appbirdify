@@ -92,8 +92,7 @@ class UserOrchestra {
       // 5) Harmoniser et nettoyer les champs hérités
       try {
         final userDocRef = FirebaseFirestore.instance.collection('utilisateurs').doc(uid);
-        final snap = await userDocRef.get();
-        final data = snap.data();
+        await userDocRef.get();
         final hasNewBiomes = false; // biomesDeverrouilles supprimé
         final legacyBiomes = null; // non utilisé
 

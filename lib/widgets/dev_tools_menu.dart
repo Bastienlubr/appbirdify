@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../services/dev_tools_service.dart';
 import '../theme/colors.dart';
-import '../services/Mission/communs/commun_persistance_consultation.dart';
+// import supprimé: '../services/Mission/communs/commun_persistance_consultation.dart'
 import '../pages/auth/login_screen.dart';
 import '../pages/RecompensesUtiles/test_recompenses_access.dart';
 import '../pages/RecompensesUtiles/recompenses_utiles_page.dart';
 import '../pages/RecompensesUtiles/recompenses_utiles_secondaire_page.dart';
 import '../services/Users/recompenses_utiles_service.dart';
 import '../data/bird_image_alignments.dart';
+// import supprimé: debug_auto_fiche_page.dart
+import 'package:firebase_app_check/firebase_app_check.dart';
 
 class DevToolsMenu extends StatefulWidget {
   final VoidCallback? onLivesRestored;
@@ -406,23 +409,37 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.black87,
-              fontFamily: 'Quicksand',
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black87,
+                fontFamily: 'Quicksand',
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              softWrap: false,
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.black,
-              fontFamily: 'Quicksand',
+          const SizedBox(width: 8),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
+                  fontFamily: 'Quicksand',
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                softWrap: false,
+                textAlign: TextAlign.right,
+              ),
             ),
           ),
         ],
@@ -443,6 +460,7 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           ),
         ),
         const SizedBox(height: 12),
+        // (supprimé) Interface test Auto-Fiche IA
         // Toggle Mode Cadrage (DEV)
         _buildActionButton(
           icon: Icons.tune,
@@ -458,6 +476,68 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
               }
             });
           },
+        ),
+        _buildActionButton(
+          icon: Icons.refresh,
+          label: '🧹 Vider cache Firestore',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.clearFirestoreCache();
+            if (kDebugMode) debugPrint('🎯 Cache Firestore vidé - les fiches montreront les nouvelles données');
+          }),
+        ),
+        _buildActionButton(
+          icon: Icons.vpn_key,
+          label: '🔑 Afficher AppCheck debug token',
+          onPressed: () => _executeAction(() async {
+            try {
+              // Essayer sans refresh puis avec refresh
+              String? token = await FirebaseAppCheck.instance.getToken(false);
+              token ??= await FirebaseAppCheck.instance.getToken(true);
+              if (kDebugMode) {
+                debugPrint('APP_CHECK_DEBUG_TOKEN: ' + (token ?? 'null'));
+                debugPrint('👉 Colle ce token dans Firebase Console > App Check > Debug tokens puis relance.');
+              }
+              if (token != null) {
+                try { await Clipboard.setData(ClipboardData(text: token)); } catch (_) {}
+                if (mounted) {
+                  await showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Token App Check (Debug)'),
+                      content: SelectableText(token ?? 'null'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Token indisponible. Réessaie dans 2-3 minutes (rate-limit).')),
+                  );
+                }
+              }
+            } catch (e) {
+              if (kDebugMode) debugPrint('⚠️ Impossible de récupérer le token AppCheck: $e');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Erreur AppCheck: $e')),
+                );
+              }
+            }
+          }),
+        ),
+        _buildActionButton(
+          icon: Icons.cloud_download,
+          label: '🔄 Recharger toutes les fiches',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.refreshAllBirdData();
+            if (kDebugMode) debugPrint('🎯 Toutes les fiches seront rechargées au prochain accès');
+          }),
         ),
         _buildActionButton(
           icon: Icons.favorite,

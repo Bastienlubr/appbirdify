@@ -43,6 +43,8 @@
   "homepage": "https://github.com/Bastienlubr/appbirdify#readme",
   "dependencies": {
     "csv-parse": "^6.1.0",
-    "firebase-admin": "^13.4.0"
+    "dotenv": "^17.2.2",
+    "firebase-admin": "^13.4.0",
+    "jsdom": "^27.0.0"
   }
 }

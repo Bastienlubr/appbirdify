@@ -709,7 +709,7 @@ class _TabLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color baseText = const Color(0xFF334355);
+    // baseText supprimé (non utilisé)
     final Color muted = const Color(0x8C334355);
     const Color selectedYellow = Color(0xFFFEC868); // texte actif (bottom bar)
     const Color selectedGreen = Color(0xFF6A994E);  // contour actif (bottom bar)

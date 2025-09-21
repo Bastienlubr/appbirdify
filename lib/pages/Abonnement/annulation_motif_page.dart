@@ -16,13 +16,7 @@ class _AnnulationMotifPageState extends State<AnnulationMotifPage> {
   static const double _baseW = 375;
   static const double _baseH = 812;
 
-  final List<String> _motifs = const [
-    ' Je voulais essayer mindBird Envol de façon temporaire',
-    " Je n'utilise plus mindBird",
-    ' Les fonctionnalités mindBird Envol ne me sont pas utiles',
-    ' MindBird Envol est trop cher pour moi',
-    ' Je rencontre des problèmes techniques avec MindBird Envol',
-  ];
+  // Liste locale non utilisée (les textes sont injectés directement dans l'UI)
   String? _selected;
   bool _saving = false;
 

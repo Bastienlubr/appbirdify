@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'services/ads/ad_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -17,30 +17,49 @@ import 'pages/Abonnement/information_abonnement_page.dart';
 import 'pages/Abonnement/choix_offre_page.dart';
 import 'pages/Abonnement/gerer_mon_abonnement_page.dart';
 import 'pages/Abonnement/annulation_motif_page.dart';
+import 'services/outils_developpement/auto_lock_service.dart';
+import 'services/dev/startup_diagnostics.dart';
 
 void main() async {
+  // Handlers globaux d'erreurs au plus tôt
+  StartupDiagnostics.initGlobalErrorHandlers();
+  // IMPORTANT: garder ensureInitialized dans la même zone que runApp (zone par défaut)
   WidgetsFlutterBinding.ensureInitialized();
   // Forcer l'orientation en mode portrait uniquement
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  
   // Initialisation Firebase avec gestion d'erreur robuste
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     debugPrint('✅ Firebase initialisé avec succès');
   } catch (e) {
+    debugPrint('❌ Erreur lors de l\'initialisation Firebase: $e');
+  }
   // App Check (Debug pour tests locaux; passe à PlayIntegrity/DeviceCheck en prod)
   try {
+    final androidProv = kReleaseMode ? AndroidProvider.playIntegrity : AndroidProvider.debug;
+    final appleProv = kReleaseMode ? AppleProvider.deviceCheck : AppleProvider.debug;
     await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.debug,
-      appleProvider: AppleProvider.debug,
+      androidProvider: androidProv,
+      appleProvider: appleProv,
     );
-    debugPrint('🛡️ Firebase App Check activé (mode debug)');
+    try {
+      await FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
+    } catch (_) {}
+    debugPrint('🛡️ Firebase App Check activé (android=$androidProv, apple=$appleProv)');
   } catch (e) {
     debugPrint('⚠️ App Check non activé: $e');
   }
+
+  // Langue FR pour Firebase Auth (utile pour e-mails/sms)
+  try {
+    await FirebaseAuth.instance.setLanguageCode('fr');
+  } catch (e) {
+    debugPrint('⚠️ Langue Auth non définie: $e');
+  }
+
   // Initialisation Google Mobile Ads (mobile uniquement) + préchargement Rewarded
   if (!kIsWeb) {
     try {
@@ -53,15 +72,14 @@ void main() async {
       debugPrint('⚠️ Mobile Ads non initialisé: $e');
     }
   }
-    debugPrint('❌ Erreur lors de l\'initialisation Firebase: $e');
-    // En cas d'échec d'initialisation Firebase, on continue quand même
-    // pour permettre à l'app de fonctionner en mode hors ligne
-  }
+
   // Démarrer l'écouteur d'auth pour synchroniser automatiquement le profil utilisateur
   await AuthService.startAuthSync();
-  
-  // (Supprimé) Initialisation du scan d'images locales au démarrage
-  
+
+  // Log de boot rapide
+  await StartupDiagnostics.runOnBoot();
+
+  // Démarrage de l'app
   runApp(const MyApp());
 }
 
@@ -83,7 +101,7 @@ class MyApp extends StatelessWidget {
         '/abonnement/gerer': (context) => GererMonAbonnementPage(titleHorizontalOffset: 8),
         '/abonnement/annulation-motif': (context) => const AnnulationMotifPage(),
       },
-    );
+    ).withAutoLock();
   }
 }
 

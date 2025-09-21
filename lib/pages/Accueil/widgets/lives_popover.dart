@@ -1,14 +1,21 @@
+import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+// Removed flutter_svg import; using PNG heart asset for performance/consistency
 import '../../../services/Users/life_service.dart';
 import '../../../services/ads/ad_service.dart';
+import '../../../services/Users/user_orchestra_service.dart';
 import '../../../widgets/boutons/bouton_universel.dart';
+import '../../../ui/animations/transitions.dart';
 
 class LivesPopover extends StatefulWidget {
   final int currentLives;
   final Offset anchor;
   final VoidCallback onClose;
   final void Function(int newLives)? onLivesChanged;
+  // Mode préchauffage: rendu invisible, sans animation ni interaction, pour charger les ressources/layout
+  final bool prewarm;
 
   const LivesPopover({
     super.key,
@@ -16,7 +23,20 @@ class LivesPopover extends StatefulWidget {
     required this.anchor,
     required this.onClose,
     this.onLivesChanged,
+    this.prewarm = false,
   });
+
+  // Précharge les assets utilisés par le popover afin d'éviter les janks au premier affichage
+  static Future<void> precacheAssets(BuildContext context) async {
+    final List<Future<void>> tasks = [
+      precacheImage(const AssetImage('assets/Images/Bouton/vie.png'), context),
+    ];
+    try {
+      await Future.wait(tasks);
+    } catch (_) {
+      // Ignorer silencieusement le préchargement en cas d'échec
+    }
+  }
 
   @override
   State<LivesPopover> createState() => LivesPopoverState();
@@ -26,15 +46,31 @@ class LivesPopoverState extends State<LivesPopover>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _curve;
+  bool _opening = true;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 420),
       vsync: this,
-    )..forward();
-    _curve = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          setState(() {
+            _opening = false; // Bascule vers contenu complet après l'anim
+          });
+        }
+      });
+    _curve = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic, reverseCurve: Curves.easeInOutCubic);
+
+    if (widget.prewarm) {
+      _opening = false;
+      _controller.value = 1.0; // rendu final directement
+    } else {
+      // Démarrer immédiatement pour éviter tout effet "pop"
+      _controller.value = 0.001;
+      _controller.forward();
+    }
   }
 
   @override
@@ -44,13 +80,11 @@ class LivesPopoverState extends State<LivesPopover>
   }
 
   void dismissWithAnimation({VoidCallback? onCompleted}) {
-    if (!_controller.isAnimating && _controller.status == AnimationStatus.completed) {
-      _controller.reverse().then((_) {
-        onCompleted?.call();
-      });
-    } else {
+    // Toujours animer la fermeture depuis la valeur courante pour une symétrie parfaite
+    final double start = _controller.value.clamp(0.0, 1.0);
+    _controller.reverse(from: start).whenComplete(() {
       onCompleted?.call();
-    }
+    });
   }
 
   @override
@@ -65,7 +99,7 @@ class LivesPopoverState extends State<LivesPopover>
     // Centre de la flèche (x) relatif au bord gauche du popover
     final double arrowCenterX = (widget.anchor.dx - left).clamp(24.0, popWidth - 24.0);
 
-    return Stack(
+    final Widget content = Stack(
       children: [
         // Dim backdrop touch-to-dismiss
         Positioned.fill(
@@ -83,44 +117,64 @@ class LivesPopoverState extends State<LivesPopover>
           width: popWidth,
           child: AnimatedBuilder(
             animation: _curve,
-            builder: (context, child) {
+            builder: (context, _) {
               final double t = _curve.value;
-              final double dy = (1.0 - t) * -4.0; // léger slide depuis le widget
-              final double scale = 0.96 + 0.04 * t; // zoom subtil
+              // Ombre légère au début → pleine à la fin
+              final double eased = Curves.easeInOutCubic.transform(t);
+              final int shadowAlpha = lerpDouble(12.0, 30.0, eased)!.toInt(); // 12 → 30
+              final double shadowBlur = lerpDouble(6.0, 14.0, eased)!;        // 6 → 14
+
+              // Transition totalement unifiée: seul un fondu global est appliqué
+              // La bulle (fond/contour/flèche) reste à sa valeur finale pendant le fade
+              final double fillOpacity = 1.0;
+              final double strokeOpacity = 1.0;
+              final double animatedArrowHeight = arrowSize * 1.6;
 
               return Opacity(
-                opacity: t,
-                child: Transform.translate(
-                  offset: Offset(0, dy),
-                  child: Transform.scale(
-                    scale: scale,
-                    alignment: Alignment.topCenter,
-                    child: child!,
-                  ),
+                opacity: eased,
+                child: Stack(
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: RepaintBoundary(
+                        child: _PopoverCard(
+                          currentLives: widget.currentLives,
+                          arrowCenterX: arrowCenterX,
+                          arrowSize: 12.0,
+                          onClose: widget.onClose,
+                          onNavigateToInfo: () {
+                            dismissWithAnimation(onCompleted: () {
+                              widget.onClose();
+                              Navigator.of(context).pushNamed('/abonnement/information');
+                            });
+                          },
+                          onLivesChanged: widget.onLivesChanged,
+                          deferContent: _opening || widget.prewarm,
+                          shadowAlphaOverride: shadowAlpha,
+                          shadowBlurOverride: shadowBlur,
+                          fillOpacityOverride: fillOpacity,
+                          strokeOpacityOverride: strokeOpacity,
+                          arrowHeightOverride: animatedArrowHeight,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
-            child: Material(
-              color: Colors.transparent,
-              child: _PopoverCard(
-                currentLives: widget.currentLives,
-                arrowCenterX: arrowCenterX,
-                arrowSize: 12.0,
-                onClose: widget.onClose,
-                onNavigateToInfo: () {
-                  dismissWithAnimation(onCompleted: () {
-                    // Fermer l'overlay AVANT de naviguer, sinon le premier tap sur la page suivante est absorbé
-                    widget.onClose();
-                    Navigator.of(context).pushNamed('/abonnement/information');
-                  });
-                },
-                onLivesChanged: widget.onLivesChanged,
-              ),
-            ),
           ),
         ),
       ],
     );
+
+    if (widget.prewarm) {
+      // Rendre quasiment invisible mais peindre une fois pour préchauffer les caches
+      return IgnorePointer(
+        ignoring: true,
+        child: Opacity(opacity: 0.01, child: content),
+      );
+    }
+    return content;
   }
 }
 
@@ -131,6 +185,12 @@ class _PopoverCard extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onNavigateToInfo;
   final void Function(int newLives)? onLivesChanged;
+  final bool deferContent; // si true: contenu ultra léger pendant l'animation
+  final int? shadowAlphaOverride;   // NEW
+  final double? shadowBlurOverride; // NEW
+  final double? fillOpacityOverride; // NEW
+  final double? strokeOpacityOverride; // NEW
+  final double? arrowHeightOverride; // NEW
 
   const _PopoverCard({
     required this.currentLives,
@@ -139,7 +199,33 @@ class _PopoverCard extends StatelessWidget {
     required this.onClose,
     required this.onNavigateToInfo,
     this.onLivesChanged,
+    this.deferContent = false,
+    this.shadowAlphaOverride,
+    this.shadowBlurOverride,
+    this.fillOpacityOverride,
+    this.strokeOpacityOverride,
+    this.arrowHeightOverride,
   });
+
+  Future<void> _handleRewardedFlow(BuildContext context) async {
+    final uid = LifeService.getCurrentUserId();
+    if (uid == null) {
+      onNavigateToInfo();
+      return;
+    }
+    try {
+      final rewarded = await AdService.instance.showRewardedIfAvailable();
+      if (rewarded) {
+        final tx = await LifeService.addLivesTransactional(uid, 1);
+        final before = tx['before'] ?? 0;
+        final after = tx['after'] ?? before;
+        try { onLivesChanged?.call(after); } catch (_) {}
+      }
+    } catch (_) {
+      // Fallback: ouvrir la page info si pas de pub
+      onNavigateToInfo();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -152,217 +238,214 @@ class _PopoverCard extends StatelessWidget {
         cornerRadius: 16,
         arrowCenterX: arrowCenterX,
         arrowWidth: arrowSize * 2.6,
-        arrowHeight: arrowSize * 1.6,
+        arrowHeight: arrowHeightOverride ?? (arrowSize * 1.6),
         topInset: contentPadding.top,
+        shadowAlpha: shadowAlphaOverride ?? 30,   // NEW
+        shadowBlur: shadowBlurOverride ?? 14.0,   // NEW
+        fillOpacity: (fillOpacityOverride ?? 1.0).clamp(0.0, 1.0),
+        strokeOpacity: (strokeOpacityOverride ?? 1.0).clamp(0.0, 1.0),
       ),
-      child: Padding(
-        padding: contentPadding,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 6),
-            const Center(
-              child: Text(
-                'Vies restantes',
-                style: TextStyle(
-                  fontFamily: 'Fredoka',
-                  fontSize: 26,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF344356),
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            _FirestoreLivesRow(fallbackCurrent: currentLives),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: BoutonUniversel(
-                onPressed: () async {
-                  // Afficher une pub récompensée → +1 vie si récompense obtenue
-                  final uid = LifeService.getCurrentUserId();
-                  if (uid == null) {
-                    onNavigateToInfo();
-                    return;
-                  }
-                  // Lazy import pour éviter dépendance forte ici
-                  try {
-                    // ignore: unused_local_variable
-                    final rewarded = await AdService.instance.showRewardedIfAvailable();
-                    if (rewarded) {
-                      final tx = await LifeService.addLivesTransactional(uid, 1);
-                      final before = tx['before'] ?? 0;
-                      final after = tx['after'] ?? before;
-                      try { onLivesChanged?.call(after); } catch (_) {}
-                    }
-                  } catch (_) {
-                    // Fallback: ouvrir la page info si pas de pub
-                    onNavigateToInfo();
-                  }
-                },
-                size: BoutonUniverselTaille.small,
-                decorClipToOuter: true,
-                decorPadding: EdgeInsets.zero,
-                decorElements: [
-                  // Sablier en bas-gauche (légèrement surdimensionné, rogné par le clip)
-                  DecorElement(
-                    assetPath: 'assets/PAGE/Homescreen/sablier.svg',
-                    position: Offset(0.01, 0.35),
-                    scale: 1.05,
-                    zIndex: -6,
-                    rotationDeg: 20,
-                  ),
-                  // Coeur
-                  DecorElement(
-                    assetPath: 'assets/PAGE/Homescreen/coeur.svg',
-                    position: Offset(-0.05, 0.47),
-                    scale: 0.75,
-                    rotationDeg: -16,
-                  ),
-                ],
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                borderRadius: 10,
-                backgroundColor: const Color(0xFFABC270),
-                hoverBackgroundColor: const Color(0xFFABC270),
-                backgroundGradient: const LinearGradient(
-                  begin: Alignment(0.04, 1.30),
-                  end: Alignment(1.00, 0.50),
-                  colors: [Color(0xFFABC270), Color(0xFFC2D397)],
-                ),
-                hoverBackgroundGradient: const LinearGradient(
-                  begin: Alignment(0.04, 1.30),
-                  end: Alignment(1.00, 0.50),
-                  colors: [Color(0xFFABC270), Color(0xFFC2D397)],
-                ),
-                borderColor: const Color(0xFF6A994E),
-                hoverBorderColor: const Color(0xFF6A994E),
-                shadowColor: const Color(0xFF6A994E),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Outline (stroke) layer
-                    Text(
-                      'Regarder une pub\npour +1 vie',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontFamily: 'Fredoka',
-                        fontWeight: FontWeight.w700,
-                        height: 0.95,
-                        letterSpacing: 0.5,
-                        foreground: Paint()
-                          ..style = PaintingStyle.stroke
-                          ..strokeWidth = 0.8
-                          ..color = const Color(0x22000000),
-                      ),
+      child: StreamBuilder<bool>(
+        stream: UserOrchestra.isPremiumStream,
+        initialData: UserOrchestra.isPremium,
+        builder: (context, snap) {
+          final bool isPremium = (snap.data == true);
+          return Padding(
+            padding: contentPadding,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 6),
+                const Center(
+                  child: Text(
+                    'Vies restantes',
+                    style: TextStyle(
+                      fontFamily: 'Fredoka',
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF344356),
+                      decoration: TextDecoration.none,
                     ),
-                    // Fill layer with strong shadows
-                    const Text(
-                      'Regarder une pub\npour +1 vie',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontFamily: 'Fredoka',
-                        fontWeight: FontWeight.w700,
-                        height: 0.95,
-                        letterSpacing: 0.5,
-                        shadows: [
-                          Shadow(color: Color(0x4D000000), blurRadius: 8, offset: Offset(0, 2)),
-                          Shadow(color: Color(0x26000000), blurRadius: 16, offset: Offset(0, 4)),
-                          Shadow(color: Color(0x14000000), blurRadius: 28, offset: Offset(0, 6)),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                if (isPremium)
+                  Center(
+                    child: SvgPicture.asset(
+                      'assets/Images/Bouton/infinie.svg',
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.contain,
+                      colorFilter: const ColorFilter.mode(Color(0xFF473C33), BlendMode.srcIn),
+                    ),
+                  )
+                else
+                  _AdaptiveStaticLivesRow(currentLives: currentLives),
+                const SizedBox(height: 12),
+                if (!isPremium)
+                  SizedBox(
+                    width: double.infinity,
+                    child: BoutonUniversel(
+                      onPressed: () => _handleRewardedFlow(context),
+                      size: BoutonUniverselTaille.small,
+                      decorClipToOuter: true,
+                      decorPadding: EdgeInsets.zero,
+                      decorElements: const [
+                        DecorElement(
+                          assetPath: 'assets/PAGE/Homescreen/sablier.svg',
+                          position: Offset(0.01, 0.35),
+                          scale: 1.05,
+                          zIndex: -6,
+                          rotationDeg: 20,
+                        ),
+                        DecorElement(
+                          assetPath: 'assets/PAGE/Homescreen/coeur.svg',
+                          position: Offset(-0.05, 0.47),
+                          scale: 0.75,
+                          rotationDeg: -16,
+                        ),
+                      ],
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      borderRadius: 10,
+                      backgroundColor: const Color(0xFFABC270),
+                      hoverBackgroundColor: const Color(0xFFABC270),
+                      backgroundGradient: const LinearGradient(
+                        begin: Alignment(0.04, 1.30),
+                        end: Alignment(1.00, 0.50),
+                        colors: [Color(0xFFABC270), Color(0xFFC2D397)],
+                      ),
+                      hoverBackgroundGradient: const LinearGradient(
+                        begin: Alignment(0.04, 1.30),
+                        end: Alignment(1.00, 0.50),
+                        colors: [Color(0xFFABC270), Color(0xFFC2D397)],
+                      ),
+                      borderColor: const Color(0xFF6A994E),
+                      hoverBorderColor: const Color(0xFF6A994E),
+                      shadowColor: const Color(0xFF6A994E),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Text(
+                            'Regarder une pub\npour +1 vie',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.w700,
+                              height: 0.95,
+                              letterSpacing: 0.5,
+                              foreground: Paint()
+                                ..style = PaintingStyle.stroke
+                                ..strokeWidth = 0.8
+                                ..color = const Color(0x22000000),
+                            ),
+                          ),
+                          const Text(
+                            'Regarder une pub\npour +1 vie',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.w700,
+                              height: 0.95,
+                              letterSpacing: 0.5,
+                              shadows: [
+                                Shadow(color: Color(0x4D000000), blurRadius: 8, offset: Offset(0, 2)),
+                                Shadow(color: Color(0x26000000), blurRadius: 16, offset: Offset(0, 4)),
+                                Shadow(color: Color(0x14000000), blurRadius: 28, offset: Offset(0, 6)),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: BoutonUniversel(
-                onPressed: onNavigateToInfo,
-                size: BoutonUniverselTaille.small,
-                decorClipToOuter: true,
-                decorPadding: EdgeInsets.zero,
-                decorElements: [
-                  // Cadeau (placé par défaut en haut-droite, ajustable)
-                  DecorElement(
-                    assetPath: 'assets/PAGE/Homescreen/cadeau.svg',
-                    position: Offset(0.76, -0.00),
-                    scale: 1.60,
-                    rotationDeg: -15,
-                    zIndex: -1,
                   ),
-                  // Confetti (déplacé en haut-droite, plus grand)
-                  DecorElement(
-                    assetPath: 'assets/PGE/Homescreen/Confetti.svg',
-                    position: Offset(-0.08, -1.32),
-                    scale: 5.20,
-                    rotationDeg: 0,
-                    zIndex: -2,
-                  ),
-                ],
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                borderRadius: 10,
-                backgroundColor: const Color(0xFFFEC868),
-                hoverBackgroundColor: const Color(0xFFFEC868),
-                backgroundGradient: const LinearGradient(
-                  begin: Alignment(0.02, 2.39),
-                  end: Alignment(0.86, -0.76),
-                  colors: [Color(0xDBFEC868), Color(0xFFFFA327)],
-                ),
-                hoverBackgroundGradient: const LinearGradient(
-                  begin: Alignment(0.02, 2.39),
-                  end: Alignment(0.86, -0.76),
-                  colors: [Color(0xDBFEC868), Color(0xFFFFA327)],
-                ),
-                borderColor: const Color(0xFFE89E1C),
-                hoverBorderColor: const Color(0xFFE89E1C),
-                shadowColor: const Color(0xFFE89E1C),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Text(
-                      'Avec Premium \nPasse en mode illimité',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontFamily: 'Fredoka',
-                        fontWeight: FontWeight.w700,
-                        height: 0.95,
-                        letterSpacing: 0.5,
-                        foreground: Paint()
-                          ..style = PaintingStyle.stroke
-                          ..strokeWidth = 0.8
-                          ..color = const Color(0x22000000),
+                if (!isPremium) const SizedBox(height: 10),
+                if (!isPremium)
+                  SizedBox(
+                    width: double.infinity,
+                    child: BoutonUniversel(
+                      onPressed: onNavigateToInfo,
+                      size: BoutonUniverselTaille.small,
+                      decorClipToOuter: true,
+                      decorPadding: EdgeInsets.zero,
+                      decorElements: const [
+                        DecorElement(
+                          assetPath: 'assets/PAGE/Homescreen/cadeau.svg',
+                          position: Offset(0.76, -0.00),
+                          scale: 1.60,
+                          rotationDeg: -15,
+                          zIndex: -1,
+                        ),
+                        DecorElement(
+                          assetPath: 'assets/PAGE/Homescreen/Confetti.svg',
+                          position: Offset(-0.08, -1.32),
+                          scale: 5.20,
+                          rotationDeg: 0,
+                          zIndex: -2,
+                        ),
+                      ],
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      borderRadius: 10,
+                      backgroundColor: const Color(0xFFFEC868),
+                      hoverBackgroundColor: const Color(0xFFFEC868),
+                      backgroundGradient: const LinearGradient(
+                        begin: Alignment(0.02, 2.39),
+                        end: Alignment(0.86, -0.76),
+                        colors: [Color(0xDBFEC868), Color(0xFFFFA327)],
                       ),
-                    ),
-                    const Text(
-                      'Avec Premium \nPasse en mode illimité',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontFamily: 'Fredoka',
-                        fontWeight: FontWeight.w700,
-                        height: 0.95,
-                        letterSpacing: 0.5,
-                        shadows: [
-                          Shadow(color: Color(0x4D000000), blurRadius: 8, offset: Offset(0, 2)),
-                          Shadow(color: Color(0x26000000), blurRadius: 16, offset: Offset(0, 4)),
-                          Shadow(color: Color(0x14000000), blurRadius: 28, offset: Offset(0, 6)),
+                      hoverBackgroundGradient: const LinearGradient(
+                        begin: Alignment(0.02, 2.39),
+                        end: Alignment(0.86, -0.76),
+                        colors: [Color(0xDBFEC868), Color(0xFFFFA327)],
+                      ),
+                      borderColor: const Color(0xFFE89E1C),
+                      hoverBorderColor: const Color(0xFFE89E1C),
+                      shadowColor: const Color(0xFFE89E1C),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Text(
+                            'Avec Premium \nPasse en mode illimité',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.w700,
+                              height: 0.95,
+                              letterSpacing: 0.5,
+                              foreground: Paint()
+                                ..style = PaintingStyle.stroke
+                                ..strokeWidth = 0.8
+                                ..color = const Color(0x22000000),
+                            ),
+                          ),
+                          const Text(
+                            'Avec Premium \nPasse en mode illimité',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.w700,
+                              height: 0.95,
+                              letterSpacing: 0.5,
+                              shadows: [
+                                Shadow(color: Color(0x4D000000), blurRadius: 8, offset: Offset(0, 2)),
+                                Shadow(color: Color(0x26000000), blurRadius: 16, offset: Offset(0, 4)),
+                                Shadow(color: Color(0x14000000), blurRadius: 28, offset: Offset(0, 6)),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -391,8 +474,8 @@ class _ArrowPainter extends CustomPainter {
       ..lineTo(w, h)
       ..close();
 
-    // Shadow
-    canvas.drawShadow(fillPath, Colors.black.withAlpha(40), 8, true);
+    // Shadow (allégée)
+    canvas.drawShadow(fillPath, Colors.black.withAlpha(28), 6, true);
 
     // Border
     final Paint stroke = Paint()
@@ -434,6 +517,12 @@ class _IntegratedBubblePainter extends CustomPainter {
   final double arrowHeight;
   final double topInset;
 
+  // NEW: contrôle d'ombre dynamique
+  final int shadowAlpha;
+  final double shadowBlur;
+  final double fillOpacity;
+  final double strokeOpacity;
+
   _IntegratedBubblePainter({
     required this.fillColor,
     required this.strokeColor,
@@ -443,6 +532,10 @@ class _IntegratedBubblePainter extends CustomPainter {
     required this.arrowWidth,
     required this.arrowHeight,
     required this.topInset,
+    required this.shadowAlpha,
+    required this.shadowBlur,
+    this.fillOpacity = 1.0,
+    this.strokeOpacity = 1.0,
   });
 
   @override
@@ -474,18 +567,18 @@ class _IntegratedBubblePainter extends CustomPainter {
     path.lineTo(left, top + cornerRadius);
     path.arcToPoint(Offset(left + cornerRadius, top), radius: Radius.circular(cornerRadius));
 
-    // Ombre
-    canvas.drawShadow(path, Colors.black.withAlpha(30), 14, true);
+    // Ombre (paramétrable selon l'avancement de l'anim)
+    canvas.drawShadow(path, Colors.black.withAlpha(shadowAlpha), shadowBlur, true);
 
     // Remplir
     final Paint fillPaint = Paint()
-      ..color = fillColor
+      ..color = fillColor.withOpacity(fillOpacity)
       ..style = PaintingStyle.fill;
     canvas.drawPath(path, fillPaint);
 
     // Contour
     final Paint stroke = Paint()
-      ..color = strokeColor
+      ..color = strokeColor.withOpacity(strokeOpacity)
       ..style = PaintingStyle.stroke
       ..strokeWidth = borderWidth
       ..strokeJoin = StrokeJoin.round
@@ -502,7 +595,11 @@ class _IntegratedBubblePainter extends CustomPainter {
         old.arrowCenterX != arrowCenterX ||
         old.arrowWidth != arrowWidth ||
         old.arrowHeight != arrowHeight ||
-        old.topInset != topInset;
+        old.topInset != topInset ||
+        old.shadowAlpha != shadowAlpha ||
+        old.shadowBlur != shadowBlur ||
+        old.fillOpacity != fillOpacity ||
+        old.strokeOpacity != strokeOpacity;
   }
 }
 
@@ -530,6 +627,102 @@ class _LivesRow extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+}
+
+class _AdaptiveStaticLivesRow extends StatelessWidget {
+  final int currentLives;
+  const _AdaptiveStaticLivesRow({required this.currentLives});
+
+  @override
+  Widget build(BuildContext context) {
+    const int displayCap = 10;
+    final int rawCurrent = currentLives.clamp(0, 9999);
+    final int maxLives = rawCurrent.clamp(1, 50);
+    final int displayCount = maxLives >= displayCap ? displayCap : maxLives;
+    final bool showAggregator = rawCurrent > displayCap && displayCount == displayCap;
+    final int overflowCount = showAggregator ? (rawCurrent - displayCap) : 0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double availableWidth = constraints.maxWidth;
+        const double baseSize = 56.0;
+        const double minSize = 22.0;
+        const double maxSize = 56.0;
+        const double minGap = 3.0;
+
+        int rows = 1;
+        double iconSize = maxSize;
+        double gap = minGap;
+
+        double computeSizeFor(int columns) {
+          final double totalGaps = (columns - 1) * minGap;
+          return ((availableWidth - totalGaps) / columns).clamp(minSize, maxSize);
+        }
+
+        int columns = displayCount;
+        iconSize = computeSizeFor(columns);
+        if (iconSize < minSize || displayCount > 7) {
+          rows = 2;
+          columns = (displayCount / rows).ceil();
+          iconSize = computeSizeFor(columns);
+        }
+        gap = (iconSize / baseSize * 4.0).clamp(2.0, 8.0);
+
+        return Wrap(
+          alignment: WrapAlignment.center,
+          spacing: gap,
+          runSpacing: gap,
+          children: List.generate(displayCount, (index) {
+            final bool isAggregator = showAggregator && index == displayCount - 1;
+            final bool filled = index < (rawCurrent.clamp(0, displayCount));
+            if (isAggregator) {
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  Opacity(
+                    opacity: filled ? 1.0 : 0.28,
+                    child: Image.asset(
+                      'assets/Images/Bouton/vie.png',
+                      width: iconSize,
+                      height: iconSize,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  Text(
+                    overflowCount.toString(),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Fredoka',
+                      fontWeight: FontWeight.w700,
+                      fontSize: (iconSize * 0.42).clamp(10.0, 28.0),
+                      height: 1.0,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withAlpha(120),
+                          blurRadius: 2,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+            return Opacity(
+              opacity: filled ? 1.0 : 0.28,
+              child: Image.asset(
+                'assets/Images/Bouton/vie.png',
+                width: iconSize,
+                height: iconSize,
+                fit: BoxFit.contain,
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }
@@ -658,88 +851,56 @@ class _FirestoreLivesRow extends StatelessWidget {
   }
 }
 
-// ignore: unused_element
-class _LayeredButton extends StatelessWidget {
-  final Color outerColor;
-  final Color innerColor;
+// --- Bouton "lite" utilisé uniquement pendant l'animation d'ouverture ---
+class _LiteCTAButton extends StatelessWidget {
   final String text;
-  final Color textColor;
-  final double height;
   final VoidCallback onTap;
-
-  const _LayeredButton({
-    required this.outerColor,
-    required this.innerColor,
-    required this.text,
-    required this.textColor,
-    required this.height,
-    required this.onTap,
-  });
+  const _LiteCTAButton({required this.text, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: height,
-      child: Stack(
-        children: [
-          Container(
-            decoration: ShapeDecoration(
-              color: outerColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              shadows: const [
-                BoxShadow(
-                  color: Color(0x153C7FD0),
-                  blurRadius: 19,
-                  offset: Offset(0, 12),
-                )
-              ],
-            ),
+      child: Material(
+        color: const Color(0xFFE7EDE0),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: _LiteCTAButtonLabel(),
           ),
-          Positioned(
-            left: 2.4,
-            top: 1.8,
-            right: 2.4,
-            bottom: 2.2,
-            child: DecoratedBox(
-              decoration: ShapeDecoration(
-                color: innerColor,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                shadows: const [
-                  BoxShadow(
-                    color: Color(0x153C7FD0),
-                    blurRadius: 19,
-                    offset: Offset(0, 12),
-                  )
-                ],
-              ),
-            ),
-          ),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(6),
-              onTap: onTap,
-              child: Center(
-                child: Text(
-                  text,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontFamily: 'Fredoka',
-                    fontWeight: FontWeight.w600,
-                    height: 0.95,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
+class _LiteCTAButtonLabel extends StatelessWidget {
+  const _LiteCTAButtonLabel();
 
+  @override
+  Widget build(BuildContext context) {
+    // Le texte est passé via DefaultTextStyle.of(context) par le parent
+    return DefaultTextStyle.merge(
+      style: const TextStyle(
+        fontFamily: 'Fredoka',
+        fontWeight: FontWeight.w700,
+        fontSize: 18,
+        color: Color(0xFF344356),
+        height: 1.0,
+        letterSpacing: 0.3,
+        decoration: TextDecoration.none,
+      ),
+      child: Builder(
+        builder: (ctx) {
+          // On récupère le texte via un ancestor; si absent, on affiche un placeholder
+          // Pour simplifier le call-site, on encapsule plutôt le texte directement ici :
+          // => on laisse le parent appeler _LiteCTAButton(text: "...", onTap: ...)
+          return const SizedBox.shrink();
+        },
+      ),
+    );
+  }
+}

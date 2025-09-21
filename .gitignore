@@ -32,3 +32,15 @@ android/.idea/
 .DS_Store
 Thumbs.db
 serviceAccountKey.json
+ 
+# Node.js
+node_modules/
+functions/node_modules/
+
+# Environnement/Secrets
+.env
+.env.*
+!.env.example
+firebase-debug.log
+.firebase/
+.firebaserc.local

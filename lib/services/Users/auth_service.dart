@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart' show kDebugMode, defaultTargetPlatform, TargetPlatform, debugPrint;
+import 'package:flutter/foundation.dart' show kDebugMode, defaultTargetPlatform, TargetPlatform, debugPrint, kIsWeb;
 import 'user_orchestra_service.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -68,7 +68,21 @@ class AuthService {
   // ===== Google ==============================================================
   static Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Forcer le sélecteur de compte: on déconnecte toute session Google locale avant signIn
+      if (kIsWeb) {
+        // Web: utiliser directement FirebaseAuth avec popup
+        final provider = GoogleAuthProvider();
+        provider.setCustomParameters({ 'prompt': 'select_account' });
+        final res = await _auth.signInWithPopup(provider);
+        await _db.collection('utilisateurs').doc(res.user!.uid).set({
+          'profil': {
+            'email': res.user!.email,
+            'nomAffichage': res.user!.displayName ?? res.user!.email?.split('@').first,
+          }
+        }, SetOptions(merge: true));
+        return res;
+      }
+
+      // Mobile/Desktop natif: GoogleSignIn SDK
       final g = GoogleSignIn();
       try { await g.disconnect(); } catch (_) {}
       try { await g.signOut(); } catch (_) {}
@@ -87,7 +101,10 @@ class AuthService {
         }
       }, SetOptions(merge: true));
       return res;
-    } catch (_) { return null; }
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ Google Sign-In a échoué: $e');
+      return null;
+    }
   }
 
   // ===== Apple ===============================================================

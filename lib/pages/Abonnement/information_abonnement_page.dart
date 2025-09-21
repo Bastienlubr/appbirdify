@@ -4,6 +4,7 @@ import '../../widgets/boutons/bouton_universel.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'choix_offre_page.dart';
 import '../../ui/animations/page_route_universelle.dart';
+import '../../services/abonnement/premium_service.dart';
 
 class InformationAbonnementPage extends StatelessWidget {
   const InformationAbonnementPage({super.key});
@@ -51,7 +52,14 @@ class InformationAbonnementPage extends StatelessWidget {
                     width: 303.14 * scale,
                     height: 44.92 * scale,
                     child: BoutonUniversel(
-                      onPressed: () => Navigator.of(context).push(_createLeftToRightRoute()),
+                      onPressed: () {
+                        final bool isPrem = PremiumService.instance.isPremium.value;
+                        if (isPrem) {
+                          Navigator.of(context).pushNamed('/abonnement/gerer');
+                        } else {
+                          Navigator.of(context).push(_createLeftToRightRoute());
+                        }
+                      },
                       size: BoutonUniverselTaille.small,
                       borderRadius: 10 * scale,
                       padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 10 * scale),
@@ -68,6 +76,37 @@ class InformationAbonnementPage extends StatelessWidget {
                             fontFamily: 'Fredoka',
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1,
+                            height: 1.0,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Lien direct vers "Gérer mon abonnement" (toujours disponible)
+                Positioned(
+                  left: dx + 35.82 * scale,
+                  top: dy + (688.60 + 56) * scale,
+                  child: SizedBox(
+                    width: 303.14 * scale,
+                    height: 40 * scale,
+                    child: BoutonUniversel(
+                      onPressed: () => Navigator.of(context).pushNamed('/abonnement/gerer'),
+                      size: BoutonUniverselTaille.small,
+                      borderRadius: 10 * scale,
+                      padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 8 * scale),
+                      backgroundColor: const Color(0xFFFCFCFE),
+                      borderColor: const Color(0xFFDADADA),
+                      shadowColor: const Color(0x22000000),
+                      child: Center(
+                        child: Text(
+                          'Gérer mon abonnement',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: const Color(0xFF334355),
+                            fontSize: 16 * scale,
+                            fontFamily: 'Fredoka',
+                            fontWeight: FontWeight.w600,
                             height: 1.0,
                           ),
                         ),

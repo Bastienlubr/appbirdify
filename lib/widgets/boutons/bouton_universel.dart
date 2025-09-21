@@ -33,6 +33,8 @@ class BoutonUniversel extends StatefulWidget {
   final Widget? trailing;
   final Widget? background;
   final Widget? overlay;
+  // Diffère le rendu des décors (SVG) au frame suivant pour éviter tout jank lors des ouvertures rapides
+  final bool deferDecorsOneFrame;
 
   // Styles (ex-preset)
   final List<DecorElement>? decorElements;
@@ -96,6 +98,7 @@ class BoutonUniversel extends StatefulWidget {
     this.decorGlobalScale = 1.0,
     this.decorScaleBasis = DecorScaleBasis.height,
     this.enableDecorTuning = false,
+    this.deferDecorsOneFrame = false,
   });
 
   factory BoutonUniversel.texte({
@@ -162,6 +165,7 @@ class _BoutonUniverselState extends State<BoutonUniversel>
   bool _isHovered = false;
   int? _selectedDecorIndex;
   List<double>? _rotationOverrides;
+  bool _decorsDeferred = false;
 
   static const Color _normalColor = Color(0xFFD2DBB2);
   static const Color _textColor = Color(0xFFF2F5F8);
@@ -180,6 +184,16 @@ class _BoutonUniverselState extends State<BoutonUniversel>
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+
+    if (widget.deferDecorsOneFrame) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _decorsDeferred = true);
+        }
+      });
+    } else {
+      _decorsDeferred = true;
+    }
   }
 
   @override
@@ -381,7 +395,7 @@ class _BoutonUniverselState extends State<BoutonUniversel>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            if ((widget.background != null) || ((widget.decorElements?.isNotEmpty ?? false)))
+            if (_decorsDeferred && ((widget.background != null) || ((widget.decorElements?.isNotEmpty ?? false))))
               Positioned.fill(
                 child: IgnorePointer(
                   ignoring: !widget.enableDecorTuning,

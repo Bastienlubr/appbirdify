@@ -358,10 +358,22 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
       // Calcul du bonus de vies basé sur le score indépendamment des étoiles
       int lives = 0;
       if (widget.totalQuestions == 10) {
-        if (widget.score >= 10) lives = 3; else if (widget.score >= 9) lives = 2; else if (widget.score >= 8) lives = 1;
+        if (widget.score >= 10) {
+          lives = 3;
+        } else if (widget.score >= 9) {
+          lives = 2;
+        } else if (widget.score >= 8) {
+          lives = 1;
+        }
       } else {
         final double pct = widget.score / widget.totalQuestions;
-        if (pct >= 1.0) lives = 3; else if (pct >= 0.9) lives = 2; else if (pct >= 0.8) lives = 1;
+        if (pct >= 1.0) {
+          lives = 3;
+        } else if (pct >= 0.9) {
+          lives = 2;
+        } else if (pct >= 0.8) {
+          lives = 1;
+        }
       }
       if (lives > 0) {
         await _recompensesService.ajouterRecompenseSecondaire(TypeRecompenseSecondaire.coeur, lives: lives);

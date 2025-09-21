@@ -1,0 +1,132 @@
+[
+  {
+    "idOiseau": "o_263",
+    "nomFrancais": "Torcol fourmilier",
+    "nomAnglais": "Eurasian Wryneck",
+    "nomScientifique": "Jynx torquilla",
+    "famille": "Picid",
+    "ordre": "Piciformes",
+    "taille": {
+      "longueur": "17 cm",
+      "envergure": "25-27 cm",
+      "description": "Longueur: 17 cm, Envergure: 25-27 cm"
+    },
+    "poids": {
+      "poidsMoyen": "30-45 g",
+      "variation": "30-45 g",
+      "description": "Poids: 30-45 g"
+    },
+    "identification": {
+      "classification": "L'espèce Torcol fourmilier (Jynx torquilla) appartient à la famille des Picidés dans l'ordre des Piciformes",
+      "morphologie": "Le Torcol fourmilier est un oiseau de taille moyenne, avec un bec pointu typique de la famille des Picidés. Il possède des pattes solides avec quatre doigts griffus, deux tournés vers l'avant et deux vers l'arrière, ce qui lui permet une bonne saisie des branches. Son plumage des parties supérieures est coloré de bruns et de gris avec des touches de roux et de noir, ce qui lui permet de se camoufler sur l'écorce des arbres ou sur le sol. Les parties inférieures sont blanchâtres, localement lavées de fauve, et barrées de brun à la gorge, sur les flancs et les sous-caudales.",
+      "dimorphismeSexuel": null,
+      "plumageEte": null,
+      "plumageHiver": null,
+      "caracteristiques": null,
+      "especesSimilaires": "Espèces ressemblantes : Passereau, Pic. Moyens distinctifs : Le Torcol fourmilier est une espèce unique en son genre, notamment en raison de son comportement distinctif de torsion du cou. Cependant, en raison de sa taille et de son allure, il peut être confondu avec certains passereaux. Son bec pointu et ses pattes griffues le distinguent cependant clairement des autres espèces.",
+      "mesures": {
+        "poids": "30-45 g",
+        "taille": "17 cm",
+        "envergure": "25-27 cm"
+      },
+      "especesRessemblantes": {
+        "exemples": [
+          "Passereau",
+          "Pic"
+        ],
+        "differenciation": "Le Torcol fourmilier est une espèce unique en son genre, notamment en raison de son comportement distinctif de torsion du cou. Cependant, en raison de sa taille et de son allure, il peut être confondu avec certains passereaux. Son bec pointu et ses pattes griffues le distinguent cependant clairement des autres espèces."
+      }
+    },
+    "habitat": {
+      "description": "Le Torcol fourmilier est un oiseau arboricole qui préfère les milieux boisés. Il est également souvent observé au sol, cherchant sa nourriture dans les anfractuosités du sol.",
+      "milieux": [
+        "Le Torcol fourmilier est un oiseau arboricole qui préfère les milieux boisés. Il est également souvent observé au sol, cherchant sa nourriture dans les anfractuosités du sol."
+      ],
+      "zonesObservation": "L'information précise sur la localisation du Torcol fourmilier en France n'est pas disponible dans la source.",
+      "migration": {
+        "description": "L'information précise sur la migration du Torcol fourmilier n'est pas disponible dans la source.",
+        "mois": null
+      }
+    },
+    "alimentation": {
+      "regimePrincipal": "Myrmécophage",
+      "proiesPrincipales": [
+        "Fourmis"
+      ],
+      "techniquesChasse": [],
+      "comportementAlimentaire": null,
+      "description": "Le Torcol fourmilier est essentiellement myrmécophage, c'est-à-dire un mangeur de fourmis, pour plus de 90% de son régime, et ce en toutes saisons. Il se nourrit surtout au sol. Sa longue langue collante de picidé lui permet d'accéder aux fourmis dans les anfractuosités du sol, là où la tête ne passerait pas."
+    },
+    "reproduction": {
+      "saisonReproduction": "L'information précise sur la période de reproduction du Torcol fourmilier n'est pas disponible dans la source.",
+      "typeNid": null,
+      "nombreOeufs": "L'information précise sur le nombre d'œufs par ponte du Torcol fourmilier n'est pas disponible dans la source.",
+      "dureeIncubation": "L'information précise sur la durée d'incubation du Torcol fourmilier n'est pas disponible dans la source.",
+      "description": "Période nuptiale\nL'information précise sur la période nuptiale du Torcol fourmilier n'est pas disponible dans la source.\n\nAccouplement\nL'information précise sur le processus d'accouplement du Torcol fourmilier n'est pas disponible dans la source.\n\nPonte\nL'information précise sur la ponte du Torcol fourmilier n'est pas disponible dans la source.\n\nNourrissage des jeunes\nL'information précise sur le nourrissage des jeunes du Torcol fourmilier n'est pas disponible dans la source.\n\nEnvol des jeunes\nL'information précise sur l'envol des jeunes du Torcol fourmilier n'est pas disponible dans la source.",
+      "periode": null,
+      "nbPontes": null,
+      "nbOeufsParPondee": "L'information précise sur le nombre d'œufs par ponte du Torcol fourmilier n'est pas disponible dans la source.",
+      "incubationJours": "L'information précise sur la durée d'incubation du Torcol fourmilier n'est pas disponible dans la source.",
+      "details": {
+        "periodeNuptiale": "L'information précise sur la période nuptiale du Torcol fourmilier n'est pas disponible dans la source.",
+        "accouplement": "L'information précise sur le processus d'accouplement du Torcol fourmilier n'est pas disponible dans la source.",
+        "ponte": "L'information précise sur la ponte du Torcol fourmilier n'est pas disponible dans la source.",
+        "nourrissageJeunes": "L'information précise sur le nourrissage des jeunes du Torcol fourmilier n'est pas disponible dans la source.",
+        "envolJeunes": "L'information précise sur l'envol des jeunes du Torcol fourmilier n'est pas disponible dans la source."
+      }
+    },
+    "repartition": {
+      "statutPresence": null,
+      "periodes": {
+        "printemps": null,
+        "ete": null,
+        "automne": null,
+        "hiver": null
+      },
+      "noteMigration": "L'information précise sur la migration du Torcol fourmilier n'est pas disponible dans la source.",
+      "description": "L'information précise sur la migration du Torcol fourmilier n'est pas disponible dans la source."
+    },
+    "protectionEtatActuel": {
+      "description": "L'information précise sur la protection du Torcol fourmilier n'est pas disponible dans la source.",
+      "statutFrance": "L'information précise sur le statut de conservation du Torcol fourmilier en France n'est pas disponible dans la source.",
+      "statutMonde": "L'information précise sur le statut de conservation mondial du Torcol fourmilier n'est pas disponible dans la source.",
+      "actions": "L'information précise sur la protection du Torcol fourmilier n'est pas disponible dans la source."
+    },
+    "vocalisations": {
+      "chantTerritorial": null,
+      "crisAlarme": null,
+      "crisContact": null,
+      "description": null,
+      "fichierAudio": "https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTorcol%20fourmilier.mp3?alt=media&token=a3c1c53e-2b16-413f-83bf-4ec7634c9fbd"
+    },
+    "conservation": {
+      "statutIUCN": "L'information précise sur le statut de conservation mondial du Torcol fourmilier n'est pas disponible dans la source.",
+      "protectionLegale": "L'information précise sur le statut de conservation du Torcol fourmilier en France n'est pas disponible dans la source.",
+      "menaces": null,
+      "actionsProtection": "L'information précise sur la protection du Torcol fourmilier n'est pas disponible dans la source.",
+      "description": "L'information précise sur la protection du Torcol fourmilier n'est pas disponible dans la source."
+    },
+    "medias": {
+      "imagePrincipale": "https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/photo%20d'oiseaux%20france%2FTorcol%20fourmilier.jpg?alt=media&token=10d680da-576d-4a79-9a3a-5754001001dd",
+      "images": [
+        "https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/photo%20d'oiseaux%20france%2FTorcol%20fourmilier.jpg?alt=media&token=10d680da-576d-4a79-9a3a-5754001001dd"
+      ],
+      "video": null,
+      "description": null
+    },
+    "sources": {
+      "references": [
+        "Oiseaux.net"
+      ],
+      "dateMiseAJour": "2025-09-16T14:28:05.166Z",
+      "description": "Données enrichies via Oiseaux.net + IA paraphrase"
+    },
+    "metadata": {
+      "dateCreation": "2025-09-16T14:28:05.166Z",
+      "dateModification": null,
+      "version": "simplifie-efficace-compatible",
+      "statut": "enrichi-oiseauxnet-ia",
+      "notes": "Fiche enrichie avec structure compatible application Flutter"
+    }
+  }
+]

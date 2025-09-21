@@ -50,23 +50,66 @@ service cloud.firestore {
     match /fiches_oiseaux/{id} {
       allow read: if true;
       allow write: if false;
+
+      // Sous-collections panels (lecture publique uniquement)
+      match /{panelCollection}/{docId} {
+        allow read: if panelCollection in ['identification','habitat','alimentation','reproduction','protection'] && docId == 'current';
+        allow write: if false;
+      }
     }
 
     // ---- DONNÉES UTILISATEUR ----
     match /utilisateurs/{uid} {
-      // Le propriétaire peut lire/écrire son doc racine...
-      allow read, write: if isOwner(uid);
+      // Le propriétaire peut lire son doc racine
+      allow read: if isOwner(uid);
+
+      // Création autorisée par le propriétaire
+      allow create: if isOwner(uid);
+
+      // Mise à jour autorisée sauf champ sensible 'abonnement' (réservé au backend/Admin SDK)
+      allow update: if isOwner(uid)
+                    && !('abonnement' in request.resource.data.diff(resource.data).changedKeys())
+                    // Interdire le changement du statut premium depuis le client
+                    && !(request.resource.data.profil.estPremium != resource.data.profil.estPremium);
+
+      // Suppression client interdite
+      allow delete: if false;
+
+      // Diagnostics abonnement (historique de logs)
+      match /diagnostics/abonnement/logs/{logId} {
+        allow read, create: if isOwner(uid);
+        allow update, delete: if false;
+      }
+
+      // Nouvelle structure abonnement: état courant + historique
+      match /abonnement/{docId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid);
+        allow delete: if false;
+        // Sous-collection cycles historique
+        match /cycles/{cycleId} {
+          allow read: if isOwner(uid);
+          allow create, update: if isOwner(uid);
+          allow delete: if false;
+        }
+      }
 
       // ...et tout sous-document / sous-collection
       match /{subpath=**} {
-        allow read, write: if isOwner(uid);
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid);
+        allow delete: if false;
       }
     }
 
     // ---- QUIZ PERSONNALISÉS ----
     match /users/{uid} {
-      // Le propriétaire peut lire/écrire son doc racine...
-      allow read, write: if isOwner(uid);
+      // Le propriétaire peut lire son doc racine
+      allow read: if isOwner(uid);
+      // Création/Mise à jour autorisées par le propriétaire
+      allow create, update: if isOwner(uid);
+      // Suppression client interdite
+      allow delete: if false;
 
       // Collection des quiz personnalisés de l'utilisateur
       match /custom_quiz/{quizId} {
@@ -75,7 +118,9 @@ service cloud.firestore {
 
       // ...et tout autre sous-document / sous-collection
       match /{subpath=**} {
-        allow read, write: if isOwner(uid);
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid);
+        allow delete: if false;
       }
     }
 

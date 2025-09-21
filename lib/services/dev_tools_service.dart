@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'Users/streak_service.dart';
+import 'Perchoir/fiche_oiseau_service.dart';
 
 class DevToolsService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -140,7 +141,7 @@ class DevToolsService {
     if (user == null) return;
     final ref = _firestore.collection('utilisateurs').doc(user.uid);
     final snap = await ref.get();
-    final data = snap.data() is Map<String, dynamic> ? snap.data() as Map<String, dynamic> : null;
+    final Map<String, dynamic>? data = snap.data();
     final Map<String, dynamic>? vie = data?['vie'] is Map<String, dynamic> ? (data?['vie']) : null;
     final int current = (vie?['vieRestante'] as int? ?? 5).clamp(0, 50);
     final int newMax = value.clamp(1, 50);
@@ -160,7 +161,7 @@ class DevToolsService {
     if (user == null) return;
     final ref = _firestore.collection('utilisateurs').doc(user.uid);
     final snap = await ref.get();
-    final data = snap.data() is Map<String, dynamic> ? snap.data() as Map<String, dynamic> : null;
+    final Map<String, dynamic>? data = snap.data();
     final Map<String, dynamic>? vie = data?['vie'] is Map<String, dynamic> ? (data?['vie']) : null;
     final int current = (vie?['vieRestante'] as int? ?? 5).clamp(0, 50);
     final int clampedCurrent = current.clamp(0, 5);
@@ -391,8 +392,7 @@ class DevToolsService {
 
       int totalStars = 0;
       for (final missionDoc in missionsSnapshot.docs) {
-        final data = missionDoc.data();
-        totalStars += (data['etoiles'] ?? 0) as int;
+        totalStars += (missionDoc.data()['etoiles'] ?? 0) as int;
       }
 
       return totalStars;
@@ -424,7 +424,7 @@ class DevToolsService {
       if (user == null) return;
       final ref = _firestore.collection('utilisateurs').doc(user.uid);
       final snap = await ref.get();
-      final data = snap.data() as Map<String, dynamic>?;
+      final Map<String, dynamic>? data = snap.data();
       final bool nested = (data?['vie']?['livesInfinite'] == true);
       final bool root = (data?['livesInfinite'] == true);
       final bool value = nested || root;
@@ -580,6 +580,86 @@ class DevToolsService {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Erreur lors du déverrouillage des étoiles: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // =============================
+  // Cache Firestore - Outils Debug
+  // =============================
+
+  /// Vide le cache Firestore pour forcer le rechargement des données
+  static Future<void> clearFirestoreCache() async {
+    try {
+      if (kDebugMode) {
+        debugPrint('🧹 Vidage du cache Firestore...');
+      }
+      
+      await FicheOiseauService.clearFirestoreCache();
+      
+      if (kDebugMode) {
+        debugPrint('✅ Cache Firestore vidé avec succès');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Erreur lors du vidage du cache Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  /// Force le rechargement d'une fiche oiseau depuis le serveur
+  static Future<bool> refreshBirdDataFromServer(String birdId) async {
+    try {
+      if (kDebugMode) {
+        debugPrint('🔄 Rechargement de la fiche $birdId depuis le serveur...');
+      }
+      
+      final fiche = await FicheOiseauService.getFicheFromServer(birdId);
+      
+      if (fiche != null) {
+        if (kDebugMode) {
+          debugPrint('✅ Fiche $birdId rechargée avec succès');
+          debugPrint('   📋 Nom: ${fiche.nomFrancais}');
+          debugPrint('   🔬 Famille: ${fiche.famille}');
+          debugPrint('   📏 Morphologie: ${fiche.identification.morphologie?.substring(0, 50) ?? 'Non définie'}...');
+        }
+        return true;
+      } else {
+        if (kDebugMode) {
+          debugPrint('⚠️ Fiche $birdId non trouvée sur le serveur');
+        }
+        return false;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Erreur lors du rechargement de la fiche $birdId: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Vide le cache et force la synchronisation de toutes les fiches oiseaux
+  static Future<void> refreshAllBirdData() async {
+    try {
+      if (kDebugMode) {
+        debugPrint('🔄 Rechargement complet des données oiseaux...');
+      }
+      
+      // Vider le cache d'abord
+      await clearFirestoreCache();
+      
+      // Attendre que le cache soit vidé
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (kDebugMode) {
+        debugPrint('✅ Toutes les données oiseaux seront rechargées au prochain accès');
+        debugPrint('🎯 Les fiches montreront maintenant les données mises à jour depuis Firestore');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Erreur lors du rechargement complet: $e');
       }
       rethrow;
     }

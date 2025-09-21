@@ -462,6 +462,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
               child: _LivesDisplayWidget(
                 lives: _visibleLives,
                 isSyncing: _isLivesSyncing,
+                isInfinite: UserOrchestra.isPremium,
                 uiScale: ui,
               ),
             ),
@@ -1401,12 +1402,14 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
       if (isCorrect) {
         _score++;
       } else {
-        _visibleLives--;
+        // Décrémenter une vie uniquement si non premium
         _wrongBirds.add(selectedAnswer);
         if (!_wrongBirds.contains(currentQuestion.correctAnswer)) {
           _wrongBirds.add(currentQuestion.correctAnswer);
         }
-        _syncLivesImmediately();
+        if (!UserOrchestra.isPremium) {
+          _visibleLives = (_visibleLives - 1).clamp(0, 9999);
+        }
       }
     });
     _glowController?.forward(from: 0.0);
@@ -1414,14 +1417,21 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
     // Lancer le chargement/affichage sécurisé de l'image sans bloquer l'UI
     _setAnswerImageSafely(imageUrl);
 
+    // Synchroniser immédiatement les vies si elles ont changé
+    if (!isCorrect && !UserOrchestra.isPremium) {
+      await _syncLivesImmediately();
+    }
+
     await Future.delayed(const Duration(milliseconds: 2000));
     if (!context.mounted) return;
     
-    if (_visibleLives <= 0) {
+    // Si non premium et plus de vies → échec
+    if (!UserOrchestra.isPremium && _visibleLives <= 0) {
       _onQuizFailed();
-    } else {
-      _goToNextQuestion();
+      return;
     }
+    // Sinon, continuer normalement
+    _goToNextQuestion();
   }
 
   Future<void> _simulateQuizSuccess() async {
@@ -2081,10 +2091,12 @@ class _LivesDisplayWidget extends StatefulWidget {
   final int lives;
   final bool isSyncing;
   final double uiScale;
+  final bool isInfinite;
   
   const _LivesDisplayWidget({
     required this.lives,
     required this.isSyncing,
+    required this.isInfinite,
     this.uiScale = 1.0,
   });
 
@@ -2119,12 +2131,7 @@ class _LivesDisplayWidgetState extends State<_LivesDisplayWidget>
   @override
   void didUpdateWidget(_LivesDisplayWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
-    if (widget.lives != oldWidget.lives) {
-      _pulseController.forward().then((_) {
-        _pulseController.reverse();
-      });
-    }
+    // Animation de pulsation désactivée
   }
   
   @override
@@ -2136,61 +2143,95 @@ class _LivesDisplayWidgetState extends State<_LivesDisplayWidget>
   @override
   Widget build(BuildContext context) {
     final double ui = widget.uiScale;
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _pulseAnimation.value,
-          child: SizedBox(
-            width: 80 * ui,
-            height: 80 * ui,
-            child: Stack(
-              children: [
-                Image.asset(
-                  'assets/Images/Bouton/barvie.png',
-                  width: 100 * ui,
-                  height: 100 * ui,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 80 * ui,
-                      height: 80 * ui,
-                      decoration: BoxDecoration(
-                        color: const Color.fromRGBO(188, 71, 73, 0.2),
-                        borderRadius: BorderRadius.circular(40 * ui),
-                      ),
-                      child: const Icon(
-                        Icons.favorite,
-                        color: Color(0xFFBC4749),
-                        size: 40,
-                      ),
-                    );
-                  },
+    return SizedBox(
+      width: 80 * ui,
+      height: 80 * ui,
+      child: Stack(
+        children: [
+          // Fond des vies en SVG pour permettre la modification du contour
+          SvgPicture.asset(
+            'assets/Images/Bouton/viequizmission.svg',
+            width: 100 * ui,
+            height: 100 * ui,
+            fit: BoxFit.contain,
+          ),
+          // Coeur PNG au-dessus du fond SVG
+          Positioned.fill(
+            child: Align(
+              alignment: Alignment.center,
+              child: Transform.translate(
+                offset: Offset(-16.0 * ui, 0.3 * ui),
+                child: Image.asset(
+                  'assets/Images/Bouton/vie.png',
+                  width: 40 * ui,
+                  height: 40 * ui,
+                  fit: BoxFit.contain,
                 ),
-                Positioned.fill(
-                  child: Transform.translate(
-                    offset: Offset(18 * ui, -0.5 * ui),
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Text(
-                        widget.lives.toString(),
-                        style: TextStyle(
-                          fontFamily: 'Quicksand',
-                          fontSize: 34 * ui,
-                          fontWeight: FontWeight.w900,
-                          color: widget.lives <= 1 
-                              ? const Color(0xFFBC4749)
-                              : const Color(0xFF473C33),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              ],
+              ),
             ),
           ),
-        );
-      },
+          Positioned.fill(
+            child: Transform.translate(
+              offset: Offset(18 * ui, -0.5 * ui),
+              child: Align(
+                alignment: Alignment.center,
+                child: widget.isInfinite
+                    ? SvgPicture.asset(
+                        'assets/Images/Bouton/infinie.svg',
+                        width: 34 * ui,
+                        height: 34 * ui,
+                        fit: BoxFit.contain,
+                        colorFilter: const ColorFilter.mode(
+                          Color(0xFF473C33),
+                          BlendMode.srcIn,
+                        ),
+                      )
+                    : SizedBox(
+                        width: 48 * ui,
+                        height: 48 * ui,
+                        child: Center(
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Outline (stroke) layer
+                              Text(
+                                widget.lives.toString(),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Quicksand',
+                                  fontSize: 38 * ui,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.0,
+                                  foreground: Paint()
+                                    ..style = PaintingStyle.stroke
+                                    ..strokeWidth = 0.7 * ui
+                                    ..color = const Color(0xFF2C241E),
+                                ),
+                              ),
+                              // Fill layer
+                              Text(
+                                widget.lives.toString(),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Quicksand',
+                                  fontSize: 38 * ui,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF473C33),
+                                  height: 1.0,
+                                  shadows: const [
+                                    Shadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
