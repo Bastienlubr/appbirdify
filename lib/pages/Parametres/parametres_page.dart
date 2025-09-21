@@ -572,36 +572,6 @@ class _ParametresPageState extends State<ParametresPage> {
                           children: [
                             _SettingsTile(
                               m: m,
-                              leading: Icons.restore,
-                              title: 'Restaurer mes achats',
-                              iconBg: iconBg,
-                              iconColor: iconColor,
-                              onTap: () async {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Restauration désactivée')),
-                                  );
-                                }
-                              },
-                            ),
-                            _Divider(m: m),
-                            _SettingsTile(
-                              m: m,
-                              leading: Icons.sync,
-                              title: "Actualiser l'état de l'abonnement",
-                              iconBg: iconBg,
-                              iconColor: iconColor,
-                              onTap: () async {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Actualisation désactivée')),
-                                  );
-                                }
-                              },
-                            ),
-                            _Divider(m: m),
-                            _SettingsTile(
-                              m: m,
                               leading: Icons.workspace_premium,
                               title: 'Gérer mon abonnement',
                               iconBg: iconBg,

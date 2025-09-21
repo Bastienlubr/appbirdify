@@ -99,6 +99,8 @@ class _Canvas extends StatelessWidget {
       height: 812,
       child: Stack(
         children: [
+          // Restauration auto à l’ouverture (une fois)
+          // Restauration automatique supprimée pour éviter les changements visuels à l'ouverture
           // En-tête: flèche gauche + titre centré optiquement (placeholder symétrique à droite)
           Positioned(
             left: 0,
@@ -155,188 +157,16 @@ class _Canvas extends StatelessWidget {
             child: const _StatusHeader(),
           ),
 
-          // Cartes d'information (Essai gratuit + Abonnement payant) — lit abonnement/current
+          // Zone de contenu (cartes + boutons) scrollable au besoin
           Positioned(
-            left: 36,
+            left: 0,
+            right: 0,
             top: 192,
-            child: _CurrentSubscriptionCard(),
+            bottom: 20,
+            child: const _ContentArea(),
           ),
 
-          // Bouton Gérer sur Google Play (ouverture directe)
-          Positioned(
-            left: 49.09,
-            top: 318.45,
-            child: SizedBox(
-              width: 274.82,
-              height: 40.73,
-              child: BoutonUniversel(
-                onPressed: () async {
-                  try {
-                    final uid = FirebaseAuth.instance.currentUser?.uid;
-                    String? sku;
-                    String pkg = 'com.mindbird.app';
-                    if (uid != null) {
-                      final doc = await FirebaseFirestore.instance
-                          .collection('utilisateurs')
-                          .doc(uid)
-                          .collection('abonnement')
-                          .doc('current')
-                          .get();
-                      final data = doc.data();
-                      sku = data?['subscriptionId'] as String?
-                          ?? data?['offre']?['productId'] as String?;
-                      pkg = (data?['packageName'] as String?) ?? pkg;
-                    }
-                    final Uri url = (sku != null && sku.isNotEmpty)
-                        ? Uri.parse('https://play.google.com/store/account/subscriptions?sku=$sku&package=$pkg')
-                        : Uri.parse('https://play.google.com/store/account/subscriptions');
-                    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Impossible d\'ouvrir Google Play')),
-                        );
-                      }
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Ouverture impossible: $e')),
-                      );
-                    }
-                  }
-                },
-                size: BoutonUniverselTaille.small,
-                borderRadius: 10,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                backgroundColor: const Color(0xFFFCFCFE),
-                hoverBackgroundColor: const Color(0xFFEDEDED),
-                borderColor: const Color(0xFFDADADA),
-                hoverBorderColor: const Color(0xFFDADADA),
-                shadowColor: const Color(0xFFDADADA),
-                child: const Center(
-                  child: Text(
-                    'Gérer sur Google Play',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF334355),
-                      fontSize: 16,
-                      fontFamily: 'Fredoka',
-                      fontWeight: FontWeight.w600,
-                      height: 1.0,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Bouton Restaurer mes achats
-          Positioned(
-            left: 49.09,
-            top: 265.0,
-            child: SizedBox(
-              width: 274.82,
-              height: 40.73,
-              child: BoutonUniversel(
-                onPressed: () async { try { await PremiumService.instance.restore(); } catch (_) {} },
-                size: BoutonUniverselTaille.small,
-                borderRadius: 10,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                backgroundColor: const Color(0xFFFCFCFE),
-                hoverBackgroundColor: const Color(0xFFEDEDED),
-                borderColor: const Color(0xFFDADADA),
-                hoverBorderColor: const Color(0xFFDADADA),
-                shadowColor: const Color(0xFFDADADA),
-                child: const Center(
-                  child: Text(
-                    'Restaurer mes achats',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF334355),
-                      fontSize: 16,
-                      fontFamily: 'Fredoka',
-                      fontWeight: FontWeight.w600,
-                      height: 1.0,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Bouton Actualiser l'état de l'abonnement (relance restore pour forcer un event)
-          Positioned(
-            left: 49.09,
-            top: 418.0,
-            child: SizedBox(
-              width: 274.82,
-              height: 40.73,
-              child: BoutonUniversel(
-                onPressed: () async { try { await PremiumService.instance.restore(); } catch (_) {} },
-                size: BoutonUniverselTaille.small,
-                borderRadius: 10,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                backgroundColor: const Color(0xFFFCFCFE),
-                hoverBackgroundColor: const Color(0xFFEDEDED),
-                borderColor: const Color(0xFFDADADA),
-                hoverBorderColor: const Color(0xFFDADADA),
-                shadowColor: const Color(0xFFDADADA),
-                child: const Center(
-                  child: Text(
-                    'Actualiser l\'état de l\'abonnement',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF334355),
-                      fontSize: 16,
-                      fontFamily: 'Fredoka',
-                      fontWeight: FontWeight.w600,
-                      height: 1.0,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Bouton DEV: Forcer synchro (token) — neutralisé
-          Positioned(
-            left: 49.09,
-            top: 465.0,
-            child: SizedBox(
-              width: 274.82,
-              height: 40.73,
-              child: BoutonUniversel(
-                onPressed: () async {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Fonction dev désactivée')),
-                    );
-                  }
-                },
-                size: BoutonUniverselTaille.small,
-                borderRadius: 10,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                backgroundColor: const Color(0xFFFCFCFE),
-                hoverBackgroundColor: const Color(0xFFEDEDED),
-                borderColor: const Color(0xFFDADADA),
-                hoverBorderColor: const Color(0xFFDADADA),
-                shadowColor: const Color(0xFFDADADA),
-                child: const Center(
-                  child: Text(
-                    'Forcer synchro (token)',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF334355),
-                      fontSize: 16,
-                      fontFamily: 'Fredoka',
-                      fontWeight: FontWeight.w600,
-                      height: 1.0,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          // (Boutons déplacés en bas de _ContentArea)
 
           // Bouton Résilier mon compte — supprimé
 
@@ -348,6 +178,152 @@ class _Canvas extends StatelessWidget {
           ),
 
           // (Supprimé) Home indicator
+        ],
+      ),
+    );
+  }
+}
+
+class _ContentArea extends StatelessWidget {
+  const _ContentArea();
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final content = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 0),
+            // Cartes
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 36),
+              child: _CurrentSubscriptionCard(),
+            ),
+            const SizedBox(height: 20),
+            // Historique
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 36),
+              child: _HistoryCyclesList(),
+            ),
+            const SizedBox(height: 20),
+            // Boutons bas de page
+            const _BottomButtons(),
+          ],
+        );
+        // Active le scroll si le contenu dépasse
+        return SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: c.maxHeight),
+            child: content,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BottomButtons extends StatelessWidget {
+  const _BottomButtons();
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 49.09),
+      child: Column(
+        children: [
+          SizedBox(
+            width: 274.82,
+            height: 40.73,
+            child: BoutonUniversel(
+              onPressed: () async { try { await PremiumService.instance.restore(); } catch (_) {} },
+              size: BoutonUniverselTaille.small,
+              borderRadius: 10,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              backgroundColor: const Color(0xFFFCFCFE),
+              hoverBackgroundColor: const Color(0xFFEDEDED),
+              borderColor: const Color(0xFFDADADA),
+              hoverBorderColor: const Color(0xFFDADADA),
+              shadowColor: const Color(0xFFDADADA),
+              child: const Center(
+                child: Text(
+                  'Restaurer mes achats',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF334355),
+                    fontSize: 16,
+                    fontFamily: 'Fredoka',
+                    fontWeight: FontWeight.w600,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: 274.82,
+            height: 40.73,
+            child: BoutonUniversel(
+              onPressed: () async {
+                try {
+                  final uid = FirebaseAuth.instance.currentUser?.uid;
+                  String? sku;
+                  String pkg = 'com.mindbird.app';
+                  if (uid != null) {
+                    final doc = await FirebaseFirestore.instance
+                        .collection('utilisateurs')
+                        .doc(uid)
+                        .collection('abonnement')
+                        .doc('current')
+                        .get();
+                    final data = doc.data();
+                    sku = data?['subscriptionId'] as String?
+                        ?? data?['offre']?['productId'] as String?;
+                    pkg = (data?['packageName'] as String?)
+                        ?? (data?['facturation']?['packageName'] as String?)
+                        ?? pkg;
+                  }
+                  final Uri url = (sku != null && sku.isNotEmpty)
+                      ? Uri.parse('https://play.google.com/store/account/subscriptions?sku=$sku&package=$pkg')
+                      : Uri.parse('https://play.google.com/store/account/subscriptions');
+                  if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Impossible d\'ouvrir Google Play')),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ouverture impossible: $e')),
+                    );
+                  }
+                }
+              },
+              size: BoutonUniverselTaille.small,
+              borderRadius: 10,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              backgroundColor: const Color(0xFFFCFCFE),
+              hoverBackgroundColor: const Color(0xFFEDEDED),
+              borderColor: const Color(0xFFDADADA),
+              hoverBorderColor: const Color(0xFFDADADA),
+              shadowColor: const Color(0xFFDADADA),
+              child: const Center(
+                child: Text(
+                  'Gérer sur Google Play',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF334355),
+                    fontSize: 16,
+                    fontFamily: 'Fredoka',
+                    fontWeight: FontWeight.w600,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -378,6 +354,8 @@ class _CurrentSubscriptionCard extends StatelessWidget {
         final Map<String, dynamic>? payant = abo?['payant'] as Map<String, dynamic>?;
         final Map<String, dynamic>? prix = abo?['prix'] as Map<String, dynamic>?;
         final String? productId = (abo?['offre']?['productId'] as String?) ?? abo?['subscriptionId'] as String?;
+        final String planLabel = _resolvePlanLabelFromAbo(abo);
+        final bool autoRenew = abo?['renouvellement']?['auto'] == true;
 
         final int trialDaysLeft = (essai?['joursRestants'] as int?) ?? 0;
         final bool trialActif = essai?['actif'] == true;
@@ -385,34 +363,85 @@ class _CurrentSubscriptionCard extends StatelessWidget {
         final DateTime? trialFin = _toDate(essai?['fin']);
         final DateTime? payantDebut = _toDate(payant?['debut']);
 
-        return SizedBox(
-          width: 303,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (trialDebut != null && trialFin != null)
-                _InfoCard(
-                  title: 'Essai gratuit',
-                  lines: [
-                    'Du ${_formatDateFr(trialDebut)} au ${_formatDateFr(trialFin)}',
-                    if (trialActif) 'Reste: J-${trialDaysLeft.clamp(0, 999)}',
-                  ],
-                ),
-              const SizedBox(height: 10),
-              _InfoCard(
-                title: 'Abonnement payant',
-                lines: [
-                  if (productId != null) 'Offre: $productId',
-                  if (payantDebut != null) 'Début: ${_formatDateFr(payantDebut)}',
-                  if (periodeDebut != null && periodeFin != null)
-                    'Période: ${_formatDateFr(periodeDebut)} → ${_formatDateFr(periodeFin)}',
-                  if (nextBilling != null) 'Prochaine facturation: ${_formatDateFr(nextBilling)}',
-                  if (prix != null && prix['montant'] != null && prix['devise'] != null)
-                    'Prix: ${prix['montant']} ${prix['devise']}',
+        // Calcul local de première/prochaine facturation si absent
+        final String? dureeIso = (payant?['dureeDeclarative'] as String?) ?? (essai?['dureeDeclarative'] as String?);
+        final DateTime? premiereFacturation = (trialFin != null)
+            ? trialFin
+            : (payantDebut != null && dureeIso != null ? _addIsoPeriod(payantDebut, dureeIso) : null);
+        final DateTime? prochaineFacturation = nextBilling ??
+            ((periodeFin != null) ? periodeFin : (periodeDebut != null && dureeIso != null ? _addIsoPeriod(periodeDebut, dureeIso) : null));
+
+        // Fallback d’encart local pour affichage UX même si CF/Play indispo
+        final encartSnapFuture = FirebaseFirestore.instance
+            .collection('utilisateurs')
+            .doc(uid)
+            .collection('abonnement')
+            .doc('encart')
+            .get();
+
+        return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          future: encartSnapFuture,
+          builder: (context, encartSnap) {
+            final encart = encartSnap.data?.data();
+            final String? prixAffiche = encart?['prixAffiche'] as String?;
+            final DateTime? essaiDebut = _toDate(encart?['essai']?['debut']);
+            final DateTime? essaiFin = _toDate(encart?['essai']?['fin']);
+            final DateTime? debutFacturation = _toDate(encart?['debutFacturation']);
+            final DateTime? prochaineFacturationLocal = _toDate(encart?['prochaineFacturation']);
+            final String? planLocal = encart?['plan'] as String?;
+
+            String prixLigne = '';
+            if (!trialActif) {
+              if (prix != null && prix['montant'] != null && prix['devise'] != null) {
+                final num montant = (prix['montant'] is num) ? prix['montant'] as num : num.tryParse('${prix['montant']}') ?? 0;
+                if (montant > 0) {
+                  prixLigne = 'Prix: ${_formatMontant(montant)} ${prix['devise']}${_formatPeriodePrix(payant?['dureeDeclarative'])}';
+                }
+              } else if (_isDisplayablePrice(prixAffiche)) {
+                prixLigne = 'Prix: $prixAffiche';
+              }
+            }
+
+            final DateTime? prochaineAff = prochaineFacturation ?? prochaineFacturationLocal;
+            final DateTime? finEssaiAff = trialFin ?? essaiFin;
+            final DateTime? essaiDebutAff = trialDebut ?? essaiDebut;
+
+            return SizedBox(
+              width: 303,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (essaiDebutAff != null && finEssaiAff != null)
+                    _InfoCard(
+                      title: 'Essai gratuit',
+                      lines: [
+                        'Du ${_formatDateFr(essaiDebutAff)} au ${_formatDateFr(finEssaiAff)}',
+                        if (trialActif) 'Reste: J-${trialDaysLeft.clamp(0, 999)}',
+                        'Aucun débit avant le ${_formatDateFr(finEssaiAff)}',
+                      ],
+                    ),
+                  const SizedBox(height: 10),
+                  _InfoCard(
+                    title: planLabel.isNotEmpty ? planLabel : ((planLocal ?? '').isNotEmpty ? (planLocal ?? '') : 'Abonnement payant'),
+                    lines: [
+                      if (debutFacturation != null) 'Début: ${_formatDateFr(debutFacturation)}'
+                      else if (payantDebut != null) 'Début: ${_formatDateFr(payantDebut)}',
+                      if (periodeDebut != null && periodeFin != null)
+                        'Période en cours: ${_formatDateFr(periodeDebut)} → ${_formatDateFr(periodeFin)}',
+                      if (premiereFacturation != null)
+                        'Première facturation le: ${_formatDateFr(premiereFacturation)}',
+                      if (autoRenew && (prochaineAff != null))
+                        'Prochaine facturation: ${_formatDateFr(prochaineAff)}'
+                      else if (!autoRenew && (periodeFin != null))
+                        'Prendra fin le: ${_formatDateFr(periodeFin)}',
+                      if (prixLigne.isNotEmpty) prixLigne,
+                      'Annulable à tout moment via Google Play',
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -548,11 +577,74 @@ String _resolvePlanLabel(Map<String, dynamic>? abo) {
   return '';
 }
 
+String _resolvePlanLabelFromAbo(Map<String, dynamic>? abo) {
+  if (abo == null) return '';
+  final String? productId = abo['offre']?['productId'] as String? ?? abo['subscriptionId'] as String?;
+  if (productId == null) return '';
+  final id = productId.toLowerCase();
+  if (id.contains('12') || id.contains('an') || id.contains('annuel') || id.contains('year')) return 'Premium 12 mois';
+  if (id.contains('6') || id.contains('sem') || id.contains('six')) return 'Premium 6 mois';
+  if (id.contains('1') || id.contains('mois') || id.contains('month')) return 'Premium 1 mois';
+  return 'Abonnement payant';
+}
+
+String _formatMontant(dynamic m) {
+  try {
+    final num val = (m is num) ? m : num.parse(m.toString());
+    return val.toStringAsFixed(val == val.roundToDouble() ? 0 : 2);
+  } catch (_) {
+    return m?.toString() ?? '';
+  }
+}
+
 DateTime? _toDate(dynamic v) {
   if (v == null) return null;
   if (v is DateTime) return v;
   if (v is Timestamp) return v.toDate();
   return null;
+}
+
+DateTime? _toDateFromMillis(dynamic v) {
+  if (v == null) return null;
+  try {
+    final ms = (v is int) ? v : int.parse(v.toString());
+    return DateTime.fromMillisecondsSinceEpoch(ms);
+  } catch (_) {
+    return null;
+  }
+}
+
+String _formatPeriodePrix(dynamic billingPeriodIso) {
+  // Affiche "/ mois", "/ 6 mois", "/ 12 mois" selon la durée déclarative ISO 8601 (ex: P1M, P6M, P1Y)
+  final s = billingPeriodIso?.toString() ?? '';
+  if (s.isEmpty) return '';
+  if (s == 'P1M') return ' / mois';
+  if (s == 'P6M') return ' / 6 mois';
+  if (s == 'P1Y') return ' / 12 mois';
+  // fallback simple
+  return '';
+}
+
+DateTime? _addIsoPeriod(DateTime start, String period) {
+  final reg = RegExp(r'^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$', caseSensitive: false);
+  final m = reg.firstMatch(period);
+  if (m == null) return null;
+  final years = int.tryParse(m.group(1) ?? '0') ?? 0;
+  final months = int.tryParse(m.group(2) ?? '0') ?? 0;
+  final weeks = int.tryParse(m.group(3) ?? '0') ?? 0;
+  final days = int.tryParse(m.group(4) ?? '0') ?? 0;
+  final d = DateTime(start.year, start.month, start.day, start.hour, start.minute, start.second);
+  final withYM = DateTime(d.year + years, d.month + months, d.day, d.hour, d.minute, d.second);
+  return withYM.add(Duration(days: days + weeks * 7));
+}
+
+bool _isDisplayablePrice(String? price) {
+  if (price == null) return false;
+  final s = price.toLowerCase().trim();
+  if (s.isEmpty) return false;
+  // Masque les affichages "gratuit" ou 0 €
+  if (s.contains('gratuit') || s == '0' || s.startsWith('0 ')) return false;
+  return true;
 }
 
 class _InfoCard extends StatelessWidget {
@@ -631,6 +723,8 @@ class _StatusHeader extends StatelessWidget {
       stream: stream,
       builder: (context, snap) {
         final abo = snap.data?.data();
+        // Fallback: lire encart si current incomplet
+        // Note: on ne fait pas de stream combiné pour rester léger
         final Map<String, dynamic>? essai = abo?['essai'] as Map<String, dynamic>?;
         final bool trialActif = essai?['actif'] == true;
         final bool hasAbo = abo != null;
@@ -656,6 +750,28 @@ class _StatusHeader extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _RestoreOnOpenOnce extends StatefulWidget {
+  @override
+  State<_RestoreOnOpenOnce> createState() => _RestoreOnOpenOnceState();
+}
+
+class _RestoreOnOpenOnceState extends State<_RestoreOnOpenOnce> {
+  bool _did = false;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_did) return;
+    _did = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try { await PremiumService.instance.restore(); } catch (_) {}
+    });
+  }
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.shrink();
   }
 }
 

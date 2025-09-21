@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint, kIsWeb;
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -285,6 +286,11 @@ class PremiumService {
         }
       }
 
+      // Ecrire/mettre à jour un encart local d'information (fallback UI)
+      try {
+        await _writeLocalEncart(p, productId);
+      } catch (_) {}
+
       // Accusé côté Play si nécessaire
       if (!p.pendingCompletePurchase) {
         return;
@@ -294,6 +300,98 @@ class PremiumService {
     } catch (e) {
       if (kDebugMode) debugPrint('❌ _verifyAndAcknowledge error: $e');
     }
+  }
+
+  Future<void> _writeLocalEncart(PurchaseDetails p, String productId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    // Détails Android (commande/heure)
+    DateTime now = DateTime.now();
+    DateTime? purchaseTime;
+    if (p is GooglePlayPurchaseDetails) {
+      final w = p.billingClientPurchase;
+      if (w.purchaseTime != null) {
+        purchaseTime = DateTime.fromMillisecondsSinceEpoch(w.purchaseTime!);
+      }
+    }
+    if (purchaseTime == null && p.transactionDate != null) {
+      try { purchaseTime = DateTime.fromMillisecondsSinceEpoch(int.parse(p.transactionDate!)); } catch (_) {}
+    }
+    purchaseTime ??= now;
+
+    // Récupérer le produit pour prix/périodes
+    String? freeTrialIso;
+    String? billIso;
+    String? priceDisplay;
+    final pd = _products.cast<ProductDetails?>().firstWhere((e) => e?.id == productId, orElse: () => null);
+    // Estimations génériques si les détails de plate-forme ne sont pas exposés
+    if (pd != null) {
+      // Prix
+      try {
+        priceDisplay = pd.price; // déjà formaté (ex: "4,99 €")
+      } catch (_) {}
+      // Période facturation à partir de l'ID produit
+      final id = pd.id.toLowerCase();
+      if (id.contains('12')) billIso = 'P1Y';
+      else if (id.contains('6')) billIso = 'P6M';
+      else billIso = 'P1M';
+      // Essai: 3 jours par défaut si présent dans l'offre
+      freeTrialIso = 'P3D';
+    }
+
+    final finEssai = (freeTrialIso != null && freeTrialIso.isNotEmpty)
+        ? _addIsoPeriodDt(purchaseTime, freeTrialIso)
+        : null;
+    final debutFacturation = finEssai ?? purchaseTime;
+    final prochaine = (debutFacturation != null && (billIso != null))
+        ? _addIsoPeriodDt(debutFacturation, billIso!)
+        : null;
+
+    // Libellé plan + prix
+    String planLabel = 'Abonnement 1 mois';
+    if (billIso == 'P6M') planLabel = 'Abonnement 6 mois';
+    if (billIso == 'P1Y') planLabel = 'Abonnement 12 mois';
+    final prixAffiche = priceDisplay != null
+        ? (billIso == 'P1Y'
+            ? '$priceDisplay / 12 mois'
+            : billIso == 'P6M'
+                ? '$priceDisplay / 6 mois'
+                : '$priceDisplay / mois')
+        : null;
+
+    final encart = <String, dynamic>{
+      'produitId': productId,
+      'plan': planLabel,
+      if (prixAffiche != null) 'prixAffiche': prixAffiche,
+      if (finEssai != null)
+        'essai': {
+          'debut': purchaseTime,
+          'fin': finEssai,
+        },
+      if (debutFacturation != null) 'debutFacturation': debutFacturation,
+      if (prochaine != null) 'prochaineFacturation': prochaine,
+      'renouvellementAutomatique': true,
+    };
+
+    final db = FirebaseFirestore.instance;
+    await db
+        .collection('utilisateurs')
+        .doc(user.uid)
+        .collection('abonnement')
+        .doc('encart')
+        .set(encart, SetOptions(merge: true));
+  }
+
+  DateTime _addIsoPeriodDt(DateTime start, String iso) {
+    final reg = RegExp(r'^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$', caseSensitive: false);
+    final m = reg.firstMatch(iso);
+    if (m == null) return start;
+    final years = int.tryParse(m.group(1) ?? '0') ?? 0;
+    final months = int.tryParse(m.group(2) ?? '0') ?? 0;
+    final weeks = int.tryParse(m.group(3) ?? '0') ?? 0;
+    final days = int.tryParse(m.group(4) ?? '0') ?? 0;
+    final base = DateTime(start.year + years, start.month + months, start.day, start.hour, start.minute, start.second);
+    return base.add(Duration(days: weeks * 7 + days));
   }
 }
 

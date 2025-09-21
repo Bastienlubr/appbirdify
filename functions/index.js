@@ -40,6 +40,22 @@ exports.verifierAbonnementV2 = onCall(async (request) => {
     const line = sub.lineItems && sub.lineItems.length ? sub.lineItems[0] : undefined;
 
     const isoToDate = (iso) => (iso ? new Date(iso) : null);
+    const addIsoPeriod = (start, period) => {
+      // Gère PnD, PnW, PnM, PnY (ISO 8601) avec ajout calendaire pour Mois/Années
+      if (!start || !period || typeof period !== 'string') return null;
+      const m = period.match(/^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$/i);
+      if (!m) return null;
+      const years = parseInt(m[1] || '0', 10);
+      const months = parseInt(m[2] || '0', 10);
+      const weeks = parseInt(m[3] || '0', 10);
+      const days = parseInt(m[4] || '0', 10);
+      const d = new Date(start.getTime());
+      if (years) d.setFullYear(d.getFullYear() + years);
+      if (months) d.setMonth(d.getMonth() + months);
+      const totalDays = days + (weeks * 7);
+      if (totalDays) d.setDate(d.getDate() + totalDays);
+      return d;
+    };
     const periodeDebut = isoToDate(line && line.startTime);
     const periodeFin = isoToDate(line && line.expiryTime);
     const prochaineFacturation = periodeFin;
@@ -51,7 +67,7 @@ exports.verifierAbonnementV2 = onCall(async (request) => {
     const trialPhase = phases.find((p) => String(p.priceAmountMicros || '0') === '0');
     const paidPhase = phases.find((p) => Number(p.priceAmountMicros || 0) > 0);
     const trialStart = periodeDebut;
-    const trialEnd = trialPhase && trialStart ? new Date(trialStart.getTime() + ((trialPhase.duration || '').includes('P') ? 3 * 86400000 : 0)) : null; // fallback 3j
+    const trialEnd = trialPhase && trialStart ? (trialPhase.billingPeriod ? addIsoPeriod(trialStart, trialPhase.billingPeriod) : null) : null;
     const paidStart = trialEnd || periodeDebut;
     const priceAmountMicros = paidPhase && paidPhase.priceAmountMicros;
     const priceCurrency = paidPhase && paidPhase.priceCurrencyCode;
@@ -72,13 +88,13 @@ exports.verifierAbonnementV2 = onCall(async (request) => {
       },
       prix: priceAmountMicros && priceCurrency ? { montant: Number(priceAmountMicros) / 1e6, devise: priceCurrency } : null,
       renouvellement: { auto: autoRenew },
-      essai: {
-        actif: !!trialPhase && !!trialEnd && Date.now() < trialEnd.getTime(),
+      essai: trialPhase ? {
+        actif: !!trialEnd && Date.now() < trialEnd.getTime(),
         debut: trialStart || null,
         fin: trialEnd || null,
         joursRestants: joursEssaiRestants,
-        dureeDeclarative: trialPhase && trialPhase.billingPeriod ? trialPhase.billingPeriod : 'P3D',
-      },
+        dureeDeclarative: trialPhase.billingPeriod || null,
+      } : null,
       payant: {
         debut: paidStart || null,
         dureeDeclarative: paidPhase && paidPhase.billingPeriod ? paidPhase.billingPeriod : null,
