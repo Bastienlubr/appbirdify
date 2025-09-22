@@ -12,6 +12,7 @@ import '../services/Users/recompenses_utiles_service.dart';
 import '../data/bird_image_alignments.dart';
 // import supprimé: debug_auto_fiche_page.dart
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'dart:convert'; // Added for JsonEncoder
 
 class DevToolsMenu extends StatefulWidget {
   final VoidCallback? onLivesRestored;
@@ -680,6 +681,78 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
               navigator.push(
                 MaterialPageRoute(builder: (_) => const RecompensesUtilesPage()),
               );
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.file_download,
+          label: '📤 Exporter cadrages (JSON)',
+          onPressed: () async {
+            await _executeAction(() async {
+              final map = await BirdImageAlignments.exportCalibratedAlignments();
+              final json = const JsonEncoder.withIndent('  ').convert(map);
+              try { await Clipboard.setData(ClipboardData(text: json)); } catch (_) {}
+              if (mounted) {
+                await showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Export des cadrages (copié)'),
+                    content: SingleChildScrollView(child: SelectableText(json, style: const TextStyle(fontFamily: 'monospace', fontSize: 12))),
+                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer'))],
+                  ),
+                );
+              }
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.file_upload,
+          label: '📥 Importer cadrages (JSON)',
+          onPressed: () async {
+            await _executeAction(() async {
+              final controller = TextEditingController();
+              final ok = await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Importer cadrages'),
+                  content: SizedBox(
+                    width: 520,
+                    child: TextField(controller: controller, maxLines: 14, decoration: const InputDecoration(hintText: '{ "genus_species": 0.25 }')),
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+                    ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Importer')),
+                  ],
+                ),
+              );
+              if (ok == true) {
+                final Map<String, dynamic> decoded = controller.text.isEmpty ? <String, dynamic>{} : (jsonDecode(controller.text) as Map<String, dynamic>);
+                final Map<String, double> casted = decoded.map((k, v) => MapEntry(k, (v as num).toDouble()));
+                await BirdImageAlignments.importAlignments(casted);
+              }
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.list,
+          label: '📃 Lister espèces calibrées',
+          onPressed: () async {
+            await _executeAction(() async {
+              final map = await BirdImageAlignments.exportCalibratedAlignments();
+              final entries = map.entries.toList()..sort((a,b)=>a.key.compareTo(b.key));
+              final text = entries.isEmpty ? 'Aucune espèce calibrée.' : entries.map((e) => '${e.key}: ${e.value.toStringAsFixed(2)}').join('\n');
+              try { await Clipboard.setData(ClipboardData(text: text)); } catch (_) {}
+              if (mounted) {
+                await showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Espèces calibrées (copié)'),
+                    content: SingleChildScrollView(child: SelectableText(text, style: const TextStyle(fontFamily: 'monospace', fontSize: 12))),
+                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer'))],
+                  ),
+                );
+              }
             });
           },
         ),

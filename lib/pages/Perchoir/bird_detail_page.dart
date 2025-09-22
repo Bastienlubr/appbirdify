@@ -298,12 +298,10 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       
       if (savedAlignment != null && mounted) {
         _optimalImageAlignment = Alignment(savedAlignment, 0.0);
-        // Si le background n'est pas encore affiché, on l'affichera avec l'alignement correct
-        // Si le background est déjà visible, on évite un "saut" visuel en n'actualisant pas l'UI immédiatement
-        if (!_showBackground) {
-          setState(() {});
-        }
-        
+        // Appliquer immédiatement l'alignement sauvegardé (même si le background est déjà visible)
+        // pour garantir le cadrage correct de la photo de l'espèce
+        setState(() {});
+
         assert(() {
           debugPrint('📥 Alignement sauvegardé appliqué: ${widget.bird.nomFr} → ${savedAlignment.toStringAsFixed(2)}');
           debugPrint('📥 _optimalImageAlignment mis à jour: ${_optimalImageAlignment.x.toStringAsFixed(2)}');
@@ -320,12 +318,20 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   
   /// Vérifie le mode développement
   void _checkDevMode() {
-    // Désactivation visuelle des outils de calibration en production
+    // Activer les outils si l'overlay dev est autorisé ou si le mode dev alignements est actif
     if (mounted) {
       setState(() {
-        _isDevMode = false;
+        _isDevMode = DevVisibilityService.isOverlaysEnabled;
       });
     }
+    BirdImageAlignments.isDevModeEnabled().then((enabled) {
+      if (!mounted) return;
+      if (enabled && !_isDevMode) {
+        setState(() {
+          _isDevMode = true;
+        });
+      }
+    }).catchError((_) {});
   }
 
   /// Programme les animations initiales de manière séquencée
@@ -994,12 +1000,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
              if (_showBackground && !_isReturning) _buildBackButton(m),
              
               
-              // Interface de calibration (mode développement uniquement)
-              if (_showBackground && !_isReturning && _isDevMode)
-                ValueListenableBuilder<bool>(
-                  valueListenable: DevVisibilityService.overlaysEnabled,
-                  builder: (context, visible, child) => visible ? _buildAlignmentIndicator(m) : const SizedBox.shrink(),
-                ),
+              // Interface de calibration retirée (désactivée en production)
 
               // Bouton audio (donut) en background (derrière le panel)
               if (_showBackground && !_isReturning) _buildAudioButton(m),
@@ -1419,24 +1420,19 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   Widget _buildImagePanelFade(ResponsiveMetrics m, double screenHeight) {
     return IgnorePointer(
       ignoring: true,
-      child: AnimatedOpacity(
-        opacity: 1.0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        child: Container(
-          width: double.infinity,
-          height: screenHeight,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-              colors: [
-                Color(0x80F3F5F9),
-                Color(0x40F3F5F9),
-                Color(0x00F3F5F9),
-              ],
-              stops: [0.0, 0.2, 0.5],
-            ),
+      child: Container(
+        width: double.infinity,
+        height: screenHeight,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [
+              Color(0x80F3F5F9),
+              Color(0x40F3F5F9),
+              Color(0x00F3F5F9),
+            ],
+            stops: [0.0, 0.2, 0.5],
           ),
         ),
       ),
@@ -1862,31 +1858,24 @@ class _BirdDetailPageState extends State<BirdDetailPage>
             final yOffset = 8.0 * (1.0 - animValue); // Descente simple et douce
             final scale = 0.85 + (0.15 * animValue); // Scaling modéré
  
-            return AnimatedOpacity(
-              opacity: _miniTitleHidden ? 0.0 : 1.0,
-              duration: const Duration(milliseconds: 600),
-              curve: Curves.easeInOut,
-              child: Transform.translate(
+            return Transform.translate(
                 offset: Offset(0.0, yOffset),
                 child: Transform.scale(
                   scale: scale,
-                  child: Opacity(
-                    opacity: opacity,
-          child: Text(
-                      _tabs[_selectedTabIndex]['title'],
-                      textAlign: TextAlign.center,
-            style: TextStyle(
-                        color: const Color(0x7F606D7C), // Même couleur que sous les onglets
-                        fontSize: m.font(12, tabletFactor: 1.0, min: 10, max: 16), // Plus petit
-              fontFamily: 'Quicksand',
-                        fontWeight: FontWeight.w900, // Même poids que sous les onglets
-                        letterSpacing: 0.3,
-            ),
-          ),
-        ),
+                  child: Text(
+                    _tabs[_selectedTabIndex]['title'],
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: const Color(0xFF606D7C)
+                          .withOpacity((_miniTitleHidden ? 0.0 : opacity) * 0.5), // 0.5 = alpha base (0x7F)
+                      fontSize: m.font(12, tabletFactor: 1.0, min: 10, max: 16), // Plus petit
+                      fontFamily: 'Quicksand',
+                      fontWeight: FontWeight.w900, // Même poids que sous les onglets
+                      letterSpacing: 0.3,
+                    ),
+                  ),
                 ),
-              ),
-            );
+              );
           },
         ),
       ),
@@ -1998,7 +1987,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
             ),
           );
         }
-        content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        content = SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Classification
           Text('Classification', style: _subtitleTextStyle(m)),
           const SizedBox(height: 6),
@@ -2030,7 +2019,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
               style: _contentTextStyle(m),
             ),
           ),
-        ]);
+        ]));
         break;
       case 'habitat':
         final h = _fiche?.habitat;
@@ -2038,7 +2027,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         final mig = h?.migration;
         final mois = mig?.mois;
         // Mini-cartes migration supprimées - informations intégrées dans le texte
-        content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        content = SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Type de milieu', style: _subtitleTextStyle(m)),
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -2051,7 +2040,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
           if (_fmt(_buildMigrationSentence(mig?.description, mois?.debut, mois?.fin)).isNotEmpty)
             Padding(padding: const EdgeInsets.only(top: 6), child: Text(_fmt(_buildMigrationSentence(mig?.description, mois?.debut, mois?.fin)), style: _contentTextStyle(m))),
 
-        ]);
+        ]));
         break;
       case 'alimentation':
         final alim = _fiche?.alimentation;
@@ -2093,7 +2082,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         if (chips.isEmpty && !hasDesc) {
           content = Text('Données d\'alimentation à venir.', style: _contentTextStyle(m));
         } else {
-          content = Column(
+          content = SingleChildScrollView(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (chips.isNotEmpty)
@@ -2107,7 +2096,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                   child: Text(_fmt(descText), style: _contentTextStyle(m)),
                 ),
             ],
-          );
+          ));
         }
         break;
       case 'reproduction':
@@ -2120,12 +2109,12 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         if (p?.statutMonde?.isNotEmpty ?? false) tiles.add(_miniInfoCard(title: 'Monde', value: p!.statutMonde!, m: m));
         final hasTiles = tiles.isNotEmpty;
         final desc = p?.description ?? '';
-        content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        content = SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (hasTiles) Wrap(spacing: 10, runSpacing: 10, children: tiles),
           if (p?.actions?.isNotEmpty ?? false) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_fmt('Actions: ${p!.actions!}'), style: _contentTextStyle(m))),
           if (desc.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_fmt(desc), style: _contentTextStyle(m))),
           if (!hasTiles && desc.isEmpty) Text('Données de protection à venir.', style: _contentTextStyle(m)),
-        ]);
+        ]));
         break;
       default:
         content = Text(_fmt('Informations sur ${_tabs[index]['title'].toString().toLowerCase()} du ${widget.bird.nomFr}. '), style: _contentTextStyle(m));

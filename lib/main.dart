@@ -18,6 +18,7 @@ import 'pages/Abonnement/choix_offre_page.dart';
 import 'pages/Abonnement/gerer_mon_abonnement_page.dart';
 import 'pages/Abonnement/bienvenue_abonnement_page.dart';
 import 'services/outils_developpement/auto_lock_service.dart';
+import 'data/bird_image_alignments.dart';
 
 void main() async {
   // Handlers globaux d'erreurs au plus tôt (supprimés)
@@ -73,6 +74,15 @@ void main() async {
 
   // Démarrer l'écouteur d'auth pour synchroniser automatiquement le profil utilisateur
   await AuthService.startAuthSync();
+
+  // Charger les cadrages sauvegardés AVANT de rendre l'UI
+  try {
+    // Charger seulement les alignements locaux (les défauts sont en code)
+    await BirdImageAlignments.loadSavedAlignments();
+    debugPrint('🎯 Alignements d\'images chargés');
+  } catch (e) {
+    debugPrint('⚠️ Alignements non chargés: $e');
+  }
 
   // Log de boot rapide (supprimé)
 

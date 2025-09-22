@@ -65,6 +65,31 @@ class AuthService {
     return cred;
   }
 
+  // ===== Password reset ======================================================
+  static Future<bool> sendPasswordResetEmail({required String email, String? continueUrl}) async {
+    try {
+      if (email.isEmpty) return false;
+      if (continueUrl == null) {
+        await _auth.sendPasswordResetEmail(email: email);
+        return true;
+      }
+      final settings = ActionCodeSettings(
+        url: continueUrl,
+        handleCodeInApp: true,
+        androidPackageName: 'com.mindbird.appbirdify',
+        androidInstallApp: true,
+        androidMinimumVersion: '21',
+        iOSBundleId: 'com.mindbird.appbirdify',
+      );
+      await _auth.sendPasswordResetEmail(email: email, actionCodeSettings: settings);
+      return true;
+    } on FirebaseAuthException catch (_) {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ===== Google ==============================================================
   static Future<UserCredential?> signInWithGoogle() async {
     try {

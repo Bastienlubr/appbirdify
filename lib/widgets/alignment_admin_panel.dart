@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+// import 'package:flutter/services.dart' show Clipboard, ClipboardData; // retiré
 import '../data/bird_image_alignments.dart';
+// import 'dart:convert' as dart_convert; // retiré
 import '../ui/responsive/responsive.dart';
 
 /// Panel d'administration pour gérer les alignements d'images
@@ -341,34 +343,134 @@ class _AlignmentAdminPanelState extends State<AlignmentAdminPanel> {
   Widget _buildActionButtons(ResponsiveMetrics m) {
     final isLocked = _stats['is_locked'] ?? false;
     
-    if (isLocked) {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: _unlockAlignments,
-          icon: const Icon(Icons.lock_open),
-          label: const Text('Réactiver le mode développement'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(vertical: m.dp(12, tabletFactor: 1.0)),
+    final primaryButton = isLocked
+        ? ElevatedButton.icon(
+            onPressed: _unlockAlignments,
+            icon: const Icon(Icons.lock_open),
+            label: const Text('Réactiver le mode développement'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(vertical: m.dp(12, tabletFactor: 1.0)),
+            ),
+          )
+        : ElevatedButton.icon(
+            onPressed: _lockAlignments,
+            icon: const Icon(Icons.lock),
+            label: const Text('Verrouiller en mode production'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(vertical: m.dp(12, tabletFactor: 1.0)),
+            ),
+          );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        primaryButton,
+        SizedBox(height: m.dp(12, tabletFactor: 1.0)),
+        Wrap(
+          spacing: m.dp(8, tabletFactor: 1.0),
+          runSpacing: m.dp(8, tabletFactor: 1.0),
+          children: [
+            // Actions JSON retirées (cadrages intégrés en dur désormais)
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _exportAlignments() async {
+    try {
+      final data = await BirdImageAlignments.exportCalibratedAlignments();
+      final jsonString = _prettyJson(data);
+      // Montrer un dialog avec copie
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Export des cadrages'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: SelectableText(jsonString, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer')),
+          ],
         ),
       );
-    } else {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: _lockAlignments,
-          icon: const Icon(Icons.lock),
-          label: const Text('Verrouiller en mode production'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(vertical: m.dp(12, tabletFactor: 1.0)),
+    } catch (e) {
+      _showErrorSnackBar('Erreur export: $e');
+    }
+  }
+
+  Future<void> _importAlignments() async {
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Importer des cadrages (JSON)'),
+        content: SizedBox(
+          width: 520,
+          child: TextField(
+            controller: controller,
+            maxLines: 14,
+            decoration: const InputDecoration(hintText: '{ "genus_species": 0.25, ... }'),
           ),
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Importer')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final Map<String, dynamic> decoded = <String, dynamic>{};
+      final Map<String, double> casted = decoded.map((k, v) => MapEntry(k, (v as num).toDouble()));
+      await BirdImageAlignments.importAlignments(casted);
+      await _loadData();
+      _showSuccessSnackBar('Cadrages importés (${casted.length})');
+    } catch (e) {
+      _showErrorSnackBar('JSON invalide: $e');
+    }
+  }
+
+  String _prettyJson(Map<String, double> data) {
+    return data.toString();
+  }
+
+  Future<void> _showCalibratedSpecies() async {
+    try {
+      final map = await BirdImageAlignments.exportCalibratedAlignments();
+      final entries = map.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      final buffer = StringBuffer();
+      for (final e in entries) {
+        buffer.writeln('${e.key}: ${e.value.toStringAsFixed(2)}');
+      }
+      final text = buffer.isEmpty ? 'Aucune espèce calibrée pour le moment.' : buffer.toString();
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Espèces calibrées'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: SelectableText(text, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer')),
+          ],
+        ),
       );
+    } catch (e) {
+      _showErrorSnackBar('Erreur lors de la récupération: $e');
     }
   }
 }

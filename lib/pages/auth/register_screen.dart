@@ -77,7 +77,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (password.length < 6) {
       setState(() {
-        _errorMessage = 'Le mot de passe doit contenir au moins 6 caractères';
+        _errorMessage = 'Le mot de passe doit contenir au moins 8 caractères, une majuscule et un chiffre';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Règles de robustesse: 8+ caractères, 1 majuscule, 1 chiffre
+    final bool hasMinLength = password.length >= 8;
+    final bool hasUpper = RegExp(r'[A-Z]').hasMatch(password);
+    final bool hasDigit = RegExp(r'\\d').hasMatch(password);
+    if (!(hasMinLength && hasUpper && hasDigit)) {
+      setState(() {
+        _errorMessage = 'Le mot de passe doit contenir au moins 8 caractères, une majuscule et un chiffre';
         _isLoading = false;
       });
       return;
@@ -592,10 +604,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     color: Colors.white,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
-                                    Icons.arrow_forward,
-                                    color: Color(0xFF6A994E),
-                                    size: 20,
+                                  alignment: Alignment.center,
+                                  child: SvgPicture.asset(
+                                    'assets/Images/Bouton/bouton droite.svg',
+                                    width: 18,
+                                    height: 18,
+                                    fit: BoxFit.contain,
+                                    alignment: Alignment.center,
+                                    colorFilter: const ColorFilter.mode(Color(0xFF6A994E), BlendMode.srcIn),
                                   ),
                                 ),
                               ),

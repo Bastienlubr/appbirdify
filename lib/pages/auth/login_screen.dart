@@ -45,6 +45,17 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // Règles de robustesse: 8+ caractères, 1 majuscule, 1 chiffre
+    final bool hasMinLength = password.length >= 8;
+    final bool hasUpper = RegExp(r'[A-Z]').hasMatch(password);
+    final bool hasDigit = RegExp(r'\d').hasMatch(password);
+    if (!(hasMinLength && hasUpper && hasDigit)) {
+      setState(() {
+        _errorMessage = 'Le mot de passe doit avoir au moins 8 caractères, une majuscule et un chiffre.';
+      });
+      return;
+    }
+
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
@@ -196,6 +207,162 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _handleForgotPassword() async {
+    setState(() => _errorMessage = null);
+    String email = _emailController.text.trim();
+    if (email.isEmpty) {
+      final asked = await _askEmailForReset();
+      if (asked == null || asked.trim().isEmpty) return; // pas de popup
+      email = asked.trim();
+    }
+    final ok = await AuthService.sendPasswordResetEmail(email: email);
+    if (!mounted) return;
+    if (ok) {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFFF3F5F9),
+          title: const Text(
+            'Email envoyé',
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF334355),
+            ),
+          ),
+          content: const Text(
+            'Vérifiez votre boîte de réception et le dossier spam.',
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontSize: 16,
+              color: Color(0xFF606D7C),
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE1E7EE),
+                foregroundColor: const Color(0xFF334355),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFFDADADA), width: 1),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFFF3F5F9),
+          title: const Text(
+            'Échec',
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFBC4749),
+            ),
+          ),
+          content: const Text(
+            'Impossible d’envoyer l’email. Vérifiez l’adresse et réessayez.',
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontSize: 16,
+              color: Color(0xFF606D7C),
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE1E7EE),
+                foregroundColor: const Color(0xFF334355),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFFDADADA), width: 1),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<String?> _askEmailForReset() async {
+    final ctrl = TextEditingController(text: _emailController.text.trim());
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFF3F5F9),
+        title: const Text(
+          'Réinitialiser le mot de passe',
+          style: TextStyle(
+            fontFamily: 'Quicksand',
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF334355),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Nous allons vous envoyer un email pour réinitialiser votre mot de passe.',
+              style: TextStyle(
+                fontFamily: 'Quicksand',
+                fontSize: 16,
+                color: Color(0xFF606D7C),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'Adresse email'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF334355)),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE1E7EE),
+              foregroundColor: const Color(0xFF334355),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFDADADA), width: 1),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            child: const Text('Envoyer'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<String?> _askPhoneNumber() async {
     final localCtrl = TextEditingController();
     final entries = const [
@@ -252,7 +419,11 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFF334355)),
+              child: const Text('Annuler'),
+            ),
             ElevatedButton(
               onPressed: () {
                 final local = localCtrl.text.replaceAll(' ', '').trim();
@@ -279,7 +450,11 @@ class _LoginScreenState extends State<LoginScreen> {
           decoration: const InputDecoration(hintText: 'Entrez le code à 6 chiffres'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF334355)),
+            child: const Text('Annuler'),
+          ),
           ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Valider')),
         ],
       ),
@@ -422,6 +597,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _handleForgotPassword,
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          foregroundColor: const Color(0xFF606D7C),
+                        ),
+                        child: const Text(
+                          'Mot de passe oublié ?',
+                          style: TextStyle(
+                            fontFamily: 'Quicksand',
+                            fontSize: 14,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
                     if (_errorMessage != null)
                       Container(
                         width: double.infinity,
@@ -550,10 +743,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: Colors.white,
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
-                                  Icons.arrow_forward,
-                                  color: Color(0xFF6A994E),
-                                  size: 20,
+                                alignment: Alignment.center,
+                                child: SvgPicture.asset(
+                                  'assets/Images/Bouton/bouton droite.svg',
+                                  width: 18,
+                                  height: 18,
+                                  fit: BoxFit.contain,
+                                  alignment: Alignment.center,
+                                  colorFilter: const ColorFilter.mode(Color(0xFF6A994E), BlendMode.srcIn),
                                 ),
                               ),
                             ),

@@ -670,7 +670,7 @@ class DevToolsService {
 /// Ne masque PAS le bouton DevToolsMenu lui-même.
 class DevVisibilityService {
   // Par défaut: visible en debug, masqué en release
-  static final ValueNotifier<bool> overlaysEnabled = ValueNotifier<bool>(kDebugMode);
+  static final ValueNotifier<bool> overlaysEnabled = ValueNotifier<bool>(false);
 
   static bool get isOverlaysEnabled => overlaysEnabled.value;
 
