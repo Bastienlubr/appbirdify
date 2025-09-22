@@ -16,6 +16,7 @@ import 'services/Users/auth_service.dart';
 import 'pages/Abonnement/information_abonnement_page.dart';
 import 'pages/Abonnement/choix_offre_page.dart';
 import 'pages/Abonnement/gerer_mon_abonnement_page.dart';
+import 'pages/Abonnement/bienvenue_abonnement_page.dart';
 import 'services/outils_developpement/auto_lock_service.dart';
 
 void main() async {
@@ -95,6 +96,7 @@ class MyApp extends StatelessWidget {
         '/abonnement/information': (context) => const InformationAbonnementPage(),
         '/abonnement/choix-offre': (context) => const ChoixOffrePage(),
         '/abonnement/gerer': (context) => GererMonAbonnementPage(titleHorizontalOffset: 8),
+        '/abonnement/bienvenue': (context) => const EnvolWelcomePage(),
         // route '/abonnement/annulation-motif' supprimée
       },
     ).withAutoLock();

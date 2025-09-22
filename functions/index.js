@@ -109,7 +109,14 @@ exports.verifierAbonnementV2 = onCall(async (request) => {
     };
 
     await currentRef.set(payload, { merge: true });
-    await userRef.set({ profil: { estPremium: (etat === 'ACTIVE' || etat === 'ON_HOLD' || etat === 'PAUSED' || etat === null) }, vie: { livesInfinite: true } }, { merge: true });
+    // Considérer premium si état actif/suspendu/pausé ou si essai actif
+    const premiumStates = ['SUBSCRIPTION_STATE_ACTIVE','SUBSCRIPTION_STATE_ON_HOLD','SUBSCRIPTION_STATE_PAUSED'];
+    const estPremium = (premiumStates.includes(etat)) || (trialPhase ? (trialEnd && Date.now() < (trialEnd.getTime())) : false);
+    await userRef.set({
+      profil: { estPremium },
+      vie: { livesInfinite: estPremium },
+      livesInfinite: admin.firestore.FieldValue.delete(),
+    }, { merge: true });
 
     return { ok: true, enriched: true };
   } catch (e) {

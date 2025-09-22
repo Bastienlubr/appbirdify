@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../widgets/boutons/bouton_universel.dart';
 import '../../services/premium_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum OffreType { mois1, mois6, mois12 }
 
@@ -14,6 +17,9 @@ class ChoixOffrePage extends StatefulWidget {
 
 class _ChoixOffrePageState extends State<ChoixOffrePage> {
   OffreType _selection = OffreType.mois1; // par défaut comme le design (encadré vert)
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _aboSub;
+  bool _navigatedAfterActivation = false;
+  bool _selectionLocked = false; // fixe la sélection en fonction de Firestore si déjà abonné
 
   static const double _baseW = 375;
   static const double _baseH = 812;
@@ -49,7 +55,10 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
                     alignment: Alignment.topLeft,
                     child: _Canvas(
                       selection: _selection,
-                      onSelect: (t) => setState(() => _selection = t),
+                      onSelect: (t) {
+                        if (_selectionLocked) return; // fixe si déjà abonné
+                        setState(() => _selection = t);
+                      },
                       onContinue: _onContinue,
                     ),
                   ),
@@ -60,6 +69,83 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
         },
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _listenActivation();
+    _initSelectionFromFirestore();
+  }
+
+  @override
+  void dispose() {
+    _aboSub?.cancel();
+    super.dispose();
+  }
+
+  void _listenActivation() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final ref = FirebaseFirestore.instance
+        .collection('utilisateurs')
+        .doc(user.uid)
+        .collection('abonnement')
+        .doc('current');
+    _aboSub?.cancel();
+    _aboSub = ref.snapshots().listen((snap) {
+      if (!mounted || _navigatedAfterActivation) return;
+      final data = snap.data();
+      final etat = data != null ? data['etat'] as String? : null;
+      // Si un abonnement existe, fixer la sélection d'après le produit
+      final String? productId = (data?['offre']?['productId'] as String?) ?? (data?['subscriptionId'] as String?);
+      if (productId != null && productId.isNotEmpty) {
+        final fixed = _offreTypeFromProductId(productId);
+        if (fixed != null) {
+          setState(() {
+            _selection = fixed;
+            _selectionLocked = true; // empêcher les changements visuels « aléatoires »
+          });
+        }
+      }
+      if (etat == 'ACTIVE') {
+        _navigatedAfterActivation = true;
+        // Remplace l’écran d’offres par la page de bienvenue
+        Navigator.of(context).pushReplacementNamed('/abonnement/bienvenue');
+      }
+    }, onError: (_) {});
+  }
+
+  Future<void> _initSelectionFromFirestore() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final snap = await FirebaseFirestore.instance
+          .collection('utilisateurs')
+          .doc(user.uid)
+          .collection('abonnement')
+          .doc('current')
+          .get();
+      final data = snap.data();
+      if (data == null) return;
+      final String? productId = (data['offre']?['productId'] as String?) ?? (data['subscriptionId'] as String?);
+      if (productId == null || productId.isEmpty) return;
+      final fixed = _offreTypeFromProductId(productId);
+      if (fixed != null && mounted) {
+        setState(() {
+          _selection = fixed;
+          _selectionLocked = true;
+        });
+      }
+    } catch (_) {}
+  }
+
+  OffreType? _offreTypeFromProductId(String productId) {
+    final id = productId.toLowerCase();
+    if (id.contains('12') || id.contains('year') || id.contains('annuel')) return OffreType.mois12;
+    if (id.contains('6') || id.contains('semi') || id.contains('sem')) return OffreType.mois6;
+    if (id.contains('1') || id.contains('month') || id.contains('mensuel')) return OffreType.mois1;
+    return null;
   }
 
   Future<void> _onContinue() async {
