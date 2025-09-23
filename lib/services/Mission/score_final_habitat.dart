@@ -22,6 +22,7 @@ import '../../widgets/recap_button.dart';
 import '../../pages/RecompensesUtiles/recompenses_utiles_page.dart';
 import '../../pages/RecompensesUtiles/recompenses_utiles_secondaire_page.dart';
 import '../../services/Users/recompenses_utiles_service.dart';
+import '../../services/Users/user_orchestra_service.dart';
 // import '../../services/Users/firestore_service.dart';
 import '../Mission/communs/commun_gestion_mission.dart';
 import '../../ui/animations/page_route_universelle.dart';
@@ -375,7 +376,8 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
           lives = 1;
         }
       }
-      if (lives > 0) {
+      // Désactiver la récompense "coeur" si Premium (vies infinies)
+      if (!UserOrchestra.isPremium && lives > 0) {
         await _recompensesService.ajouterRecompenseSecondaire(TypeRecompenseSecondaire.coeur, lives: lives);
       }
 
@@ -390,7 +392,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
         _navigateToRewards(forcedType: rewardType);
       } else {
         // Pas d'étoiles gagnées → ouvrir la récompense utile secondaire si disponible
-        if (_recompensesService.secondaireDisponible) {
+        if (_recompensesService.secondaireDisponible && !UserOrchestra.isPremium) {
           if (!mounted) return;
           Navigator.of(context).pushAndRemoveUntil(
             routePageUniverselle(const RecompensesUtilesSecondairePage(), sens: SensEntree.droite),

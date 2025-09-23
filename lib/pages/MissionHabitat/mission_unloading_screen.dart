@@ -13,6 +13,9 @@ import '../../services/Mission/score_final_habitat.dart';
 import '../home_screen.dart';
 import '../../services/Users/user_profile_service.dart';
 import '../../services/Users/streak_service.dart';
+import '../../services/Mission/communs/commun_gestion_mission.dart';
+import '../../services/Users/life_service.dart';
+import '../../services/Users/recompenses_utiles_service.dart';
 
 /// Écran de déchargement pour synchroniser les vies et libérer les ressources
 class MissionUnloadingScreen extends StatefulWidget {
@@ -24,6 +27,7 @@ class MissionUnloadingScreen extends StatefulWidget {
   final List<String>? wrongBirds;
   final List<AnswerRecap>? recap;
   final bool designMode;
+  final DateTime? quizStart; // Début réel du quiz (pour durée précise)
 
   const MissionUnloadingScreen({
     super.key,
@@ -35,6 +39,7 @@ class MissionUnloadingScreen extends StatefulWidget {
     this.wrongBirds,
     this.recap,
     this.designMode = false,
+    this.quizStart,
   });
 
   @override
@@ -78,7 +83,9 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
       if (uid == null) return;
       if (widget.score == null || widget.totalQuestions == null) return;
 
-      final int duree = DateTime.now().difference(_sessionStart).inSeconds.clamp(0, 24 * 3600);
+      // Prioriser le début réel du quiz si fourni, sinon fallback à l'entrée de l'écran de déchargement
+      final DateTime effectiveStart = widget.quizStart ?? _sessionStart;
+      final int duree = DateTime.now().difference(effectiveStart).inSeconds.clamp(0, 24 * 3600);
       final List<String> especesRateesIds = (widget.wrongBirds ?? const <String>[]);
 
       // Transformer le recap en structure simple (optionnel)
@@ -104,6 +111,62 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
     } catch (e) {
       if (kDebugMode) debugPrint('⚠️ Enregistrement de session ignoré/échoué: $e');
     }
+  }
+
+  Future<void> _applyRewardsIfNeeded() async {
+    try {
+      final uid = UserOrchestra.currentUserId;
+      if (uid == null) return;
+      // Nécessite les données de fin de quiz
+      if (widget.mission == null || widget.score == null || widget.totalQuestions == null) return;
+
+      // 1) Mettre à jour la progression mission (étoiles, historiques) avant UI
+      try {
+        final DateTime effectiveStart = widget.quizStart ?? _sessionStart;
+        final Duration dureePartie = DateTime.now().difference(effectiveStart);
+        await MissionManagementService.updateMissionProgress(
+          missionId: widget.mission!.id,
+          score: widget.score!,
+          totalQuestions: widget.totalQuestions!,
+          dureePartie: dureePartie,
+          wrongBirds: widget.wrongBirds ?? const <String>[],
+        );
+      } catch (_) {}
+
+      // 2) Calculer et appliquer la récompense coeurs (non Premium uniquement)
+      if (!UserOrchestra.isPremium) {
+        int lives = 0;
+        try {
+          if (widget.totalQuestions == 10) {
+            if (widget.score! >= 10) {
+              lives = 3;
+            } else if (widget.score! >= 9) {
+              lives = 2;
+            } else if (widget.score! >= 8) {
+              lives = 1;
+            }
+          } else {
+            final double pct = widget.score! / widget.totalQuestions!;
+            if (pct >= 1.0) {
+              lives = 3;
+            } else if (pct >= 0.9) {
+              lives = 2;
+            } else if (pct >= 0.8) {
+              lives = 1;
+            }
+          }
+        } catch (_) {
+          lives = 0;
+        }
+
+        if (lives > 0) {
+          // Appliquer immédiatement dans Firestore
+          try { await LifeService.addLivesTransactional(uid, lives); } catch (_) {}
+          // Mettre à jour le service d'état pour l'UI (affichage secondaire)
+          try { await RecompensesUtilesService().ajouterRecompenseSecondaire(TypeRecompenseSecondaire.coeur, lives: lives); } catch (_) {}
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -232,6 +295,10 @@ class _MissionUnloadingScreenState extends State<MissionUnloadingScreen>
       await _cleanupGeneralResources();
 
       await _updateProgress('', 1.0);
+
+      // Appliquer toutes les récompenses (progression + vies bonus) avant toute UI suivante
+      await _applyRewardsIfNeeded();
+
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {

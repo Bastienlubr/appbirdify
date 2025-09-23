@@ -66,6 +66,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   bool _showCorrectAnswerImage = false;
   String _correctAnswerImageUrl = '';
   bool _answerImageReady = false;
+  // Début effectif du quiz pour calcul de durée précis
+  late final DateTime _quizStart;
   
   // Système de préchargement de la prochaine question
   String _nextAudioUrl = '';
@@ -78,6 +80,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _quizStart = DateTime.now();
     _audioPlayer = AudioPlayer();
     _setupAudioLooping();
     _progressBurstController = AnimationController(
@@ -1663,6 +1666,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
           mission: widget.mission,
           wrongBirds: _wrongBirds,
           recap: _recapEntries,
+          quizStart: _quizStart,
         ),
       ),
     );
@@ -1699,12 +1703,13 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
           ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop();
-              Navigator.pushReplacement(
+      Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
                   builder: (context) => MissionUnloadingScreen(
                     livesRemaining: _visibleLives,
                     missionId: widget.missionId,
+            quizStart: _quizStart,
                   ),
                 ),
               );
@@ -1766,9 +1771,10 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => MissionUnloadingScreen(
+                builder: (context) => MissionUnloadingScreen(
                       livesRemaining: _visibleLives,
                       missionId: widget.missionId,
+                  quizStart: _quizStart,
                     ),
                   ),
                 );
@@ -1794,9 +1800,10 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => MissionUnloadingScreen(
+                builder: (context) => MissionUnloadingScreen(
                       livesRemaining: _visibleLives,
                       missionId: widget.missionId,
+                  quizStart: _quizStart,
                     ),
                   ),
                 );

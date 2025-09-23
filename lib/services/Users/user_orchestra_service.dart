@@ -67,7 +67,7 @@ class UserOrchestra {
         }
       } catch (_) {}
 
-      // 2) Enrichir le profil (email, nom, premium, dernière connexion)
+      // 2) Enrichir le profil (email, nom, dernière connexion) sans écraser estPremium
       try {
         await FirebaseAuth.instance.currentUser?.reload();
       } catch (_) {}
@@ -77,7 +77,6 @@ class UserOrchestra {
           'profil': {
             'email': userRef?.email,
             'nomAffichage': userRef?.displayName,
-            'estPremium': false,
             'derniereConnexion': FieldValue.serverTimestamp(),
           },
         }, SetOptions(merge: true));
@@ -128,7 +127,11 @@ class UserOrchestra {
         await userDocRef.set(updates, SetOptions(merge: true));
       } catch (_) {}
 
-      // 6) Démarrer la synchronisation temps réel unifiée
+      // 6) Précharger le profil une fois pour état premium immédiat, puis démarrer la sync temps réel
+      try {
+        final snap = await _firestore.collection('utilisateurs').doc(uid).get();
+        _currentProfile = snap.data();
+      } catch (_) {}
       await startRealtime();
 
       // 7) Démarrer PremiumService (Android seulement)

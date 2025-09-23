@@ -1,0 +1,99 @@
+{
+  "summary": {
+    "path": "fiches_oiseaux/perruche-ondulee",
+    "data": {
+      "appId": "perruche-ondulee",
+      "slug": "perruche-ondulee",
+      "nomFrancais": "Perruche ondulée",
+      "nomScientifique": "Melopsittacus undulatus",
+      "nomAnglais": "Budgerigar",
+      "wikidata_qid": "Q23548",
+      "guilde": "psittacide_granivore_insectivore_savane",
+      "media": {
+        "urlImage": "https://commons.wikimedia.org/wiki/File:Melopsittacus_undulatus_-Wamboin,_NSW,_Australia-8a.jpg",
+        "urlMp3": "https://xeno-canto.org/species/Melopsittacus-undulatus"
+      },
+      "version": 1,
+      "updatedAt": "2025-09-23T12:00:00Z"
+    }
+  },
+  "panels": {
+    "identification": {
+      "path": "fiches_oiseaux/perruche-ondulee/identification/current",
+      "data": {
+        "classification": { "ordre": "Psittaciformes", "famille": "Psittaculidae" },
+        "morphologie": "Petite perruche au corps svelte, plumage sauvage vert vif avec dos, ailes et nuque finement ondulés de noir, front et masque faciaux jaunes ponctués de petites taches sombres, croupion vert, queue longue bleuâtre à rectrices externes plus claires. Bec crochu gris, iris pâle chez l’adulte. Dimorphisme discret : chez les oiseaux sauvages, la cire du bec est bleue chez le mâle et brune chez la femelle ; les juvéniles présentent des ondulations jusqu’au front et un iris sombre. En vol, bandes alaires sombres contrastées et trilles roulés caractéristiques.",
+        "mesures": {
+          "taille": { "min": 17, "max": 18, "unite": "cm", "display": "17–18 cm" },
+          "envergure": { "min": 26, "max": 30, "unite": "cm", "display": "26–30 cm" },
+          "poids": { "min": 24, "max": 40, "unite": "g", "display": "24–40 g" }
+        },
+        "especesRessemblantes": [
+          { "nom": "Perruche à collier", "se_distingue_par": "Beaucoup plus grande, silhouette plus longiligne avec longue queue en pointe, mâle à collier noir et rose ; la Perruche ondulée est nettement plus petite, finement ondulée et sans collier." },
+          { "nom": "Calopsitte élégante (Nymphicus hollandicus)", "se_distingue_par": "Huppe érectile, joues orangées et grandes plages grises ; la Perruche ondulée n’a pas de huppe et montre un motif ondulé serré sur le dos et les ailes." }
+        ],
+        "sources": ["Wikidata","INPN/TAXREF","IUCN (catégorie+année+URL)"],
+        "confiance": "élevée",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "habitat": {
+      "path": "fiches_oiseaux/perruche-ondulee/habitat/current",
+      "data": {
+        "typeDeMilieu": "Espèce des zones arides et semi-arides australiennes : savanes herbeuses, steppes à épineux et bois clairs d’eucalyptus, fréquentant points d’eau temporaires et lignes d’arbres où elle niche en cavités.",
+        "ouObserverFrance": "En France, l’espèce n’est pas indigène ; les observations concernent des individus échappés de captivité, surtout en milieux urbains ou périurbains (parcs, jardins, littoral méditerranéen) sans populations sauvages durablement établies.",
+        "migration": "Nomadisme marqué dans son aire d’origine : grands déplacements irréguliers au gré des pluies et de la fructification des graminées ; ailleurs, les oiseaux échappés restent localement sédentaires autour des ressources.",
+        "sources": ["INPN/SINP","LPO (régionale)"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "alimentation": {
+      "path": "fiches_oiseaux/perruche-ondulee/alimentation/current",
+      "data": {
+        "alimentationPrincipale": ["graines de graminées","jeunes pousses","insectes (période de reproduction)"],
+        "description": "Régime dominé par les petites graines d’herbacées (Poaceae) ramassées au sol ou sur les inflorescences ; consommation accrue de jeunes pousses après les pluies. En reproduction, apport d’invertébrés (petits insectes) pour couvrir les besoins protéiques des jeunes.",
+        "sources": ["HAL/PLOS/MDPI open-access"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "reproduction": {
+      "path": "fiches_oiseaux/perruche-ondulee/reproduction/current",
+      "data": {
+        "etapes": {
+          "parade": "Groupes vocaux actifs après les pluies ; le mâle chante et offre de la nourriture, hoche la tête et gonfle les plumes faciales autour du masque jaune.",
+          "nidification": "Nid en cavité naturelle (trou d’arbre, branche creuse) garni sommairement de copeaux ; coloniale ou semi-coloniale selon la ressource.",
+          "ponte": "Généralement 4 à 8 œufs blancs, la ponte pouvant être engagée à tout moment de l’année dans l’aire native, avec un pic après les épisodes pluvieux.",
+          "incubation": "Incubation assurée surtout par la femelle tandis que le mâle ravitaille ; éclosion échelonnée en fonction de la ponte.",
+          "nourrissage": "Jeunes nourris par régurgitation ; apport de graines immatures et d’invertébrés durant les premiers jours.",
+          "envol": "Envol des jeunes environ 30 à 35 jours après l’éclosion ; émancipation complète quelques semaines plus tard.",
+          "accouplement": "Accouplement sur ou près du site de nid après les parades et l’offrande de nourriture."
+        },
+        "chips": {
+          "periodeMois": ["août","septembre","octobre"],
+          "nbOeufsParPondee": { "min": 4, "max": 8 },
+          "incubationJours": { "min": 18, "max": 20, "unite": "j" }
+        },
+        "sources": ["INPN/SINP"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "protection": {
+      "path": "fiches_oiseaux/perruche-ondulee/protection/current",
+      "data": {
+        "statutMonde": { "iucn": "LC", "annee": 2016, "url": null },
+        "statutFrance": "NE",
+        "description": "Espèce très commune et fluctuante en Australie avec de grands mouvements nomades liés aux pluies ; en France, oiseau exotique principalement observé à la suite d’évasions, sans enjeu de conservation indigène mais avec une vigilance liée au commerce et aux introductions.",
+        "actions": [
+          "Surveiller les introductions et limiter les relâchers/évasions d’individus captifs.",
+          "Informer le public sur les risques liés aux lâchers d’espèces exotiques et signaler les observations aux plateformes régionales."
+        ],
+        "sources": ["IUCN (catégorie/année/url)","data.gouv"],
+        "confiance": "faible",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    }
+  }
+}

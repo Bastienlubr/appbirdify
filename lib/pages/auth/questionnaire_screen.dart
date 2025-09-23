@@ -630,41 +630,60 @@ class _QuestionStepHeardFrom extends StatelessWidget {
                       final baseName = baseNameFor(label);
                       return InkWell(
                         onTap: () => onChanged(label),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(vertical: rowVPad, horizontal: 16 * scale),
-                          decoration: i == 0
-                              ? null
-                              : BoxDecoration(
-                                  border: Border(
-                                    top: BorderSide(
-                                      color: Colors.black.withValues(alpha: 0.20),
-                                      width: (2 * scale).clamp(1.5, 3.0),
+                        child: AnimatedScale(
+                          scale: selected ? 1.065 : 1.0,
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                          child: Container(
+                            decoration: selected
+                                ? BoxDecoration(
+                                    border: Border.all(
+                                      color: const Color(0xFFABC270),
+                                      width: (6 * scale).clamp(4.0, 7.0),
+                                    ),
+                                    borderRadius: BorderRadius.circular(14 * scale),
+                                    boxShadow: const [
+                                      BoxShadow(color: Color(0x554CAF50), blurRadius: 14, offset: Offset(0, 3)),
+                                    ],
+                                  )
+                                : null,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(vertical: rowVPad, horizontal: 16 * scale),
+                              decoration: i == 0
+                                  ? null
+                                  : BoxDecoration(
+                                      border: Border(
+                                        top: BorderSide(
+                                          color: Colors.black.withValues(alpha: 0.20),
+                                          width: (2 * scale).clamp(1.5, 3.0),
+                                        ),
+                                      ),
+                                    ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: iconSize,
+                                    height: iconSize,
+                                    child: _AuthIcon(baseName: baseName, size: iconSize, highlight: selected),
+                                  ),
+                                  SizedBox(width: 14 * scale),
+                                  Expanded(
+                                    child: Text(
+                                      label,
+                                      style: TextStyle(
+                                        color: selected ? const Color(0xFFABC270) : const Color(0xFF344356),
+                                        fontFamily: 'Fredoka',
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.6,
+                                        height: 1.1,
+                                        fontSize: labelFont,
+                                      ),
                                     ),
                                   ),
-                                ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: iconSize,
-                                height: iconSize,
-                                child: _AuthIcon(baseName: baseName, size: iconSize, highlight: selected),
+                                ],
                               ),
-                              SizedBox(width: 14 * scale),
-                              Expanded(
-                                child: Text(
-                                  label,
-                                  style: TextStyle(
-                                    color: selected ? const Color(0xFFABC270) : const Color(0xFF344356),
-                                    fontFamily: 'Fredoka',
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.6,
-                                    height: 1.1,
-                                    fontSize: labelFont,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       );
@@ -833,48 +852,56 @@ class _QuestionStepLevel extends StatelessWidget {
                               rows.add(
                                 InkWell(
                                   onTap: () => onChanged(label),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: EdgeInsets.symmetric(vertical: rowVPad),
-                                    decoration: BoxDecoration(
-                                      color: selected ? const Color(0xFF6A994E).withValues(alpha: 0.10) : Colors.transparent,
-                                      border: selected
-                                          ? Border.all(
-                                              color: const Color(0xFFABC270),
-                                              width: (2 * scale).clamp(1.2, 2.4),
+                                  child: AnimatedScale(
+                                    scale: selected ? 1.065 : 1.0,
+                                    duration: const Duration(milliseconds: 180),
+                                    curve: Curves.easeOut,
+                                    child: Container(
+                                      width: double.infinity,
+                                      decoration: selected
+                                          ? BoxDecoration(
+                                              border: Border.all(
+                                                color: const Color(0xFFABC270),
+                                                width: (6 * scale).clamp(4.0, 7.0),
+                                              ),
+                                              borderRadius: br ?? BorderRadius.circular(14 * scale),
+                                              boxShadow: const [
+                                                BoxShadow(color: Color(0x554CAF50), blurRadius: 14, offset: Offset(0, 3)),
+                                              ],
                                             )
-                                          : null,
-                                      borderRadius: br,
-                                    ),
-                                    child: Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 14 * scale),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            label,
-                                            style: TextStyle(
-                                              color: selected ? const Color(0xFFABC270) : const Color(0xFF344356),
-                                              fontFamily: 'Fredoka',
-                                              fontWeight: FontWeight.w700,
-                                              letterSpacing: 0.7,
-                                              fontSize: labelFont,
+                                          : BoxDecoration(
+                                              borderRadius: br,
                                             ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                          SizedBox(height: 1 * scale),
-                                          Text(
-                                            sub,
-                                            style: TextStyle(
-                                              color: const Color(0x99344356),
-                                              fontFamily: 'Fredoka',
-                                              fontWeight: FontWeight.w400,
-                                              letterSpacing: 0.5,
-                                              fontSize: subFont,
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: rowVPad),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              label,
+                                              style: TextStyle(
+                                                color: selected ? const Color(0xFFABC270) : const Color(0xFF344356),
+                                                fontFamily: 'Fredoka',
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 0.7,
+                                                fontSize: labelFont,
+                                              ),
+                                              textAlign: TextAlign.center,
                                             ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
+                                            SizedBox(height: 1 * scale),
+                                            Text(
+                                              sub,
+                                              style: TextStyle(
+                                                color: const Color(0x99344356),
+                                                fontFamily: 'Fredoka',
+                                                fontWeight: FontWeight.w400,
+                                                letterSpacing: 0.5,
+                                                fontSize: subFont,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),

@@ -1,0 +1,99 @@
+{
+  "summary": {
+    "path": "fiches_oiseaux/grimpereau-des-bois",
+    "data": {
+      "appId": "grimpereau-des-bois",
+      "slug": "grimpereau-des-bois",
+      "nomFrancais": "Grimpereau des bois",
+      "nomScientifique": "Certhia familiaris",
+      "nomAnglais": "Eurasian Treecreeper",
+      "wikidata_qid": "Q193593",
+      "guilde": "passereau_insectivore_forestier",
+      "media": {
+        "urlImage": "https://commons.wikimedia.org/wiki/File:Certhia_familiaris_(Finland).jpg",
+        "urlMp3": "https://xeno-canto.org/species/certhia-familiaris"
+      },
+      "version": 1,
+      "updatedAt": "2025-09-23T12:00:00Z"
+    }
+  },
+  "panels": {
+    "identification": {
+      "path": "fiches_oiseaux/grimpereau-des-bois/identification/current",
+      "data": {
+        "classification": { "ordre": "Passeriformes", "famille": "Certhiidae" },
+        "morphologie": "Petit passereau brun très cryptique, dessus finement tacheté et strié, croupion roussâtre, dessous blanc à légèrement chamoisé, bec fin nettement courbé vers le bas et longue queue aux rectrices raides servant d’appui contre l’écorce. Il grimpe en spirale le long des troncs, partant ensuite d’un vol court et ondulant vers la base d’un autre arbre. Dimorphisme sexuel peu marqué ; juvéniles plus ternes et moins contrastés.",
+        "mesures": {
+          "taille": { "min": 12, "max": 13, "unite": "cm", "display": "12–13 cm" },
+          "envergure": { "min": 18, "max": 21, "unite": "cm", "display": "18–21 cm" },
+          "poids": { "min": 7, "max": 12, "unite": "g", "display": "7–12 g" }
+        },
+        "especesRessemblantes": [
+          { "nom": "Grimpereau des jardins", "se_distingue_par": "En plaine et basses altitudes, dessous plus beige, bec un peu plus long, chant différent ; le Grimpereau des bois montre des dessous plus blancs, fréquente davantage les conifères et les étages montagnards, avec un chant plus aigu et stéréotypé." },
+          { "nom": "Sittelle torchepot", "se_distingue_par": "Silhouette plus trapue, bec droit, large bande oculaire noire et capacité à descendre la tête en bas le long des troncs ; la Sittelle se déplace horizontalement ou vers le bas alors que le Grimpereau progresse surtout vers le haut." }
+        ],
+        "sources": ["Wikidata","INPN/TAXREF","IUCN (catégorie+année+URL)"],
+        "confiance": "élevée",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "habitat": {
+      "path": "fiches_oiseaux/grimpereau-des-bois/habitat/current",
+      "data": {
+        "typeDeMilieu": "Forêts matures et fraîches avec grands arbres offrant fissures et écorces structurées (épicéas, sapins, hêtraies-sapinières, mélanges feuillus–conifères) ; préfère les peuplements riches en micro-anfractuosités pour la quête sur l’écorce.",
+        "ouObserverFrance": "Essentiellement montagnard et de l’Est en France : Vosges, Jura, Alpes, Pyrénées, Massif central supérieur ; aussi en plaine dans le Nord-Est (notamment Lorraine) ; absent de la zone méditerranéenne continentale mais présent en Corse où il remplace le Grimpereau des jardins.",
+        "migration": "Globalement sédentaire ; déplacements locaux et altitudinaux en hiver depuis les étages supérieurs vers des forêts plus basses et abritées, avec dispersion post-nuptiale limitée.",
+        "sources": ["INPN/SINP","LPO (régionale)"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "alimentation": {
+      "path": "fiches_oiseaux/grimpereau-des-bois/alimentation/current",
+      "data": {
+        "alimentationPrincipale": ["insectes corticoles","araignées","graines (hiver)"],
+        "description": "Espèce principalement insectivore, elle glane avec son bec fin les arthropodes cachés dans les fissures de l’écorce (larves et petits insectes, araignées), en progressant vers le haut des troncs ; en hiver, elle peut compléter par quelques graines, notamment de conifères, lorsque les invertébrés sont moins disponibles.",
+        "sources": ["HAL/PLOS/MDPI open-access"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "reproduction": {
+      "path": "fiches_oiseaux/grimpereau-des-bois/reproduction/current",
+      "data": {
+        "etapes": {
+          "parade": "Chant aigu et flûté émis depuis le tronc ou une branche, poursuites discrètes autour du territoire boisé.",
+          "nidification": "Nid caché derrière une écaille d’écorce ou dans une anfractuosité du tronc, garni d’écorces fines, lichens, fibres et plumes.",
+          "ponte": "Une ponte (parfois deux) du printemps, la femelle dépose généralement 5 à 7 œufs tachetés entre avril et juin.",
+          "incubation": "Incubation surtout par la femelle ; éclosions groupées après environ deux semaines.",
+          "nourrissage": "Jeunes nourris d’invertébrés pris sur l’écorce par les deux parents ; allers-retours fréquents entre postes de quête et nid.",
+          "envol": "Envol vers 12 à 15 jours après l’éclosion, émancipation progressive dans le couvert voisin.",
+          "accouplement": "Au territoire boisé après les parades vocales et les contacts rapprochés près du site de nid."
+        },
+        "chips": {
+          "periodeMois": ["avril","mai","juin"],
+          "nbOeufsParPondee": { "min": 5, "max": 7 },
+          "incubationJours": { "min": 13, "max": 15, "unite": "j" }
+        },
+        "sources": ["INPN/SINP"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "protection": {
+      "path": "fiches_oiseaux/grimpereau-des-bois/protection/current",
+      "data": {
+        "statutMonde": { "iucn": "LC", "annee": 2024, "url": "https://www.iucnredlist.org/" },
+        "statutFrance": "LC",
+        "description": "Espèce largement répandue au Paléarctique et stable à l’échelle mondiale ; localement sensible à la simplification des peuplements forestiers (rareté des gros arbres et micro-habitats d’écorce), à l’homogénéisation sylvicole et au manque de bois mort.",
+        "actions": [
+          "Maintenir des forêts hétérogènes à gros bois et arbres sénescents (îlots de vieillissement, bois mort conservé).",
+          "Limiter les coupes rases étendues, préserver un réseau de lisières internes et d’arbres à écorce structurée."
+        ],
+        "sources": ["IUCN (catégorie/année/url)","data.gouv"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    }
+  }
+}

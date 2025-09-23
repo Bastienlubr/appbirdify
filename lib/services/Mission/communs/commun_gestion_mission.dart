@@ -168,8 +168,8 @@ class MissionManagementService {
         }
       }
 
-      // Créer une session pour l'historique (les logs seront ajustés après)
-      await _createSession(uid, missionId, score, totalQuestions, wrongBirds, dureePartie);
+      // Session détaillée désormais créée par MissionUnloadingScreen →
+      // UserProfileService.recordQuizSession (avec réponses détaillées)
 
       // Vérifier si la mission suivante peut être déverrouillée (2ème étoile)
       if (nouvellesEtoiles >= 2 && anciennesEtoiles < 2) {

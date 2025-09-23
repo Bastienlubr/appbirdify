@@ -1,0 +1,114 @@
+{
+  "summary": {
+    "path": "fiches_oiseaux/outarde-canepetiere",
+    "data": {
+      "appId": "outarde-canepetiere",
+      "slug": "outarde-canepetiere",
+      "nomFrancais": "Outarde canepetière",
+      "nomScientifique": "Tetrax tetrax",
+      "nomAnglais": "Little Bustard",
+      "wikidata_qid": "Q188601",
+      "guilde": "oiseau_steppique_insectivore_herbivore",
+      "media": {
+        "urlImage": "https://commons.wikimedia.org/wiki/File:Tetrax_tetrax,_Castuera,_Extremadura,_Spain_3.jpg",
+        "urlMp3": "https://xeno-canto.org/species/Tetrax-tetrax"
+      },
+      "version": 1,
+      "updatedAt": "2025-09-23T12:00:00Z"
+    }
+  },
+  "panels": {
+    "identification": {
+      "path": "fiches_oiseaux/outarde-canepetiere/identification/current",
+      "data": {
+        "classification": { "ordre": "Otidiformes", "famille": "Otididae" },
+        "morphologie": "Oiseau trapu des milieux ouverts, brun sable finement vermiculé dessus et blanc dessous, à large plages blanches bien visibles en vol sur les ailes. Le mâle nuptial présente la tête grisée et un collier noir marqué de deux bandes blanches, dont une en V sur la poitrine ; la femelle et le juvénile sont plus ternes, sans collier contrasté. En vol, l’allure rappelle un canard avec des battements rapides et des extrémités d’ailes sombres.",
+        "mesures": {
+          "taille": { "min": 40, "max": 45, "unite": "cm", "display": "40–45 cm" },
+          "envergure": { "min": 80, "max": 90, "unite": "cm", "display": "80–90 cm" },
+          "poids": { "min": 600, "max": 1000, "unite": "g", "display": "600–1 000 g" }
+        },
+        "especesRessemblantes": [
+          { "nom": "Grande Outarde", "se_distingue_par": "Bien plus massive, tête et cou plus clairs et dessin alaire différent sans grand V blanc sur le cou du mâle ; la silhouette est plus lourde avec une envergure nettement supérieure." },
+          { "nom": "Œdicnème criard", "se_distingue_par": "Pattes très longues, grands yeux jaunes et ailes barrées noir et blanc mais corps plus fin et bec court ; l’Œdicnème a un vol plus léger et cri strident nocturne." }
+        ],
+        "sources": [
+          "Wikidata",
+          "INPN/TAXREF",
+          "IUCN (catégorie+année+URL)"
+        ],
+        "confiance": "élevée",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "habitat": {
+      "path": "fiches_oiseaux/outarde-canepetiere/habitat/current",
+      "data": {
+        "typeDeMilieu": "Espèce des plaines ouvertes et steppiques, elle fréquente les mosaïques agricoles extensives : prairies pâturées, jachères et luzernières, céréales basses, friches et pelouses sèches, en recherchant une végétation herbacée peu haute et des parcelles peu dérangées.",
+        "ouObserverFrance": "En France, les noyaux principaux se situent dans le Sud-Est (plaine de la Crau, Languedoc, basse vallée du Rhône) et dans le Centre-Ouest (plaines céréalières de Poitou-Charentes, Deux-Sèvres, Vendée), avec une régression marquée ailleurs.",
+        "migration": "En France, la population est majoritairement sédentaire à mouvements locaux en Méditerranée, tandis que le Centre-Ouest montre une migration partielle vers la péninsule Ibérique en automne, avec retour sur les sites de reproduction au printemps.",
+        "sources": [
+          "INPN/SINP",
+          "LPO (régionale)"
+        ],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "alimentation": {
+      "path": "fiches_oiseaux/outarde-canepetiere/alimentation/current",
+      "data": {
+        "alimentationPrincipale": ["végétaux (pousses/feuilles)", "orthoptères", "coléoptères"],
+        "description": "Le régime des adultes est principalement végétarien hors reproduction (pousses, feuilles, inflorescences de légumineuses et brassicacées), avec une part accrue d’arthropodes au printemps-été. Les poussins sont strictement insectivores les premières semaines (surtout orthoptères et coléoptères), avant de diversifier leur alimentation.",
+        "sources": [
+          "PLOS (Estrada et al. 2016)",
+          "PLOS (Cardador et al. 2014)"
+        ],
+        "confiance": "élevée",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "reproduction": {
+      "path": "fiches_oiseaux/outarde-canepetiere/reproduction/current",
+      "data": {
+        "etapes": {
+          "parade": "Parade en leks : les mâles se regroupent au printemps, émettent un « prrt/prett » sec et réalisent des bonds ailes entrouvertes.",
+          "nidification": "Nid au sol, simple cuvette dissimulée dans une végétation herbacée basse au sein des cultures ou jachères.",
+          "ponte": "Une ponte annuelle le plus souvent, de 3 à 4 œufs entre mai et juillet selon les régions.",
+          "incubation": "Incubation assurée par la femelle seule ; les œufs éclosent de façon synchrone.",
+          "nourrissage": "Poussins nidifuges, conduits par la femelle vers des zones riches en insectes ; croissance rapide en milieu herbacé.",
+          "envol": "Premier vol environ un mois après l’éclosion, autonomie atteinte vers 7–8 semaines.",
+          "accouplement": "Accouplements consécutifs aux parades de lek, avec polygynie possible chez les mâles dominants."
+        },
+        "chips": {
+          "periodeMois": ["mai", "juin", "juillet"],
+          "nbOeufsParPondee": { "min": 3, "max": 4 },
+          "incubationJours": { "min": 20, "max": 22, "unite": "j" }
+        },
+        "sources": ["INPN/SINP"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "protection": {
+      "path": "fiches_oiseaux/outarde-canepetiere/protection/current",
+      "data": {
+        "statutMonde": { "iucn": "NT", "annee": 2021, "url": "https://www.iucnredlist.org/species/22732/50664030" },
+        "statutFrance": "EN",
+        "description": "Déclin lié à l’intensification agricole (disparition des jachères, fauche précoce, pesticides), à la fragmentation des habitats et au dérangement. En France, la population est très localisée et contrastée selon les régions ; des plans d’actions nationaux encadrent la gestion des habitats favorables.",
+        "actions": [
+          "Maintien de mosaïques agro-pastorales extensives (jachères, luzerne tardive, prairies temporaires).",
+          "Adaptation des pratiques (fenaison tardive, bandes refuges, réduction des intrants) et protection des sites de lek."
+        ],
+        "sources": [
+          "IUCN (catégorie/année/url)",
+          "data.gouv / Ministère (PNA 2020–2029)"
+        ],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    }
+  }
+}
+
+

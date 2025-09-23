@@ -1,0 +1,101 @@
+{
+  "summary": {
+    "path": "fiches_oiseaux/linotte-melodieuse",
+    "data": {
+      "appId": "linotte-melodieuse",
+      "slug": "linotte-melodieuse",
+      "nomFrancais": "Linotte mélodieuse",
+      "nomScientifique": "Linaria cannabina",
+      "nomAnglais": "Common Linnet",
+      "wikidata_qid": "Q27075852",
+      "guilde": "passereau_granivore_insectivore_bocage",
+      "media": {
+        "urlImage": "https://commons.wikimedia.org/wiki/Category:Linaria_cannabina",
+        "urlMp3": "https://xeno-canto.org/species/Linaria-cannabina"
+      },
+      "version": 1,
+      "updatedAt": "2025-09-23T12:00:00Z"
+    }
+  },
+  "panels": {
+    "identification": {
+      "path": "fiches_oiseaux/linotte-melodieuse/identification/current",
+      "data": {
+        "classification": { "ordre": "Passeriformes", "famille": "Fringillidae" },
+        "morphologie": "Petit fringille élancé, dessus brun chaud avec rémiges et rectrices bordées de blanc, dessous beige clair ; bec conique gris. Le mâle nuptial montre un front et une poitrine rouge rosé, nuque grisâtre et manteau brun uni ; la femelle est plus terne, finement striée sans rouge. Le juvénile ressemble à la femelle, plus uniformément strié. En vol, les bords alaires et les rectrices externes blanchâtres dessinent des liserés nets.",
+        "mesures": {
+          "taille": { "min": 13, "max": 14, "unite": "cm", "display": "13–14 cm" },
+          "envergure": { "min": 21, "max": 26, "unite": "cm", "display": "21–26 cm" },
+          "poids": { "min": 15, "max": 22, "unite": "g", "display": "15–22 g" }
+        },
+        "especesRessemblantes": [
+          { "nom": "Serin cini", "se_distingue_par": "Plus petit et compact, tons jaunâtres marqués chez le mâle, tête striée sans plages rouges et chant trillé continu ; la Linotte a un bec plus fin, des liserés alaires blancs et, chez le mâle, du rouge au front et à la poitrine." },
+          { "nom": "Tarin des aulnes", "se_distingue_par": "Plumage verdâtre chez le mâle avec calotte et menton noirs, barre alaire jaune et queue largement jaune ; la Linotte est brun-beige avec liserés blancs et ne présente pas de noir marqué sur la tête." }
+        ],
+        "sources": ["Wikidata","INPN/TAXREF","IUCN (catégorie+année+URL)"],
+        "confiance": "élevée",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "habitat": {
+      "path": "fiches_oiseaux/linotte-melodieuse/habitat/current",
+      "data": {
+        "typeDeMilieu": "Espèce des milieux ouverts et semi-ouverts avec fourrés et buissons : bocages, friches, landes, vignobles, talus et lisières, jeunes plantations et zones agricoles extensives où elle trouve graines et sites de nidification discrets.",
+        "ouObserverFrance": "Présente sur la majeure partie de la France, avec fortes densités régionales dans les paysages agricoles variés (bocage de l’Ouest, vignobles, friches littorales et intérieures) et présence plus clairsemée en zones de grandes cultures intensives ou de montagnes fermées.",
+        "migration": "Espèce en grande partie sédentaire à migrations partielles : regroupements postnuptiaux dès la fin de l’été, déplacements hivernaux en troupes vers les plaines et secteurs riches en graines, puis retour sur les sites de reproduction au printemps.",
+        "sources": ["INPN/SINP","LPO (régionale)"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "alimentation": {
+      "path": "fiches_oiseaux/linotte-melodieuse/alimentation/current",
+      "data": {
+        "alimentationPrincipale": ["graines","pousses","insectes"],
+        "description": "Granivore dominant, elle glane surtout au sol des petites graines d’herbacées pionnières (crucifères, chénopodes, stellaires, graminées) et consomme des jeunes pousses ; au printemps-été, elle complète par des invertébrés, notamment pour l’élevage des jeunes.",
+        "sources": ["MDPI (revues open-access sur oiseaux des milieux agricoles)"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "reproduction": {
+      "path": "fiches_oiseaux/linotte-melodieuse/reproduction/current",
+      "data": {
+        "etapes": {
+          "parade": "Chants et poursuites depuis des buissons ou des piquets, le mâle exhibant ses liserés blancs et ses plages rouges en période nuptiale.",
+          "nidification": "Nid en coupe serrée, bien dissimulé à faible hauteur dans un buisson épineux, une haie ou un fourré dense, construit d’herbes, radicelles et laine végétale.",
+          "ponte": "Généralement 4 à 6 œufs bleu pâle finement ponctués, une à deux pontes d’avril à juillet selon conditions.",
+          "incubation": "Incubation principalement par la femelle ; éclosions groupées après environ deux semaines.",
+          "nourrissage": "Jeunes nourris par les deux parents avec graines tendres et une part d’invertébrés en début de croissance.",
+          "envol": "Envol vers 11 à 15 jours après l’éclosion ; troupes familiales ensuite grégaires.",
+          "accouplement": "Sur le territoire au sein des buissons et haies après les parades vocales et les poursuites."
+        },
+        "chips": {
+          "periodeMois": ["avril","mai","juin","juillet"],
+          "nbOeufsParPondee": { "min": 4, "max": 6 },
+          "incubationJours": { "min": 11, "max": 13, "unite": "j" }
+        },
+        "sources": ["INPN/SINP"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "protection": {
+      "path": "fiches_oiseaux/linotte-melodieuse/protection/current",
+      "data": {
+        "statutMonde": { "iucn": "LC", "annee": 2018, "url": "https://www.iucnredlist.org/species/22720441/132139778" },
+        "statutFrance": "VU",
+        "description": "Déclin notable lié à l’intensification agricole (disparition des jachères et des friches, raréfaction des plantes messicoles, simplification des haies), à l’usage d’herbicides et à la destruction de la végétation buissonnante ; l’espèce reste commune localement mais en régression dans de nombreuses régions.",
+        "actions": [
+          "Maintenir des mosaïques agropastorales avec jachères, friches, bandes enherbées et haies diversifiées ; préserver les plantes à graines en limitant les herbicides.",
+          "Mettre en place des cultures à graines et couverts faunistiques hivernaux, et programmer la taille des haies hors période de reproduction."
+        ],
+        "sources": ["IUCN (catégorie/année/url)","data.gouv"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    }
+  }
+}
+
+
