@@ -6,7 +6,7 @@ const admin = require('firebase-admin');
 setGlobalOptions({ region: 'europe-west1', serviceAccount: '788742862967-compute@developer.gserviceaccount.com' });
 try { admin.initializeApp(); } catch (_) {}
 
-exports.verifierAbonnementV2 = onCall(async (request) => {
+exports.verifierAbonnementV2 = onCall({ invoker: 'public' }, async (request) => {
   const data = request.data || {};
   const { packageName, subscriptionId, purchaseToken } = data;
   const uid = request.auth && request.auth.uid ? request.auth.uid : null;
