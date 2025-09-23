@@ -337,6 +337,47 @@ class _CurrentSubscriptionCard extends StatelessWidget {
     if (uid == null) {
       return const SizedBox.shrink();
     }
+    // Si le compte n'est pas premium, n'affiche pas des infos d'un abonnement potentiellement lié à un autre compte Play
+    if (!UserOrchestra.isPremium) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F5F9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE0E6ED)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Aucun abonnement actif pour ce compte',
+              style: TextStyle(fontFamily: 'Quicksand', fontWeight: FontWeight.w700, fontSize: 16, color: Color(0xFF344356)),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    // Restaurer les achats (si l'appareil est connecté au bon compte Play)
+                    // ignore: discarded_futures
+                    PremiumService.instance.restore();
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Restauration des achats lancée')));
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6A994E), foregroundColor: Colors.white),
+                  child: const Text('Restaurer mes achats'),
+                ),
+                const SizedBox(width: 12),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pushNamed('/abonnement/choix-offre'),
+                  child: const Text('Voir les offres'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
     final stream = FirebaseFirestore.instance
         .collection('utilisateurs')
         .doc(uid)
