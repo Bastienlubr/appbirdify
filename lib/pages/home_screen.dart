@@ -3,16 +3,21 @@ import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 import '../widgets/biome_carousel_enhanced.dart';
 import '../widgets/home_bottom_nav_bar.dart';
-import 'base_ornitho_page.dart';
+import 'Perchoir/base_ornitho_page.dart';
+import 'Profil/profil_page.dart';
 import '../data/milieu_data.dart';
 import '../models/mission.dart';
-import '../pages/mission_loading_screen.dart';
-import '../services/life_sync_service.dart';
-import '../services/mission_loader_service.dart';
-import '../services/mission_persistence_service.dart';
-import '../services/mission_progression_init_service.dart';
+import 'MissionHabitat/mission_loading_screen.dart';
+import '../services/Users/user_orchestra_service.dart';
+import '../services/Mission/communs/commun_chargeur_missions.dart';
+import '../services/Mission/communs/commun_persistance_consultation.dart';
+import '../services/Mission/communs/commun_strategie_progression.dart';
 import '../widgets/dev_tools_menu.dart';
 import '../ui/responsive/responsive.dart';
+import 'Accueil/widgets/lives_popover.dart';
+import 'Quiz/quiz_selection_page.dart';
+// import '../ui/animations/transitions.dart'; // (désactivé) Animations centralisées
+import 'package:flutter_svg/flutter_svg.dart';
 
 
 
@@ -25,45 +30,52 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 1; // 0: Quiz, 1: Accueil, 2: Profil, 3: Bibliothèque
+  // int _previousIndex = 1; // plus utilisé
+  final GlobalKey<_HomeContentState> _homeContentKey = GlobalKey<_HomeContentState>();
+  
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        // 1) Fermer le popover des vies s'il est ouvert
+        final handled = _homeContentKey.currentState?.closeLivesPopoverIfOpen() ?? false;
+        if (handled) return;
+        // 2) Si on n'est pas sur Accueil, y retourner
+        if (_currentIndex != 1) {
+          setState(() => _currentIndex = 1);
+          return;
+        }
+        // 3) Déjà sur Accueil sans popover: ne pas quitter l'app (on absorbe le retour)
+        return;
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
-      body: _currentIndex == 3 ? const BaseOrnithoPage() : const HomeContent(),
+      body: (
+        _currentIndex == 3 
+          ? const BaseOrnithoPage() 
+          : _currentIndex == 2 
+            ? const ProfilPage() 
+            : _currentIndex == 0
+              ? const QuizSelectionPage()
+              : HomeContent(key: _homeContentKey)
+      ),
       bottomNavigationBar: HomeBottomNavBar(
         currentIndex: _currentIndex,
         onTabSelected: (idx) {
-          setState(() => _currentIndex = idx);
-          // TODO: Brancher la navigation vers pages quand elles seront prêtes
+          if (kDebugMode) debugPrint('🧭 Onglet sélectionné: $idx');
+          setState(() {
+            // _previousIndex = _currentIndex;
+            _currentIndex = idx;
+          });
         },
       ),
-    );
+    ));
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    // Conservé pour compatibilité si besoin, non utilisé car remplacé par HomeBottomNavBar
-    final bool isSelected = _currentIndex == index;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isSelected ? const Color(0xFFFEC868) : Colors.white,
-          size: 24,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Quicksand',
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
+  // ✅ Transitions gérées par AppTransitions.smartTransitionBuilder
+  // Anciennes méthodes supprimées pour simplicité et performance
 }
 
 class HomeContent extends StatefulWidget {
@@ -85,6 +97,10 @@ class _HomeContentState extends State<HomeContent> {
   
   // Gestion des vies
   int _currentLives = 5;
+  final LayerLink _livesLink = LayerLink();
+  OverlayEntry? _livesEntry;
+  final GlobalKey<LivesPopoverState> _livesPopoverKey = GlobalKey<LivesPopoverState>();
+  OverlayEntry? _prewarmEntry; // garde le popover chaud pendant qu'on est sur Home
 
 
   @override
@@ -93,6 +109,41 @@ class _HomeContentState extends State<HomeContent> {
     _missionScrollController = ScrollController();
     _loadMissionsForBiome(_selectedBiome);
     _loadCurrentLives();
+
+    // Précharger les assets du popover de vies pour une ouverture sans accroc
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        LivesPopover.precacheAssets(context);
+      } catch (_) {}
+
+      // Préchauffage PERSISTANT: on garde une instance Offstage en overlay tant qu'on reste sur Home
+      try {
+        if (_prewarmEntry == null) {
+          final overlay = Overlay.of(context, rootOverlay: true);
+          if (overlay != null) {
+            final Size screen = MediaQuery.of(context).size;
+            final Offset anchor = Offset(screen.width / 2, 100);
+            _prewarmEntry = OverlayEntry(
+              maintainState: true,
+              opaque: false,
+              builder: (_) => IgnorePointer(
+                ignoring: true,
+                child: Opacity(
+                  opacity: 0.01, // peindre pour remplir les caches GPU sans être visible
+                  child: LivesPopover(
+                    currentLives: _currentLives,
+                    anchor: anchor,
+                    onClose: () {},
+                    prewarm: true,
+                  ),
+                ),
+              ),
+            );
+            overlay.insert(_prewarmEntry!);
+          }
+        }
+      } catch (_) {}
+    });
   }
 
   @override
@@ -114,17 +165,17 @@ class _HomeContentState extends State<HomeContent> {
   /// Charge les vies actuelles depuis Firestore et vérifie la réinitialisation quotidienne
   Future<void> _loadCurrentLives() async {
     try {
-      final uid = LifeSyncService.getCurrentUserId();
-      if (kDebugMode) debugPrint('🔍 Vérification utilisateur (HomeScreen): UID=$uid, Connecté=${LifeSyncService.isUserLoggedIn}');
+      final uid = UserOrchestra.currentUserId;
+      if (kDebugMode) debugPrint('🔍 Vérification utilisateur (HomeScreen): UID=$uid, Connecté=${UserOrchestra.isUserLoggedIn}');
       
       if (uid != null) {
         if (kDebugMode) debugPrint('🔄 Chargement des vies depuis Firestore pour utilisateur $uid');
         
         // Vérifier les vies avant checkAndResetLives
-        final livesBefore = await LifeSyncService.getCurrentLives(uid);
+        final livesBefore = await UserOrchestra.getCurrentLives(uid);
         if (kDebugMode) debugPrint('📊 Vies dans Firestore avant checkAndResetLives: $livesBefore');
         
-        final lives = await LifeSyncService.checkAndResetLives(uid);
+        final lives = await UserOrchestra.checkAndResetLives(uid);
         
         if (mounted) {
           setState(() {
@@ -153,11 +204,65 @@ class _HomeContentState extends State<HomeContent> {
 
   @override
   void dispose() {
+    // Décharger le préchauffage lorsqu'on quitte Home
+    try { _prewarmEntry?.remove(); } catch (_) {}
+    _prewarmEntry = null;
+    _removeLivesPopover();
     _missionScrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadMissionsForBiome(String biomeName) async {
+  void _toggleLivesPopover(BuildContext context, {required double size}) {
+    // Désactive le popover en mode Premium
+    if (UserOrchestra.isPremium) return;
+    if (_livesEntry != null) {
+      // Fermer avec animation inverse avant de retirer l'overlay
+      _livesPopoverKey.currentState?.dismissWithAnimation(onCompleted: _removeLivesPopover);
+      return;
+    }
+
+    final RenderBox box = context.findRenderObject() as RenderBox;
+    // Ancre au bas-centre du widget vies pour que la flèche pointe dessous
+    final Offset bottomCenter = box.localToGlobal(Offset(box.size.width / 2, box.size.height));
+    _livesEntry = OverlayEntry(
+      builder: (ctx) {
+        return LivesPopover(
+          key: _livesPopoverKey,
+          currentLives: _currentLives,
+          anchor: bottomCenter,
+          onClose: () {
+            _removeLivesPopover();
+          },
+          onLivesChanged: (newLives) {
+            if (mounted) {
+              setState(() {
+                _currentLives = newLives;
+              });
+            }
+          },
+        );
+      },
+    );
+
+    Overlay.of(context, rootOverlay: true).insert(_livesEntry!);
+  }
+
+  void _removeLivesPopover() {
+    _livesEntry?.remove();
+    _livesEntry = null;
+  }
+
+  // Exposé à HomeScreen pour intercepter le bouton retour
+  bool get isLivesPopoverOpen => _livesEntry != null;
+  bool closeLivesPopoverIfOpen() {
+    if (_livesEntry != null) {
+      _livesPopoverKey.currentState?.dismissWithAnimation(onCompleted: _removeLivesPopover);
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _loadMissionsForBiome(String biomeName, {bool animateAppearance = true}) async {
     if (_isLoadingMissions) return; // Éviter les chargements multiples
     
     setState(() {
@@ -173,17 +278,20 @@ class _HomeContentState extends State<HomeContent> {
         if (mounted) {
           setState(() {
             _currentMissions = filteredMissions;
-            _missionVisibility = List.generate(filteredMissions.length, (index) => false);
+            _missionVisibility = animateAppearance
+                ? List.generate(filteredMissions.length, (index) => false)
+                : List.generate(filteredMissions.length, (index) => true);
             _isLoadingMissions = false;
           });
-          
-          _animateMissionsAppearance();
+          if (animateAppearance) {
+            _animateMissionsAppearance();
+          }
         }
         return;
       }
       
       // Charger les missions depuis le CSV avec progression Firestore
-      final uid = LifeSyncService.getCurrentUserId();
+      final uid = UserOrchestra.currentUserId;
       List<Mission> allMissions;
       
       if (uid != null) {
@@ -222,11 +330,14 @@ class _HomeContentState extends State<HomeContent> {
       if (mounted) {
         setState(() {
           _currentMissions = filteredMissions;
-          _missionVisibility = List.generate(filteredMissions.length, (index) => false);
+          _missionVisibility = animateAppearance
+              ? List.generate(filteredMissions.length, (index) => false)
+              : List.generate(filteredMissions.length, (index) => true);
           _isLoadingMissions = false;
         });
-        
-        _animateMissionsAppearance();
+        if (animateAppearance) {
+          _animateMissionsAppearance();
+        }
       }
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur lors du chargement des missions: $e');
@@ -273,7 +384,7 @@ class _HomeContentState extends State<HomeContent> {
         for (final biomeName in _biomeUnlockOrder) {
           if (biomeName != currentBiome && !_missionsCache.containsKey(biomeName)) {
             try {
-              final uid = LifeSyncService.getCurrentUserId();
+              final uid = UserOrchestra.currentUserId;
               List<Mission> missions;
               
               if (uid != null) {
@@ -317,6 +428,8 @@ class _HomeContentState extends State<HomeContent> {
 
   /// Vérifie si un biome peut être débloqué
   bool _isBiomeUnlocked(String biomeName) {
+    // Premium: tous les biomes sont accessibles
+    if (UserOrchestra.isPremium) return true;
     // Le premier biome (Urbain) est toujours débloqué
     if (biomeName == 'Urbain') return true;
     
@@ -350,8 +463,8 @@ class _HomeContentState extends State<HomeContent> {
   List<Mission> _filterAndOrganizeMissions(List<Mission> allMissions) {
     final List<Mission> filteredMissions = [];
     
-    // Vérifier si le biome actuel est débloqué
-    final isCurrentBiomeUnlocked = _isBiomeUnlocked(_selectedBiome);
+    // Vérifier si le biome actuel est débloqué (premium => true)
+    final isCurrentBiomeUnlocked = UserOrchestra.isPremium || _isBiomeUnlocked(_selectedBiome);
     
     // Trier les missions par niveau
     allMissions.sort((a, b) => a.index.compareTo(b.index));
@@ -366,7 +479,7 @@ class _HomeContentState extends State<HomeContent> {
       }
       
       // Utiliser le statut déjà calculé par le service de chargement des missions
-      // au lieu de recalculer la logique de déverrouillage
+      // Premium: on conserve la logique de progression normale (seule différence: biome toujours déverrouillé)
       if (mission.status == 'available' || mission.status == 'locked') {
         // Le statut est déjà correct, l'utiliser tel quel
         filteredMissions.add(mission);
@@ -419,15 +532,14 @@ class _HomeContentState extends State<HomeContent> {
         final double subtitleFontSize = isTablet
             ? (14.0 * scale * 1.10).clamp(13.0, 22.0).toDouble()
             : 14.0 * phoneScaleUp;
-        final double navIconSize = isTablet ? 28.0 : 24.0;
-        final double navLabelSize = isTablet ? 13.0 : 12.0;
+        // Removed unused navIconSize/navLabelSize
 
         final double livesSize = isTablet
-            ? (shortest * (isWide ? 0.15 : 0.18)).clamp(150.0, 230.0).toDouble()
-            : 110.0 * phoneScaleUp;
-        final double livesOffsetX = 15.0 * (livesSize / 110.0);
-        final double livesOffsetY = 35.0 * (livesSize / 110.0);
-        final double livesFontSize = 32.0 * (livesSize / 110.0) * (isTablet ? 1.06 : 1.0);
+            ? (shortest * (isWide ? 0.135 : 0.165)).clamp(150.0, 230.0).toDouble()
+            : 92.0 * phoneScaleUp;
+        final double livesOffsetX = 24.0 * (livesSize / 110.0);
+        final double livesOffsetY = 28.0 * (livesSize / 110.0);
+        final double livesFontSize = 43.0 * (livesSize / 110.0) * (isTablet ? 1.06 : 1.0);
 
         // Échelle UI des cartes (1.0 mobile, >1 tablette)
         final double uiScale = isTablet ? (localScale * 1.08).clamp(1.0, 1.3).toDouble() : 1.0;
@@ -446,37 +558,20 @@ class _HomeContentState extends State<HomeContent> {
                 },
               ),
 
+              // Bouton debug secondaire déplacé dans le menu développeur
+
               Positioned(
-                top: 4,
-                right: 4,
-                child: SizedBox(
-                  width: livesSize,
-                  height: livesSize,
-                  child: Stack(
-                    children: [
-                      Image.asset(
-                        'assets/Images/Bouton/Group 15.png',
-                        width: livesSize,
-                        height: livesSize,
-                      ),
-                      Positioned.fill(
-                        child: Transform.translate(
-                          offset: Offset(livesOffsetX, livesOffsetY),
-                          child: Align(
-                            alignment: Alignment.center,
-                            child: Text(
-                              _currentLives.toString(),
-                              style: TextStyle(
-                                fontFamily: 'Quicksand',
-                                fontSize: livesFontSize,
-                                fontWeight: FontWeight.w900,
-                                color: const Color(0xFF473C33),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                top: 10,
+                right: 18,
+                child: CompositedTransformTarget(
+                  link: _livesLink,
+                  child: _LivesAnchor(
+                    size: livesSize,
+                    offset: Offset(livesOffsetX, livesOffsetY),
+                    fontSize: livesFontSize,
+                    lives: _currentLives,
+                    isInfinite: UserOrchestra.isPremium,
+                    onTap: UserOrchestra.isPremium ? null : (ctx) => _toggleLivesPopover(ctx, size: livesSize),
                   ),
                 ),
               ),
@@ -492,24 +587,30 @@ class _HomeContentState extends State<HomeContent> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(height: spacing * 0.5),
+                        SizedBox(height: spacing * 0.3),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: spacing),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _buildTitleSection(titleFontSize, subtitleFontSize),
-                              SizedBox(height: spacing * 0.15),
+                              SizedBox(height: spacing * 0.1),
                             ],
                           ),
                         ),
                         BiomeCarouselEnhanced(
+                          // Slide (changement de page) => sélectionne et charge normalement (avec animation d’apparition)
                           onBiomeSelected: (biome) {
                             setState(() {
                               _selectedBiome = biome.name;
                             });
-                            _loadMissionsForBiome(biome.name);
+                            _loadMissionsForBiome(biome.name, animateAppearance: true);
                           },
+                          // Désactiver l'action au tap dans Home: slide uniquement
+                          onBiomeTapped: null,
+                          isBiomeUnlocked: (biomeName) => _isBiomeUnlocked(biomeName),
+                          selectOnPageChange: true,
+                          disableTapCenterAnimation: true,
                         ),
                         Expanded(
                           child: Padding(
@@ -517,7 +618,7 @@ class _HomeContentState extends State<HomeContent> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                SizedBox(height: spacing * 0.5),
+                                SizedBox(height: spacing * 0.2),
                                 Expanded(
                                   child: Stack(
                                     children: [
@@ -671,44 +772,6 @@ class _HomeContentState extends State<HomeContent> {
   Future<void> _handleQuizLaunch(String missionId) async {
     if (!mounted) return;
     
-    // Vérifier si l'utilisateur a des vies disponibles
-    if (_currentLives == 0) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text(
-            "Plus de vies",
-            style: TextStyle(
-              fontFamily: 'Quicksand',
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFBC4749),
-            ),
-          ),
-          content: const Text(
-            "Vous n'avez plus de vies disponibles. Revenez demain à minuit pour les restaurer.",
-            style: TextStyle(
-              fontFamily: 'Quicksand',
-              fontSize: 16,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                "OK",
-                style: TextStyle(
-                  fontFamily: 'Quicksand',
-                  color: Color(0xFF6A994E),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-    
     // Navigation vers l'écran de chargement qui préchargera les images
     await Navigator.push(
       context,
@@ -732,6 +795,105 @@ class _HomeContentState extends State<HomeContent> {
 
 
 
+}
+
+class _LivesAnchor extends StatelessWidget {
+  final double size;
+  final Offset offset;
+  final double fontSize;
+  final int lives;
+  final bool isInfinite;
+  final void Function(BuildContext)? onTap;
+
+  const _LivesAnchor({
+    required this.size,
+    required this.offset,
+    required this.fontSize,
+    required this.lives,
+    required this.isInfinite,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => onTap?.call(context),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Stack(
+          children: [
+            Image.asset(
+              'assets/Images/Bouton/barviemascotte.png',
+              width: size,
+              height: size,
+            ),
+            Positioned.fill(
+              child: Transform.translate(
+                offset: offset,
+                child: Align(
+                  alignment: Alignment.center,
+                      child: isInfinite
+                          ? SvgPicture.asset(
+                              'assets/Images/Bouton/infinie.svg',
+                              width: fontSize * 1.05,
+                              height: fontSize * 1.05,
+                              fit: BoxFit.contain,
+                              colorFilter: const ColorFilter.mode(
+                                Color(0xFF473C33),
+                                BlendMode.srcIn,
+                              ),
+                            )
+                          : SizedBox(
+                              width: fontSize * 1.32,
+                              height: fontSize * 1.32,
+                              child: Center(
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Outline (stroke) layer
+                                    Text(
+                                      lives.toString(),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontFamily: 'Quicksand',
+                                        fontSize: fontSize * 1.06,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1.0,
+                                        foreground: Paint()
+                                          ..style = PaintingStyle.stroke
+                                          ..strokeWidth = 0.5
+                                          ..color = const Color(0xFF2C241E),
+                                      ),
+                                    ),
+                                    // Fill layer
+                                    Text(
+                                      lives.toString(),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontFamily: 'Quicksand',
+                                        fontSize: fontSize * 1.06,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF473C33),
+                                        height: 1.0,
+                                        shadows: const [
+                                          Shadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _AnimatedMissionCard extends StatefulWidget {

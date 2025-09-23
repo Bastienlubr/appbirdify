@@ -14,7 +14,7 @@ service cloud.firestore {
     // Certains jeux de données ont "approuvee", d'autres "publiée"
     function isApproved() {
       return
-        (('statut' in resource.data) &&
+        (("statut" in resource.data) &&
          (resource.data.statut == "approuvee" || resource.data.statut == "publiée"));
     }
 
@@ -33,20 +33,90 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- QUIZ VARIÉ (lecture publique) ----
+    // Règle générique pour la collection dont le nom contient un espace/accents
+    match /{colName}/{quizId} {
+      allow read: if colName == "Quiz varié";
+      allow write: if false;
+    }
+
     // Banque de sons : lecture réservée aux utilisateurs connectés (comme la version Cursor)
     match /sons_oiseaux/{id} {
       allow read: if isSignedIn();
       allow write: if false;
     }
 
+    // ---- FICHES OISEAUX (lecture publique pour l'app) ----
+    match /fiches_oiseaux/{id} {
+      allow read: if true;
+      allow write: if false;
+
+      // Sous-collections panels (lecture publique uniquement)
+      match /{panelCollection}/{docId} {
+        allow read: if panelCollection in ['identification','habitat','alimentation','reproduction','protection'] && docId == 'current';
+        allow write: if false;
+      }
+    }
+
     // ---- DONNÉES UTILISATEUR ----
     match /utilisateurs/{uid} {
-      // Le propriétaire peut lire/écrire son doc racine...
-      allow read, write: if isOwner(uid);
+      // Le propriétaire peut lire son doc racine
+      allow read: if isOwner(uid);
+
+      // Création autorisée par le propriétaire
+      allow create: if isOwner(uid);
+
+      // Mise à jour autorisée sauf champs sensibles
+      allow update: if isOwner(uid)
+                    // 1) Interdire toute écriture du champ racine 'abonnement'
+                    && !('abonnement' in request.resource.data.diff(resource.data).changedKeys())
+                    // 2) Interdire de modifier le statut premium depuis le client
+                    && !(request.resource.data.profil.estPremium != resource.data.profil.estPremium)
+                    // 3) Interdire d'activer les vies infinies côté client
+                    && !((request.resource.data.vie.livesInfinite == true));
+
+      // Suppression client interdite
+      allow delete: if false;
+
+      // (Supprimé) Diagnostics abonnement
+
+      // Abonnement: lecture seule côté client (écritures par backend/Admin SDK)
+      match /abonnement/{docId} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+        match /cycles/{cycleId} {
+          allow read: if isOwner(uid);
+          allow create, update, delete: if false;
+        }
+      }
 
       // ...et tout sous-document / sous-collection
       match /{subpath=**} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid);
+        allow delete: if false;
+      }
+    }
+
+    // ---- QUIZ PERSONNALISÉS ----
+    match /users/{uid} {
+      // Le propriétaire peut lire son doc racine
+      allow read: if isOwner(uid);
+      // Création/Mise à jour autorisées par le propriétaire
+      allow create, update: if isOwner(uid);
+      // Suppression client interdite
+      allow delete: if false;
+
+      // Collection des quiz personnalisés de l'utilisateur
+      match /custom_quiz/{quizId} {
         allow read, write: if isOwner(uid);
+      }
+
+      // ...et tout autre sous-document / sous-collection
+      match /{subpath=**} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid);
+        allow delete: if false;
       }
     }
 

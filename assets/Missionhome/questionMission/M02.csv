@@ -1,31 +1,46 @@
 id_mission,biome,num_question,bonne_reponse,id_oiseaux,URL_bonne_reponse,mauvaise_reponse,id_oiseaux
-M02,Milieu montagnard,1,Tarier des prés,247,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTarier%20des%20pr%C3%A9s.wav?alt=media&token=33ed71e3-6bc8-4287-bb54-21804b781638,Chocard à bec jaune,247
-M02,Milieu montagnard,2,Pipit spioncelle,,lien manquant,Crave à bec rouge,
-M02,Milieu montagnard,3,Alouette hausse-col,8,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAlouette%20hausse-col.wav?alt=media&token=80e0d8a2-63b1-4fad-9eb9-58321264889a,Rougequeue noir,8
-M02,Milieu montagnard,4,Bruant ortolan,36,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBruant%20ortolan.mp3?alt=media&token=aa52f67d-7239-4476-8ad4-1fd6a71d72aa,Merle à plastron,36
-M02,Milieu montagnard,5,Bruant fou,,lien manquant,Grive litorne,
-M02,Milieu montagnard,6,Traquet motteux,254,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTraquet%20motteux.mp3?alt=media&token=de7549d4-c2e7-4cc4-a2ef-5f28f8eaf050,Rouge-gorge familier,254
-M02,Milieu montagnard,7,Bergeronnette printanière,22,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBergeronnette%20printani%C3%A8re.wav?alt=media&token=a0c05047-2e2a-46a1-9de4-6adb5b53b193,Bergeronnette grise,22
-M02,Milieu montagnard,8,Moineau soulcie,176,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMoineau%20soulcie.wav?alt=media&token=d65ccf03-6118-4a8f-8f38-1824d325100a,Hirondelle rustique,176
-M02,Milieu montagnard,9,Monticole bleu,177,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMonticole%20bleu.mp3?alt=media&token=50271d85-90c4-46cc-a5f2-56435c247520,Hirondelle de rochers,177
-M02,Milieu montagnard,10,Venturon montagnard,,lien manquant,Tarier pâtre,
-,,,Pipit farlouse,208,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPipit%20farlouse.wav?alt=media&token=1daf2924-a10c-43c8-ade5-8fc0482bddaa,Traquet oreillard,208
-,,,Alouette des champs,7,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAlouette%20des%20champs.wav?alt=media&token=9348f678-d6d1-48a5-8de8-9bbacfdc9472,Pipit rousseline,7
-,,,Venturon montagnard,,lien manquant,Mésange huppée,
-,,,Alouette lulu,,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAlouette%20lulu.mp3?alt=media&token=4f12dd63-1fc0-4ee7-8fb2-b5d2c69ce025,Mésange boréale,
-,,,Cincle plongeur,63,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCincle%20plongeur.mp3?alt=media&token=54773aa9-7c7d-46bf-98c4-f5052cc7e25e,Mésange noire,63
-,,,,,,Grimpereau des bois,
-,,,,,,Pic épeiche,
-,,,,,,Pic noir,
-,,,,,,Choucas des tours,
-,,,,,,Moineau friquet,
+M02,Milieu montagnard,1,Traquet motteux,254,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTraquet%20motteux.mp3?alt=media&token=de7549d4-c2e7-4cc4-a2ef-5f28f8eaf050,,254
+M02,Milieu montagnard,2,Alouette des champs,7,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAlouette%20des%20champs.wav?alt=media&token=9348f678-d6d1-48a5-8de8-9bbacfdc9472,,7
+M02,Milieu montagnard,3,Pipit farlouse,208,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPipit%20farlouse.wav?alt=media&token=1daf2924-a10c-43c8-ade5-8fc0482bddaa,,208
+M02,Milieu montagnard,4,Caille des blés,43,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FCaille%20des%20bl%C3%A9s.mp3?alt=media&token=71765284-be87-43f3-858d-0d577d40b280,,43
+M02,Milieu montagnard,5,Râle des genêts,223,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FR%C3%A2le%20des%20gen%C3%AAts.wav?alt=media&token=e77e8eab-6fb0-4f95-9589-21a7d7600d03,,223
+M02,Milieu montagnard,6,Tétras lyre,250,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FT%C3%A9tras%20lyre.wav?alt=media&token=c41f35b9-3822-4761-8b7b-cba105295f3c,,250
+M02,Milieu montagnard,7,Alouette lulu,259,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAlouette%20lulu.mp3?alt=media&token=4f12dd63-1fc0-4ee7-8fb2-b5d2c69ce025,,259
+M02,Milieu montagnard,8,Fauvette babillarde,95,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FFauvette%20babillarde.wav?alt=media&token=f6c351d1-4888-4c3d-932c-85691afa45d6,,95
+M02,Milieu montagnard,9,Pipit des arbres,207,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FPipit%20des%20arbres.wav?alt=media&token=d7de3bf0-e906-4195-8241-f304fcaada7e,,207
+M02,Milieu montagnard,10,Bruant jaune,34,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBruant%20jaune.wav?alt=media&token=7a3d5d64-667c-4774-a1c7-5befc4805504,,34
+M02,Milieu montagnard,11,Bruant ortolan,36,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBruant%20ortolan.mp3?alt=media&token=aa52f67d-7239-4476-8ad4-1fd6a71d72aa,,36
+M02,Milieu montagnard,12,Tarier des prés,247,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FTarier%20des%20pr%C3%A9s.wav?alt=media&token=33ed71e3-6bc8-4287-bb54-21804b781638,,247
+M02,Milieu montagnard,13,Alouette hausse-col,8,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FAlouette%20hausse-col.wav?alt=media&token=80e0d8a2-63b1-4fad-9eb9-58321264889a,,8
+M02,Milieu montagnard,14,Bergeronnette printanière,22,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FBergeronnette%20printani%C3%A8re.wav?alt=media&token=a0c05047-2e2a-46a1-9de4-6adb5b53b193,,22
+M02,Milieu montagnard,15,Moineau soulcie,176,https://firebasestorage.googleapis.com/v0/b/birdify-df029.firebasestorage.app/o/Birds%2FMoineau%20soulcie.wav?alt=media&token=d65ccf03-6118-4a8f-8f38-1824d325100a,,176
+,,,,,,Traquet motteux,
+,,,,,,Alouette des champs,
+,,,,,,Pipit farlouse,
+,,,,,,Caille des blés,
+,,,,,,Râle des genêts,
+,,,,,,Tétras lyre,
+,,,,,,Alouette lulu,
+,,,,,,Fauvette babillarde,
+,,,,,,Pipit des arbres,
+,,,,,,Bruant jaune,
+,,,,,,Bruant ortolan,
+,,,,,,Tarier des prés,
+,,,,,,Alouette hausse-col,
+,,,,,,Bergeronnette printanière,
+,,,,,,Moineau soulcie,
+,,,,,,Bruant des roseaux,
+,,,,,,Bruant proyer,
 ,,,,,,Alouette calandre,
 ,,,,,,Alouette calandrelle,
-,,,,,,Bruant jaune,
+,,,,,,Bergeronnette grise,
+,,,,,,Fauvette pitchou,
+,,,,,,Fauvette à lunettes,
+,,,,,,Traquet oreillard,
+,,,,,,Pipit maritime,
+,,,,,,Moineau friquet,
+,,,,,,Merle à plastron,
+,,,,,,Étourneau sansonnet,
 ,,,,,,Bouvreuil pivoine,
-,,,,,,Tarin des aulnes,
-,,,,,,Accenteur alpin,
-,,,,,,Roitelet huppé,
-,,,,,,Roitelet à triple bandeau,
-,,,,,,Bec-croisé des sapins,
-,,,,,,Coucou gris,
+,,,,,,Chardonneret élégant,
+,,,,,,Colin de Virginie,

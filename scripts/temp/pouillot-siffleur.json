@@ -1,0 +1,99 @@
+{
+  "summary": {
+    "path": "fiches_oiseaux/pouillot-siffleur",
+    "data": {
+      "appId": "pouillot-siffleur",
+      "slug": "pouillot-siffleur",
+      "nomFrancais": "Pouillot siffleur",
+      "nomScientifique": "Phylloscopus sibilatrix",
+      "nomAnglais": "Wood Warbler",
+      "wikidata_qid": "Q27075477",
+      "guilde": "passereau_insectivore_forestier",
+      "media": {
+        "urlImage": "https://commons.wikimedia.org/wiki/File:Phylloscopus_sibilatrix_-_Cambridge_Botanical_Gardens,_England_-_20100919.jpg",
+        "urlMp3": "https://xeno-canto.org/species/Phylloscopus-sibilatrix"
+      },
+      "version": 1,
+      "updatedAt": "2025-09-23T12:00:00Z"
+    }
+  },
+  "panels": {
+    "identification": {
+      "path": "fiches_oiseaux/pouillot-siffleur/identification/current",
+      "data": {
+        "classification": { "ordre": "Passeriformes", "famille": "Phylloscopidae" },
+        "morphologie": "Petit pouillot verdâtre au dessus vert-olive contrastant avec un sourcil et une gorge jaune citron et des parties inférieures blanches ; longues ailes, queue courte, bec fin. En parade, il chante depuis les branches basses à moyennes en émettant un trille rapide qui se termine par des notes descendantes sifflées. La femelle ressemble au mâle mais un peu moins vive ; le juvénile est plus terne, jaune atténué et contrastes réduits.",
+        "mesures": {
+          "taille": { "min": 12, "max": 13, "unite": "cm", "display": "12–13 cm" },
+          "envergure": { "min": 19, "max": 24, "unite": "cm", "display": "19–24 cm" },
+          "poids": { "min": 7, "max": 12, "unite": "g", "display": "7–12 g" }
+        },
+        "especesRessemblantes": [
+          { "nom": "Pouillot fitis", "se_distingue_par": "Couleurs moins vives, poitrine jaunâtre plus diffuse, pattes souvent plus foncées et chant roulé sans finale sifflée descendante ; le Pouillot siffleur montre un sourcil jaune franc, un dessous blanc net et un trille qui se termine par des notes plaintives." },
+          { "nom": "Pouillot véloce", "se_distingue_par": "Plumage plus gris-brun, dessous jaunâtre sale, pattes foncées et chant « huit-huit » binaire ; le Pouillot siffleur est plus contrasté, plus jaune au visage et produit un long trille accéléré suivi d’une chute sifflée." }
+        ],
+        "sources": ["Wikidata","INPN/TAXREF","IUCN (catégorie+année+URL)"],
+        "confiance": "élevée",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "habitat": {
+      "path": "fiches_oiseaux/pouillot-siffleur/habitat/current",
+      "data": {
+        "typeDeMilieu": "Forêts caducifoliées fraîches et ombragées, surtout hêtraies et chênaies, ainsi que les mélanges feuillus avec sous-bois clair et grands houppiers ; préfère les futaies matures à strate arbustive peu dense et un couvert continu pour chanter et chasser sous les frondaisons.",
+        "ouObserverFrance": "Principalement dans les grands massifs de feuillus de l’Est et du Centre (Ardennes, Lorraine, Vosges, Jura, Morvan, Sologne, Perche) et localement dans l’Ouest (Normandie, Centre-Val de Loire, Poitou-Charentes) ; rare en zone méditerranéenne et dans les plaines agricoles intensives.",
+        "migration": "Migrateur transsaharien complet : arrivée de mi-avril à mai sur les sites de reproduction, nidification en fin de printemps–été, puis départ dès août–septembre vers l’Afrique tropicale ; migration en boucle avec voie plutôt occidentale au printemps et plus orientale à l’automne.",
+        "sources": ["INPN/SINP","LPO (régionale)"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "alimentation": {
+      "path": "fiches_oiseaux/pouillot-siffleur/alimentation/current",
+      "data": {
+        "alimentationPrincipale": ["chenilles (lépidoptères)","diptères","araignées"],
+        "description": "Insectivore spécialisé de la canopée et du sous-étage : il glane et capture en vol court des arthropodes, avec une forte préférence pour les chenilles au printemps ; les poussins reçoivent majoritairement des proies molles (chenilles) complétées par des diptères et des araignées selon la disponibilité saisonnière.",
+        "sources": ["PLOS ONE (open-access)"],
+        "confiance": "élevée",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "reproduction": {
+      "path": "fiches_oiseaux/pouillot-siffleur/reproduction/current",
+      "data": {
+        "etapes": {
+          "parade": "Le mâle chante activement depuis des perchoirs dans la futaie, effectue des poursuites et des parades vocales territoriales.",
+          "nidification": "Nid au sol, en coupe sphérique bien dissimulée dans les herbes ou les feuilles, construit principalement par la femelle avec herbes sèches et feuilles.",
+          "ponte": "Le plus souvent une ponte annuelle de 5 à 7 œufs, déposés de mai à début juillet selon l’altitude et la latitude.",
+          "incubation": "Incubation assurée surtout par la femelle pendant environ deux semaines ; éclosions généralement synchrones.",
+          "nourrissage": "Les deux parents apportent des invertébrés en continu, avec prédominance de chenilles pour la croissance rapide des jeunes.",
+          "envol": "Jeunes à l’envol environ 12 à 15 jours après l’éclosion ; émancipation progressive dans le sous-bois proche.",
+          "accouplement": "Au territoire forestier après les parades chantées et la formation du couple."
+        },
+        "chips": {
+          "periodeMois": ["mai","juin","juillet"],
+          "nbOeufsParPondee": { "min": 5, "max": 7 },
+          "incubationJours": { "min": 12, "max": 14, "unite": "j" }
+        },
+        "sources": ["INPN/SINP"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "protection": {
+      "path": "fiches_oiseaux/pouillot-siffleur/protection/current",
+      "data": {
+        "statutMonde": { "iucn": "LC", "annee": 2016, "url": "https://www.iucnredlist.org/species/22715260/87668662" },
+        "statutFrance": "NT",
+        "description": "En Europe occidentale, l’espèce décline localement avec la modification des forêts (simplification des peuplements, fermeture ou au contraire éclaircie excessive du sous-bois), la fragmentation et la prédation des nids au sol ; en France, l’état est jugé quasi menacé avec des tendances régionales contrastées.",
+        "actions": [
+          "Conserver de vastes massifs feuillus matures avec mosaïque de structures (fûts espacés, sous-bois peu dense, lisières internes) et planifier les coupes hors période de reproduction.",
+          "Limiter le dérangement au sol en saison de nidification (mai–juillet) et préserver la continuité forestière entre sites de chant et zones d’alimentation."
+        ],
+        "sources": ["IUCN (catégorie/année/url)","data.gouv"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    }
+  }
+}

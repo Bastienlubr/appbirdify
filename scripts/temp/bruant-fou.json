@@ -1,0 +1,101 @@
+{
+  "summary": {
+    "path": "fiches_oiseaux/bruant-fou",
+    "data": {
+      "appId": "bruant-fou",
+      "slug": "bruant-fou",
+      "nomFrancais": "Bruant fou",
+      "nomScientifique": "Emberiza cia",
+      "nomAnglais": "Rock Bunting",
+      "wikidata_qid": null,
+      "guilde": "passereau_granivore_insectivore_milieux_rocheux",
+      "media": {
+        "urlImage": "https://commons.wikimedia.org/wiki/File:Emberiza_cia_-_Rock_Bunting.jpg",
+        "urlMp3": "https://xeno-canto.org/species/Emberiza-cia"
+      },
+      "version": 1,
+      "updatedAt": "2025-09-23T12:00:00Z"
+    }
+  },
+  "panels": {
+    "identification": {
+      "path": "fiches_oiseaux/bruant-fou/identification/current",
+      "data": {
+        "classification": { "ordre": "Passeriformes", "famille": "Emberizidae" },
+        "morphologie": "Passereau élancé aux tons chauds, dessus brun roussâtre rayé de sombre, croupion roussâtre, dessous cannelle avec poitrine plus chaude et ventre plus clair. La tête présente un masque contrasté avec bandes blanches et noires : larges sourcils blanchâtres, traits malaires sombres et calotte gris cendré chez le mâle adulte ; la femelle est plus terne, gris-brun, aux contrastes atténués. Bec conique gris, queue assez longue bordée de blanc visible en vol ; juvénile plus uniforme et rayé, sans contrastes nets.",
+        "mesures": {
+          "taille": { "min": 16, "max": 17, "unite": "cm", "display": "16–17 cm" },
+          "envergure": { "min": 25, "max": 29, "unite": "cm", "display": "25–29 cm" },
+          "poids": { "min": 18, "max": 25, "unite": "g", "display": "18–25 g" }
+        },
+        "especesRessemblantes": [
+          { "nom": "Bruant zizi", "se_distingue_par": "Le Bruant zizi a la tête du mâle verdâtre-grisée avec moustaches moins tranchées, dessous plus jaune et absence des larges bandes faciales noir et blanc typiques du Bruant fou." },
+          { "nom": "Bruant proyer", "se_distingue_par": "Beaucoup plus grand et massif, plumage globalement grisâtre fortement strié, chant métallique répétitif et tête sans le masque contrasté à bandes blanches et noires." }
+        ],
+        "sources": ["Wikidata","INPN/TAXREF","IUCN (catégorie+année+URL)"],
+        "confiance": "élevée",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "habitat": {
+      "path": "fiches_oiseaux/bruant-fou/habitat/current",
+      "data": {
+        "typeDeMilieu": "Espèce des pentes sèches et rocailleuses, lisières ouvertes, garrigues, terrasses viticoles, landes arbustives et éboulis, souvent à proximité de murets, escarpements et sols pierreux avec fourrés épars.",
+        "ouObserverFrance": "Présent surtout dans les reliefs et collines du Sud et de l’Est (Pyrénées, Alpes, Préalpes, Causses, Provence, Corse) et localement sur les coteaux et vallées sèches du Centre-Est ; rare ou absent sur la façade atlantique et les plaines du Nord-Ouest.",
+        "migration": "En France, l’espèce est majoritairement sédentaire avec des déplacements locaux et altitudinaux : elle tient ses territoires au printemps-été, se disperse en fin d’été-automne vers les versants plus bas et reste l’hiver sur des secteurs abrités, sauf rigueurs prolongées.",
+        "sources": ["INPN/SINP","LPO (régionale)"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "alimentation": {
+      "path": "fiches_oiseaux/bruant-fou/alimentation/current",
+      "data": {
+        "alimentationPrincipale": ["graines","insectes","araignées"],
+        "description": "Granivore la majeure partie de l’année, il recherche des graines au sol sur les pentes sèches et friches pierreuses ; au printemps-été, il capture davantage d’invertébrés (insectes et araignées) pour couvrir les besoins protéiques, en particulier pour l’élevage des jeunes.",
+        "sources": ["HAL/PLOS/MDPI open-access"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "reproduction": {
+      "path": "fiches_oiseaux/bruant-fou/reproduction/current",
+      "data": {
+        "etapes": {
+          "parade": "Le mâle chante depuis un rocher, un muret ou un arbuste dominant et effectue des poursuites territoriales avec des vols courts et tendus.",
+          "nidification": "Nid au sol ou très bas dans un talus, une touffe herbacée ou un tas de pierres ; coupe tapissée d’herbes fines et de poils.",
+          "ponte": "Une à deux pontes selon conditions, généralement 3 à 5 œufs déposés d’avril à juin.",
+          "incubation": "Incubation surtout par la femelle ; éclosions groupées après environ deux semaines.",
+          "nourrissage": "Jeunes nourris principalement d’invertébrés apportés par les deux parents ; activité accrue aux heures fraîches.",
+          "envol": "Envol des poussins environ 12 à 14 jours après l’éclosion, émancipation progressive au-delà.",
+          "accouplement": "Accouplement sur le territoire après l’établissement du couple et la défense active du site de nid."
+        },
+        "chips": {
+          "periodeMois": ["avril","mai","juin"],
+          "nbOeufsParPondee": { "min": 3, "max": 5 },
+          "incubationJours": { "min": 12, "max": 14, "unite": "j" }
+        },
+        "sources": ["INPN/SINP"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "protection": {
+      "path": "fiches_oiseaux/bruant-fou/protection/current",
+      "data": {
+        "statutMonde": { "iucn": "LC", "annee": 2021, "url": "https://www.iucnredlist.org/species/22720967/132047810" },
+        "statutFrance": "LC",
+        "description": "Population globalement stable à l’échelle mondiale, mais sensible localement à la fermeture des milieux par embroussaillement, à l’abandon des pratiques pastorales traditionnelles et à l’artificialisation des coteaux.",
+        "actions": [
+          "Maintien/retour du pastoralisme extensif pour conserver les pentes ouvertes et pierreuses.",
+          "Gestion en mosaïque des fourrés et murets, limitation de l’artificialisation des coteaux et des carrières actives à proximité des sites de nid."
+        ],
+        "sources": ["IUCN (catégorie/année/url)","data.gouv"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    }
+  }
+}
+
+

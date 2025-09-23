@@ -1,0 +1,101 @@
+{
+  "summary": {
+    "path": "fiches_oiseaux/torcol-fourmilier",
+    "data": {
+      "appId": "torcol-fourmilier",
+      "slug": "torcol-fourmilier",
+      "nomFrancais": "Torcol fourmilier",
+      "nomScientifique": "Jynx torquilla",
+      "nomAnglais": "Eurasian Wryneck",
+      "wikidata_qid": "Q25678",
+      "guilde": "pic_insectivore",
+      "media": {
+        "urlImage": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Jynx_torquilla_vlaskop_cropped.jpg",
+        "urlMp3": "https://xeno-canto.org/139713"
+      },
+      "version": 1,
+      "updatedAt": "2025-09-19T12:00:00Z"
+    }
+  },
+  "panels": {
+    "identification": {
+      "path": "fiches_oiseaux/torcol-fourmilier/identification/current",
+      "data": {
+        "classification": { "ordre": "Piciformes", "famille": "Picidae" },
+        "morphologie": "Petit pic très élancé au plumage cryptique brun-gris finement barré, avec une bande sombre médiane sur le dos et les flancs finement striés ; bec court et pointu, tête souvent dressée ; pas de dimorphisme marqué, juvéniles semblables mais plus ternes.",
+        "mesures": {
+          "taille":    { "min": 16, "max": 18, "unite": "cm", "display": "16–18 cm" },
+          "envergure": { "min": 25, "max": 27, "unite": "cm", "display": "25–27 cm" },
+          "poids":     { "min": 30, "max": 45, "unite": "g",  "display": "30–45 g" }
+        },
+        "especesRessemblantes": [
+          { "nom": "Jynx ruficollis", "se_distingue_par": "La gorge nettement rousse et le plumage plus chaud permettent de le différencier, alors que le Torcol fourmilier présente une gorge beige sans tache rousse." }
+        ],
+        "sources": ["Wikidata", "INPN/TAXREF", "IUCN (catégorie+année+URL)"],
+        "confiance": "élevée",
+        "updatedAt": "2025-09-19T12:00:00Z"
+      }
+    },
+    "habitat": {
+      "path": "fiches_oiseaux/torcol-fourmilier/habitat/current",
+      "data": {
+        "typeDeMilieu": "Espèce des milieux ouverts arborés et chauds : vergers traditionnels, lisières claires, bocage à haies, parcs, vignes et clairières avec vieux arbres offrant des cavités.",
+        "ouObserverFrance": "En France métropolitaine, il niche surtout en plaine et collines dans la plupart des régions, plus local en zones montagnardes et littorales mais régulier en migration dans tout le pays.",
+        "migration": "Migrateur au long cours : il revient de ses quartiers d’hivernage africains au printemps (mars-mai), niche en été (mai-juillet) puis repart en fin d’été-automne (août-octobre).",
+        "sources": ["INPN/SINP", "LPO (régionale)"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-19T12:00:00Z"
+      }
+    },
+    "alimentation": {
+      "path": "fiches_oiseaux/torcol-fourmilier/alimentation/current",
+      "data": {
+        "alimentationPrincipale": ["fourmis", "larves de fourmis", "autres insectes"],
+        "description": "Il capture surtout des fourmis et leurs stades immatures en sondant les fourmilières avec sa longue langue collante ; il glane au sol ou sur le bois mort et complète opportunément par d’autres invertébrés selon la disponibilité saisonnière.",
+        "sources": ["HAL/PLOS/MDPI open-access"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-19T12:00:00Z"
+      }
+    },
+    "reproduction": {
+      "path": "fiches_oiseaux/torcol-fourmilier/reproduction/current",
+      "data": {
+        "etapes": {
+          "parade": "Couples vocaux ; tremblements de tête et postures face à face.",
+          "nidification": "Nid en cavité existante (trou de pic, nichoir, cavité naturelle) sans apport de matériaux.",
+          "ponte": "Ponte unique le plus souvent, œufs blancs lisses.",
+          "incubation": "Incubation assurée par les deux parents.",
+          "nourrissage": "Apports fréquents d’insectes, majoritairement des fourmis, aux poussins.",
+          "envol": "Jeunes quittant la cavité après un séjour de plusieurs semaines.",
+          "accouplement": "Accouplement au voisinage du site de nidification, parfois précédé de poursuites."
+        },
+        "chips": {
+          "periodeMois": ["avril", "mai", "juin", "juillet"],
+          "nbOeufsParPondee": { "min": 5, "max": 10 },
+          "incubationJours": { "min": 12, "max": 14, "unite": "j" }
+        },
+        "sources": ["INPN/SINP"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-19T12:00:00Z"
+      }
+    },
+    "protection": {
+      "path": "fiches_oiseaux/torcol-fourmilier/protection/current",
+      "data": {
+        "statutMonde": { "iucn": "LC", "annee": 2017, "url": "https://www.iucnredlist.org/species/22680683/111819000" },
+        "statutFrance": "NT",
+        "description": "Espèce globalement non menacée mais en déclin local en Europe occidentale ; les principales pressions sont la disparition des vergers et haies, la raréfaction des cavités et l’usage d’insecticides réduisant les populations de fourmis.",
+        "actions": [
+          "Préserver vergers traditionnels et haies",
+          "Installer et entretenir des nichoirs en lisière",
+          "Réduire l’usage d’insecticides et favoriser la gestion extensive des prairies"
+        ],
+        "sources": ["IUCN (catégorie/année/url)", "data.gouv"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-19T12:00:00Z"
+      }
+    }
+  }
+}
+
+

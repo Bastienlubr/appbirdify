@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../services/dev_tools_service.dart';
 import '../theme/colors.dart';
-import '../services/mission_persistence_service.dart'; // Added import for MissionPersistenceService
+// import supprimé: '../services/Mission/communs/commun_persistance_consultation.dart'
 import '../pages/auth/login_screen.dart';
+import '../pages/RecompensesUtiles/test_recompenses_access.dart';
+import '../pages/RecompensesUtiles/recompenses_utiles_page.dart';
+import '../pages/RecompensesUtiles/recompenses_utiles_secondaire_page.dart';
+import '../services/Users/recompenses_utiles_service.dart';
+import '../data/bird_image_alignments.dart';
+// import supprimé: debug_auto_fiche_page.dart
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'dart:convert'; // Added for JsonEncoder
 
 class DevToolsMenu extends StatefulWidget {
   final VoidCallback? onLivesRestored;
@@ -65,32 +74,68 @@ class _DevToolsMenuState extends State<DevToolsMenu> {
   @override
   Widget build(BuildContext context) {
     if (!kDebugMode) return const SizedBox.shrink();
-    
+
     return Positioned(
       top: 20,
       left: 20,
-      child: GestureDetector(
-        onTap: _showDevToolsPopup,
-        child: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(25),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Bouton principal (ouvre le menu DevTools)
+          GestureDetector(
+            onTap: _showDevToolsPopup,
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
+              child: const Icon(
+                Icons.developer_mode,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
           ),
-          child: const Icon(
-            Icons.developer_mode,
-            color: Colors.white,
-            size: 24,
+          const SizedBox(width: 10),
+          // Toggle global d'affichage des overlays/outils inline
+          ValueListenableBuilder<bool>(
+            valueListenable: DevVisibilityService.overlaysEnabled,
+            builder: (context, enabled, _) {
+              return GestureDetector(
+                onTap: () => DevVisibilityService.toggle(),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: (enabled ? Colors.green : Colors.grey).withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    enabled ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              );
+            },
           ),
-        ),
+        ],
       ),
     );
   }
@@ -277,9 +322,6 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
                     // Actions de restauration
                     _buildResetSection(),
                     const SizedBox(height: 20),
-                    
-                    // Test des badges NOUVEAU
-                    _buildBadgeTestSection(),
                   ],
                 ),
               ),
@@ -352,9 +394,13 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           ),
           const SizedBox(height: 12),
           _buildInfoRow('👤 Email', widget.userInfo?['profil']?['email'] ?? 'N/A'),
+          _buildInfoRow('⭐ Premium', ((widget.userInfo?['profil']?['estPremium'] == true) ? 'Oui' : 'Non')),
           _buildInfoRow('🎯 Missions déverrouillées', '${widget.unlockedMissions}'),
           _buildInfoRow('⭐ Total étoiles', '${widget.totalStars}'),
-          _buildInfoRow('💚 Vies actuelles', '${widget.userInfo?['vies']?['compte'] ?? 'N/A'}'),
+          _buildInfoRow(
+            '💚 Vies restantes',
+            '${widget.userInfo?['vie']?['vieRestante'] ?? 'N/A'}',
+          ),
         ],
       ),
     );
@@ -364,23 +410,37 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.black87,
-              fontFamily: 'Quicksand',
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black87,
+                fontFamily: 'Quicksand',
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              softWrap: false,
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.black,
-              fontFamily: 'Quicksand',
+          const SizedBox(width: 8),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
+                  fontFamily: 'Quicksand',
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                softWrap: false,
+                textAlign: TextAlign.right,
+              ),
             ),
           ),
         ],
@@ -401,6 +461,85 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           ),
         ),
         const SizedBox(height: 12),
+        // (supprimé) Interface test Auto-Fiche IA
+        // Toggle Mode Cadrage (DEV)
+        _buildActionButton(
+          icon: Icons.tune,
+          label: '🖼️ Basculer mode cadrage (DEV)',
+          onPressed: () async {
+            await _executeAction(() async {
+              final current = await BirdImageAlignments.isDevModeEnabled();
+              if (current) {
+                // Sauvegarde tous les cadrages calibrés et verrouille en mode production
+                await BirdImageAlignments.lockAllAlignments();
+              } else {
+                await BirdImageAlignments.enableDevMode();
+              }
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.refresh,
+          label: '🧹 Vider cache Firestore',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.clearFirestoreCache();
+            if (kDebugMode) debugPrint('🎯 Cache Firestore vidé - les fiches montreront les nouvelles données');
+          }),
+        ),
+        _buildActionButton(
+          icon: Icons.vpn_key,
+          label: '🔑 Afficher AppCheck debug token',
+          onPressed: () => _executeAction(() async {
+            try {
+              // Essayer sans refresh puis avec refresh
+              String? token = await FirebaseAppCheck.instance.getToken(false);
+              token ??= await FirebaseAppCheck.instance.getToken(true);
+              if (kDebugMode) {
+                debugPrint('APP_CHECK_DEBUG_TOKEN: ' + (token ?? 'null'));
+                debugPrint('👉 Colle ce token dans Firebase Console > App Check > Debug tokens puis relance.');
+              }
+              if (token != null) {
+                try { await Clipboard.setData(ClipboardData(text: token)); } catch (_) {}
+                if (mounted) {
+                  await showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Token App Check (Debug)'),
+                      content: SelectableText(token ?? 'null'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Token indisponible. Réessaie dans 2-3 minutes (rate-limit).')),
+                  );
+                }
+              }
+            } catch (e) {
+              if (kDebugMode) debugPrint('⚠️ Impossible de récupérer le token AppCheck: $e');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Erreur AppCheck: $e')),
+                );
+              }
+            }
+          }),
+        ),
+        _buildActionButton(
+          icon: Icons.cloud_download,
+          label: '🔄 Recharger toutes les fiches',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.refreshAllBirdData();
+            if (kDebugMode) debugPrint('🎯 Toutes les fiches seront rechargées au prochain accès');
+          }),
+        ),
         _buildActionButton(
           icon: Icons.favorite,
           label: '💚 Restaurer 5 vies',
@@ -414,10 +553,26 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           }),
         ),
         _buildActionButton(
+          icon: Icons.workspace_premium,
+          label: '🌟 Basculer Premium (activer/désactiver)',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.togglePremium();
+            if (kDebugMode) debugPrint('🔁 Premium toggled');
+          }),
+        ),
+        _buildActionButton(
           icon: Icons.all_inclusive,
           label: '♾️ Activer vies infinies (compte courant)',
           onPressed: () => _executeAction(() async {
             await DevToolsService.setInfiniteLives(true);
+            if (widget.onLivesRestored != null) widget.onLivesRestored!();
+          }),
+        ),
+        _buildActionButton(
+          icon: Icons.favorite_border,
+          label: '💚 Ajouter 1 vie (sans dépasser max)',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.addOneLife();
             if (widget.onLivesRestored != null) widget.onLivesRestored!();
           }),
         ),
@@ -430,11 +585,175 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           }),
         ),
         _buildActionButton(
-          icon: Icons.refresh,
-          label: '🔄 Recharger les infos',
+          icon: Icons.add_circle,
+          label: '➕ Augmenter vieMaximum (+1)',
+          onPressed: () => _executeAction(() async {
+            final info = await DevToolsService.getCurrentUserInfo();
+            final current = (info?['vie']?['vieMaximum'] as int? ?? 5).clamp(1, 50);
+            await DevToolsService.setMaxLives((current + 1).clamp(1, 50));
+            if (widget.onLivesRestored != null) widget.onLivesRestored!();
+          }),
+        ),
+        _buildActionButton(
+          icon: Icons.restore,
+          label: '↩️ Réinitialiser vieMaximum à 5',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.resetMaxLivesToFive();
+            if (widget.onLivesRestored != null) widget.onLivesRestored!();
+          }),
+        ),
+        // (Supprimé) Normaliser la série
+        
+        _buildActionButton(
+          icon: Icons.star,
+          label: '🏆 Tester page Récompenses',
           onPressed: () {
-            widget.onAction();
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(); // Fermer le popup d'abord
+            TestRecompensesAccess.showRecompensesPage(context);
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.favorite,
+          label: '💖 Ouvrir Récompense utile secondaire (coeur)',
+          onPressed: () {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
+            }
+            Future<void>(() async {
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const RecompensesUtilesSecondairePage()),
+              );
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐ Simuler 1 étoile',
+          onPressed: () async {
+            // Fermer le popup sans attendre pour conserver un context valide
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
+            }
+            // Déférer la suite après fermeture du dialog (évite d'utiliser le même BuildContext après await)
+            Future<void>(() async {
+              final service = RecompensesUtilesService();
+              await service.simulerEtoiles(TypeEtoile.uneEtoile);
+              if (kDebugMode) debugPrint('🌟 Simulation 1 étoile terminée');
+              // Utiliser le navigator capturé pour éviter d'utiliser BuildContext après un await
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const RecompensesUtilesPage()),
+              );
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐⭐ Simuler 2 étoiles',
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
+            }
+            Future<void>(() async {
+              final service = RecompensesUtilesService();
+              await service.simulerEtoiles(TypeEtoile.deuxEtoiles);
+              if (kDebugMode) debugPrint('🌟 Simulation 2 étoiles terminée');
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const RecompensesUtilesPage()),
+              );
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐⭐⭐ Simuler 3 étoiles',
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
+            }
+            Future<void>(() async {
+              final service = RecompensesUtilesService();
+              await service.simulerEtoiles(TypeEtoile.troisEtoiles);
+              if (kDebugMode) debugPrint('🌟 Simulation 3 étoiles terminée');
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const RecompensesUtilesPage()),
+              );
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.file_download,
+          label: '📤 Exporter cadrages (JSON)',
+          onPressed: () async {
+            await _executeAction(() async {
+              final map = await BirdImageAlignments.exportCalibratedAlignments();
+              final json = const JsonEncoder.withIndent('  ').convert(map);
+              try { await Clipboard.setData(ClipboardData(text: json)); } catch (_) {}
+              if (mounted) {
+                await showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Export des cadrages (copié)'),
+                    content: SingleChildScrollView(child: SelectableText(json, style: const TextStyle(fontFamily: 'monospace', fontSize: 12))),
+                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer'))],
+                  ),
+                );
+              }
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.file_upload,
+          label: '📥 Importer cadrages (JSON)',
+          onPressed: () async {
+            await _executeAction(() async {
+              final controller = TextEditingController();
+              final ok = await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Importer cadrages'),
+                  content: SizedBox(
+                    width: 520,
+                    child: TextField(controller: controller, maxLines: 14, decoration: const InputDecoration(hintText: '{ "genus_species": 0.25 }')),
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+                    ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Importer')),
+                  ],
+                ),
+              );
+              if (ok == true) {
+                final Map<String, dynamic> decoded = controller.text.isEmpty ? <String, dynamic>{} : (jsonDecode(controller.text) as Map<String, dynamic>);
+                final Map<String, double> casted = decoded.map((k, v) => MapEntry(k, (v as num).toDouble()));
+                await BirdImageAlignments.importAlignments(casted);
+              }
+            });
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.list,
+          label: '📃 Lister espèces calibrées',
+          onPressed: () async {
+            await _executeAction(() async {
+              final map = await BirdImageAlignments.exportCalibratedAlignments();
+              final entries = map.entries.toList()..sort((a,b)=>a.key.compareTo(b.key));
+              final text = entries.isEmpty ? 'Aucune espèce calibrée.' : entries.map((e) => '${e.key}: ${e.value.toStringAsFixed(2)}').join('\n');
+              try { await Clipboard.setData(ClipboardData(text: text)); } catch (_) {}
+              if (mounted) {
+                await showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Espèces calibrées (copié)'),
+                    content: SingleChildScrollView(child: SelectableText(text, style: const TextStyle(fontFamily: 'monospace', fontSize: 12))),
+                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer'))],
+                  ),
+                );
+              }
+            });
           },
         ),
       ],
@@ -456,38 +775,21 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
         const SizedBox(height: 12),
         _buildActionButton(
           icon: Icons.lock_open,
-          label: '🌆 Déverrouiller toutes les missions Urbaines',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('U')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
-          label: '🌲 Déverrouiller toutes les missions Forestières',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('F')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
-          label: '🚜 Déverrouiller toutes les missions Agricoles',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('A')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
-          label: '💧 Déverrouiller toutes les missions Humides',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('H')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
-          label: '🏔️ Déverrouiller toutes les missions Montagnardes',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('M')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
-          label: '🏖️ Déverrouiller toutes les missions Littorales',
-          onPressed: () => _executeAction(() => DevToolsService.unlockAllBiomeMissions('L')),
-        ),
-        _buildActionButton(
-          icon: Icons.lock_open,
           label: '🔓 Déverrouiller TOUTES les missions',
           onPressed: () => _executeAction(DevToolsService.unlockAllMissions),
+        ),
+        // (Supprimé) Supprimer biomesDeverrouilles
+        _buildActionButton(
+          icon: Icons.star,
+          label: '⭐ Déverrouiller TOUTES les étoiles (3★ partout)',
+          onPressed: () => _executeAction(() async {
+            await DevToolsService.unlockAllStars();
+            // Appeler le callback pour forcer le rechargement des étoiles
+            if (widget.onStarsReset != null) {
+              if (kDebugMode) debugPrint('🔄 Appel du callback de rechargement des étoiles...');
+              widget.onStarsReset!();
+            }
+          }),
         ),
       ],
     );
@@ -515,68 +817,10 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
             }
             _executeAction(() async {
               await DevToolsService.resetAllStars();
-              // Appeler le callback pour forcer le rechargement des missions
               if (widget.onStarsReset != null) {
                 if (kDebugMode) debugPrint('🔄 Appel du callback de rechargement des étoiles...');
                 widget.onStarsReset!();
               }
-            });
-          },
-          isDestructive: true,
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildBadgeTestSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '🏷️ Test Badges NOUVEAU',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Quicksand',
-          ),
-        ),
-        const SizedBox(height: 12),
-        _buildActionButton(
-          icon: Icons.visibility,
-          label: '🔍 Afficher missions consultées',
-          onPressed: () {
-            _executeAction(() async {
-              await MissionPersistenceService.debugConsultedMissions();
-            });
-          },
-        ),
-        _buildActionButton(
-          icon: Icons.refresh,
-          label: '🔄 Réinitialiser statut consulté (U02)',
-          onPressed: () {
-            _executeAction(() async {
-              await MissionPersistenceService.clearMissionConsultedStatus('U02');
-              if (kDebugMode) debugPrint('🔄 Statut consulté réinitialisé pour U02');
-            });
-          },
-        ),
-        _buildActionButton(
-          icon: Icons.refresh,
-          label: '🔄 Réinitialiser statut consulté (F02)',
-          onPressed: () {
-            _executeAction(() async {
-              await MissionPersistenceService.clearMissionConsultedStatus('F02');
-              if (kDebugMode) debugPrint('🔄 Statut consulté réinitialisé pour F02');
-            });
-          },
-        ),
-        _buildActionButton(
-          icon: Icons.clear_all,
-          label: '🗑️ Effacer toutes les missions consultées',
-          onPressed: () {
-            _executeAction(() async {
-              await MissionPersistenceService.clearConsultedMissions();
-              if (kDebugMode) debugPrint('🗑️ Toutes les missions consultées ont été effacées');
             });
           },
           isDestructive: true,

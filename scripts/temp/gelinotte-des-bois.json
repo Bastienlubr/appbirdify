@@ -1,0 +1,101 @@
+{
+  "summary": {
+    "path": "fiches_oiseaux/gelinotte-des-bois",
+    "data": {
+      "appId": "gelinotte-des-bois",
+      "slug": "gelinotte-des-bois",
+      "nomFrancais": "Gélinotte des bois",
+      "nomScientifique": "Tetrastes bonasia",
+      "nomAnglais": "Hazel Grouse",
+      "wikidata_qid": "Q182761",
+      "guilde": "galliforme_forestier_insectivore_phytophage",
+      "media": {
+        "urlImage": "https://commons.wikimedia.org/wiki/Category:Tetrastes_bonasia#/media/File:Tetrastes_bonasia.jpg",
+        "urlMp3": "https://xeno-canto.org/species/Tetrastes-bonasia"
+      },
+      "version": 1,
+      "updatedAt": "2025-09-23T12:00:00Z"
+    }
+  },
+  "panels": {
+    "identification": {
+      "path": "fiches_oiseaux/gelinotte-des-bois/identification/current",
+      "data": {
+        "classification": { "ordre": "Galliformes", "famille": "Phasianidae" },
+        "morphologie": "Petit tétraonidé forestier, au plumage finement barré gris, brun et roux, queue courte grisâtre à large bande subterminale sombre. Le mâle porte une petite huppe et une bavette noire bordée de blanc très contrastée, inexistante chez la femelle qui est plus terne et uniformément barrée ; les juvéniles rappellent la femelle mais avec des dessins plus flous. En vol, battements rapides sur courte distance dans le sous-bois.",
+        "mesures": {
+          "taille": { "min": 35, "max": 40, "unite": "cm", "display": "35–40 cm" },
+          "envergure": { "min": 48, "max": 54, "unite": "cm", "display": "48–54 cm" },
+          "poids": { "min": 300, "max": 450, "unite": "g", "display": "300–450 g" }
+        },
+        "especesRessemblantes": [
+          { "nom": "Tétras lyre", "se_distingue_par": "Beaucoup plus grand et massif, queue lyre très marquée chez le mâle, plumage plus sombre et comportements de parade en clairière ouverte ; la Gélinotte est nettement plus petite et strictement forestière." },
+          { "nom": "Perdrix grise", "se_distingue_par": "Oiseau des milieux ouverts, silhouette plus trapue au sol, queue brune sans large bande subterminale grise et absence de bavette noire bordée de blanc chez le mâle." }
+        ],
+        "sources": ["Wikidata","INPN/TAXREF","IUCN (catégorie+année+URL)"],
+        "confiance": "élevée",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "habitat": {
+      "path": "fiches_oiseaux/gelinotte-des-bois/habitat/current",
+      "data": {
+        "typeDeMilieu": "Espèce typique des forêts fraîches et denses à sous-bois développé, mêlant feuillus pionniers (bouleau, aulne, sorbier, saules) et conifères, avec fourrés, bois mort et lisières internes offrant couvert et nourriture.",
+        "ouObserverFrance": "En France, elle subsiste surtout dans les massifs de l’Est : Ardennes et Vosges, Jura, Alpes du Nord et du Sud ; présence très localisée ailleurs (quelques secteurs du Massif central) avec un recul marqué dans les plaines du Nord-Est.",
+        "migration": "Espèce sédentaire : les individus occupent des territoires forestiers permanents, avec seulement de courts déplacements locaux entre zones d’alimentation et de repos selon les saisons.",
+        "sources": ["INPN/SINP","LPO (régionale)"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "alimentation": {
+      "path": "fiches_oiseaux/gelinotte-des-bois/alimentation/current",
+      "data": {
+        "alimentationPrincipale": ["bourgeons et chatons","feuilles","insectes"],
+        "description": "Régime principalement végétal hors reproduction : en automne-hiver, consommation de bourgeons et de chatons, notamment d’aulne et de bouleau ; au printemps-été, part accrue d’herbacées, baies et jeunes feuilles. Les poussins sont insectivores durant les premières semaines (arthropodes capturés au sol et dans le bas du couvert).",
+        "sources": ["MDPI (open-access)","PLOS (open-access)"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "reproduction": {
+      "path": "fiches_oiseaux/gelinotte-des-bois/reproduction/current",
+      "data": {
+        "etapes": {
+          "parade": "Chant sifflé aigu du mâle depuis un perchoir discret ; poursuites et attitudes de balancement dans le sous-bois serré.",
+          "nidification": "Nid au sol, simple cuvette garnie de matériaux végétaux, dissimulée sous un fourré, une touffe de fougères ou près d’un tronc couché.",
+          "ponte": "Une ponte annuelle le plus souvent, en mai-juin, comportant habituellement 6 à 10 œufs crème tachés de brun.",
+          "incubation": "Incubation assurée par la femelle seule ; éclosion synchrone après un peu plus de trois semaines.",
+          "nourrissage": "Poussins nidifuges conduits par la femelle vers des zones riches en invertébrés ; apport d’insectes dominant au début puis diversification.",
+          "envol": "Premier vol vers 2 à 3 semaines ; autonomie progressive en été.",
+          "accouplement": "Accouplement au territoire après les parades et la formation du couple."
+        },
+        "chips": {
+          "periodeMois": ["mai","juin"],
+          "nbOeufsParPondee": { "min": 6, "max": 10 },
+          "incubationJours": { "min": 23, "max": 27, "unite": "j" }
+        },
+        "sources": ["INPN/SINP"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    },
+    "protection": {
+      "path": "fiches_oiseaux/gelinotte-des-bois/protection/current",
+      "data": {
+        "statutMonde": { "iucn": "LC", "annee": 2024, "url": "https://www.iucnredlist.org/" },
+        "statutFrance": "NT",
+        "description": "Tendance générale à la baisse en Europe occidentale liée à la modification des peuplements (simplification et fermeture du sous-bois), à l’intensification de l’exploitation forestière, au morcellement des habitats et au dérangement ; en France, la répartition est très fragmentée et les noyaux montagnards restent les plus viables.",
+        "actions": [
+          "Maintenir des mosaïques forestières structurées (mélange feuillus pionniers/conifères, sous-bois arbustif, bois mort, lisières internes) et éviter les coupes rases étendues.",
+          "Limiter le dérangement en période de reproduction, préserver des îlots de quiétude et adapter les travaux sylvicoles (calendrier, intensité) dans les secteurs à enjeu."
+        ],
+        "sources": ["IUCN (catégorie/année/url)","data.gouv"],
+        "confiance": "moyenne",
+        "updatedAt": "2025-09-23T12:00:00Z"
+      }
+    }
+  }
+}
+
+

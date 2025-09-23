@@ -27,6 +27,14 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Suppress JDK warnings emitted by plugins or transitive Java tasks across all modules
+subprojects {
+    tasks.withType<JavaCompile>().configureEach {
+        // Hide warnings about obsolete -source/-target flags and deprecated APIs in dependencies
+        options.compilerArgs.addAll(listOf("-Xlint:-options", "-Xlint:-deprecation"))
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
