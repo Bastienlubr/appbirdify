@@ -255,35 +255,8 @@ class PremiumService {
         });
         backendOk = true;
       } catch (_) {
-        // Fallback: écrire côté client (règles assouplies pour tests)
-        try {
-          final db = FirebaseFirestore.instance;
-          final userRef = db.doc('utilisateurs/${user.uid}');
-          final currentRef = userRef.collection('abonnement').doc('current');
-          await currentRef.set({
-            'etat': 'ACTIVE',
-            'periodeCourante': {
-              'debut': DateTime.now(),
-              'fin': null,
-            },
-            'prochaineFacturation': null,
-            'offre': {
-              'productId': productId,
-            },
-            'renouvellement': {'auto': true},
-            'joursEssaiRestants': 0,
-            'lastSync': DateTime.now(),
-            'packageName': 'com.mindbird.app',
-            'subscriptionId': productId,
-            'lastToken': purchaseToken,
-          }, SetOptions(merge: true));
-          await userRef.set({
-            'profil': {'estPremium': true},
-            'vie': {'livesInfinite': true},
-          }, SetOptions(merge: true));
-        } catch (e) {
-          if (kDebugMode) debugPrint('❌ Fallback write Firestore error: $e');
-        }
+        // Plus de fallback client: la vérification doit passer par la CF pour lier le token à l'UID
+        if (kDebugMode) debugPrint('❌ Vérification backend requise pour activer l\'abonnement');
       }
 
       // Ecrire/mettre à jour un encart local d'information (fallback UI)

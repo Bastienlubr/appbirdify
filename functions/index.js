@@ -25,6 +25,7 @@ exports.verifierAbonnementV2 = onCall(async (request) => {
     const db = admin.firestore();
     const userRef = db.doc(`utilisateurs/${uid}`);
     const currentRef = userRef.collection('abonnement').doc('current');
+    const tokenRef = db.collection('abonnements_tokens').doc(purchaseToken);
 
     // Appel Google Play Subscriptions v2 pour récupérer phases/prices
     const { google } = require('googleapis');
@@ -36,6 +37,21 @@ exports.verifierAbonnementV2 = onCall(async (request) => {
       token: purchaseToken,
       subscriptionId,
     });
+    // Liaison forte token → uid: empêche l'utilisation du même token sur un autre compte
+    const tokenSnap = await tokenRef.get();
+    if (tokenSnap.exists) {
+      const boundUid = tokenSnap.data() && tokenSnap.data().uid;
+      if (boundUid && boundUid !== uid) {
+        throw new HttpsError('permission-denied', 'Ce jeton d\'achat est déjà lié à un autre compte utilisateur');
+      }
+    }
+    await tokenRef.set({
+      uid,
+      subscriptionId,
+      packageName,
+      createdAt: tokenSnap.exists && tokenSnap.data().createdAt ? tokenSnap.data().createdAt.toDate ? tokenSnap.data().createdAt : tokenSnap.data().createdAt : new Date(),
+      lastSeenAt: new Date(),
+    }, { merge: true });
     const sub = res && res.data ? res.data : {};
     const line = sub.lineItems && sub.lineItems.length ? sub.lineItems[0] : undefined;
 
