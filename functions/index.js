@@ -32,10 +32,10 @@ exports.verifierAbonnementV2 = onCall({ invoker: 'public' }, async (request) => 
     const auth = new google.auth.GoogleAuth({ scopes: ['https://www.googleapis.com/auth/androidpublisher'] });
     const client = await auth.getClient();
     const androidpublisher = google.androidpublisher({ version: 'v3', auth: client });
+    // Subscriptionsv2.get n'accepte que { packageName, token }
     const res = await androidpublisher.purchases.subscriptionsv2.get({
       packageName,
       token: purchaseToken,
-      subscriptionId,
     });
     // Liaison forte token → uid: empêche l'utilisation du même token sur un autre compte
     const tokenSnap = await tokenRef.get();
