@@ -71,5 +71,6 @@ flutter {
 }
 
 dependencies {
-    implementation("com.android.billingclient:billing-ktx:6.1.0")
+    // Forcer Play Billing KTX 8.0.0 (requis par les guidelines les plus récentes)
+    implementation("com.android.billingclient:billing-ktx:8.0.0")
 }

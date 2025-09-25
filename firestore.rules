@@ -70,10 +70,10 @@ service cloud.firestore {
       allow update: if isOwner(uid)
                     // 1) Interdire toute écriture du champ racine 'abonnement'
                     && !('abonnement' in request.resource.data.diff(resource.data).changedKeys())
-                    // 2) Interdire de modifier le statut premium depuis le client
+                    // 2) Interdire toute modification de profil.estPremium depuis le client
                     && !(request.resource.data.profil.estPremium != resource.data.profil.estPremium)
-                    // 3) Interdire d'activer les vies infinies côté client
-                    && !((request.resource.data.vie.livesInfinite == true));
+                    // 3) Interdire toute modification de vie.livesInfinite depuis le client
+                    && !(request.resource.data.vie.livesInfinite != resource.data.vie.livesInfinite);
 
       // Suppression client interdite
       allow delete: if false;
@@ -88,6 +88,12 @@ service cloud.firestore {
           allow read: if isOwner(uid);
           allow create, update, delete: if false;
         }
+      }
+
+      // Historique d'abonnement: lecture seule côté client
+      match /abonnement_history/{eventId} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
       }
 
       // ...et tout sous-document / sous-collection
