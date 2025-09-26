@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // import 'streak_service.dart'; // Unused
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../../core/iap_flags.dart';
 
 /// Service complet pour la gestion du profil utilisateur et de toutes ses données personnelles
 class UserProfileService {
@@ -18,6 +19,28 @@ class UserProfileService {
     return _firestore
         .collection('utilisateurs')
         .doc(uid)
+        .snapshots()
+        .map((doc) => doc.data());
+  }
+
+  /// Flux temps réel de l'abonnement courant (read-only)
+  static Stream<Map<String, dynamic>?> subscriptionCurrentStream(String uid) {
+    return _firestore
+        .collection('utilisateurs')
+        .doc(uid)
+        .collection('abonnement')
+        .doc('current')
+        .snapshots()
+        .map((doc) => doc.data());
+  }
+
+  /// Flux temps réel de l'encart d'information d'abonnement (read-only)
+  static Stream<Map<String, dynamic>?> subscriptionEncartStream(String uid) {
+    return _firestore
+        .collection('utilisateurs')
+        .doc(uid)
+        .collection('abonnement')
+        .doc('encart')
         .snapshots()
         .map((doc) => doc.data());
   }
@@ -190,9 +213,16 @@ class UserProfileService {
   /// Active/désactive le premium
   static Future<void> setPremium({required String uid, required bool estPremium}) async {
     try {
-      await _firestore.collection('utilisateurs').doc(uid).update({
-        'profil.estPremium': estPremium,
-      });
+      // Désactivé en production: la mise à jour Premium se fait côté serveur.
+      // Autorisé uniquement en sandbox si kEnableClientFallback=true.
+      if (!kEnableClientFallback) {
+        if (kDebugMode) debugPrint('⏭️ setPremium ignoré (kEnableClientFallback=false)');
+        return;
+      }
+      await _firestore
+          .collection('utilisateurs')
+          .doc(uid)
+          .update({'profil.estPremium': estPremium});
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur setPremium: $e');
       rethrow;

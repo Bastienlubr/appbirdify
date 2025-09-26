@@ -1,90 +1,200 @@
-# Abonnements Google Play (Birdify)
+## Fonctionnement de l’abonnement Premium (Birdify)
 
-Ce guide explique comment configurer, tester et publier les abonnements sur Google Play pour l’app Android `com.mindbird.app`.
+Ce document explique de manière concise et exploitable comment fonctionne l’abonnement Premium dans l’app: flux, données Firestore, Cloud Function de vérification, et mapping UI ↔ produit. Il sert de référence pour le développement et pour outiller l’IA (OpenAI) avec un contexte précis.
 
-## 1) Pré-requis
-- Compte Google Play Console avec droits de publication
-- Profil de paiement marchand activé (pour vendre des abonnements)
-- Identifiant d’application: `com.mindbird.app` (déjà configuré dans le projet)
+### TL;DR – Cycle de vie d’un achat (aligné Play Billing)
+1) Montrer les offres: `ChoixOffrePage` (1/6/12 mois) via SKUs configurés.
+2) Lancer l’achat: `PremiumService.buyXxx()` ouvre Google Play.
+3) Vérifier côté serveur: `_onPurchaseUpdate` → `_verifyAndAcknowledge()` appelle la CF `verifierAbonnementV2` avec `{ packageName, subscriptionId, purchaseToken }`.
+4) Accorder l’accès: la CF met à jour Firestore (`profil.estPremium = true`, `vie.livesInfinite = true`, doc `abonnement/current` à jour). Fallback client en sandbox si CF indisponible.
+5) Accuser réception: `completePurchase(p)` (acknowledge). Pas de consommation (abonnements).
 
-## 2) Créer les abonnements dans Play Console
-1. Ouvre Play Console > ton app > Monétiser > Produits > Abonnements
-2. Crée:
-   - `premium_monthly` (Premium mensuel)
-   - `premium_yearly` (Premium annuel)
-3. Pour chaque abonnement:
-   - Crée une Offre (optionnel: essai gratuit, remise) puis active-la
-   - Publie/Active l’abonnement (sinon il reste invisible même en test)
+### Vue d’ensemble
+- Achats gérés via `in_app_purchase` (Android Google Play).
+- Vérification côté backend via Cloud Functions (fallback client pour tests).
+- État Premium piloté par Firestore, consommé par l’UI (gating, vies infinies, écrans de bienvenue/gestion).
 
-Note: Les prix affichés dans l’app sont dynamiques et proviennent de Google Play; toute modification côté Console se reflèlera automatiquement après propagation.
+### Code source principal
+- Service d’achats: `lib/services/premium_service.dart`
+- Page de choix d’offre: `lib/pages/Abonnement/choix_offre_page.dart`
+- Page de bienvenue: `lib/pages/Abonnement/bienvenue_abonnement_page.dart`
+- Page gérer abonnement: `lib/pages/Abonnement/gerer_mon_abonnement_page.dart`
 
-## 3) Comptes de test
-- Play Console > Paramètres > Licence de test: ajoute les adresses Gmail des testeurs
-- Sur l’appareil de test, utilise un de ces comptes dans le Play Store
+### Produits (SKUs)
+- Mensuel: un des IDs dans `PremiumService.monthlySkus`
+- Semestriel: `PremiumService.semiAnnualSkus`
+- Annuel: `PremiumService.annualSkus`
 
-## 4) Signature Android (release)
-Le projet charge `android/key.properties` s’il existe et signe automatiquement en release.
+Les listes contiennent plusieurs variantes publiées (redondance). Le service choisit une variante non possédée lorsqu’il en propose plusieurs.
 
-- Générer un keystore (Windows, JDK requis):
+### Flux IAP
+1) Démarrage (`PremiumService.start`)
+- Vérifie la disponibilité Billing, écoute `purchaseStream`, interroge les produits, effectue une restauration initiale (idempotent).
+
+2) Achat (`buy`, `buyMonthly`, `buySemiAnnual`, `buyAnnual`)
+- Lance `buyNonConsumable` avec le `ProductDetails` sélectionné.
+- Déclenche une restauration différée (8s) si nécessaire pour assurer la réception des achats.
+
+3) Réception (`_onPurchaseUpdate`)
+- Pour chaque `PurchaseDetails`:
+  - Marque l’ID produit comme possédé (évite de reproposer la même variante).
+  - Appelle `_verifyAndAcknowledge`.
+
+4) Vérification serveur (V3) & Accusé
+- Back‑end: `verifierAbonnementV3` avec `{ packageName, subscriptionId, purchaseToken }`.
+- Le serveur consulte l’API Play (subscriptions v2), ACK si nécessaire, puis écrit Firestore (profil + `abonnement/current` + `encart`).
+- Côté client: aucune écriture Firestore ni acknowledge Android en flux sécurisé.
+
+5) Restauration (`restore`)
+- Relance `restorePurchases` si besoin pour resynchroniser un abonnement déjà actif.
+
+### États d’abonnement: mapping Google Play → Firestore → UX
+- Actif (ACTIVE)
+  - Firestore: `current.etat = 'ACTIVE'`, `offre.productId`, `renouvellement.auto = true/false`, dates de période renseignées.
+  - Profil: `profil.estPremium = true`, `vie.livesInfinite = true`.
+  - UX: accès Premium, `ChoixOffrePage` redirige vers `'/abonnement/bienvenue'`.
+
+- Annulé (CANCELED)
+  - Firestore: `current.etat = 'CANCELED'`, `periodeCourante.fin` fixé par CF à la date d’expiration.
+  - Profil: reste Premium jusqu’à `fin` (CF peut maintenir `estPremium = true` jusqu’à expiration puis remettre à `false`).
+  - UX: accès maintenu jusqu’à `fin`, puis retour offres.
+
+- Délai de grâce (GRACE) / Retente paiement (PAYMENT_RETRY)
+  - Firestore: `current.etat = 'GRACE' | 'PAYMENT_RETRY'`, `prochaineFacturation` mis à jour.
+  - Profil: `estPremium = true` tant que Play maintient l’accès.
+  - UX: accès OK; panneau gestion peut afficher un bandeau d’avertissement.
+
+- En attente (PENDING)
+  - Firestore: `current.etat = 'PENDING'`.
+  - Profil: `estPremium = false` (pas d’accès tant que l’achat n’est pas confirmé).
+  - UX: reste sur offres, proposer "Restaurer mes achats".
+
+- Suspendu (SUSPENDED)
+  - Firestore: `current.etat = 'SUSPENDED'`.
+  - Profil: `estPremium = false`.
+  - UX: bloqué; CTA vers gestion Google Play.
+
+- Expiré (EXPIRED)
+  - Firestore: `current.etat = 'EXPIRED'`, `periodeCourante.fin` renseigné.
+  - Profil: `estPremium = false`, `vie.livesInfinite = false`.
+  - UX: retour aux offres, masquer avantages Premium.
+
+### Firestore: structure et drapeaux
+- Profil utilisateur: `utilisateurs/{uid}`
+  - `profil.estPremium: bool` → gating global (Premium ON/OFF)
+  - `vie.livesInfinite: bool` → vies infinies si Premium
+
+- Abonnement courant: `utilisateurs/{uid}/abonnement/current`
+  - `etat: 'ACTIVE' | ...`
+  - `offre.productId: string` (ID produit acheté)
+  - `subscriptionId: string?` (fallback)
+  - `renouvellement.auto: bool`
+  - `periodeCourante.debut/fin: Timestamp?`
+  - `prochaineFacturation: Timestamp?`
+  - `joursEssaiRestants: number`
+  - `lastToken, lastSync, packageName`
+
+- Encart d’info: `utilisateurs/{uid}/abonnement/encart`
+  - `plan`, `prixAffiche`, `essai.debut/fin`, `debutFacturation`, `prochaineFacturation`, `renouvellementAutomatique`
+
+Ces champs sont mis à jour par la CF `verifierAbonnementV2` (ou via le fallback client en sandbox).
+
+### Initialisation Billing / Reconnexion
+- À l’entrée dans le flux Premium (ou au démarrage si souhaité), `PremiumService.start()`:
+  - vérifie `isAvailable`, installe `purchaseStream`, interroge `queryProductDetails`, lance une restauration unique.
+- En flux sécurisé: restoration à chaque `start()` pour capter PENDING→PURCHASED hors app. `triggerForegroundSync()` relance une restauration au retour foreground.
+- La lib `in_app_purchase` gère la reconnexion au service Billing.
+
+### Mapping UI ↔ produit/état
+- Choix des offres (`ChoixOffrePage`)
+  - Sélection locale: `OffreType { mois1, mois6, mois12 }`.
+  - Achat: appelle `PremiumService.instance.buyXxx()` selon la sélection.
+  - Écoute `.../abonnement/current`:
+    - Si `etat == 'ACTIVE'` → navigation `'/abonnement/bienvenue'`.
+    - Si `offre.productId` est présent → fige la sélection visuelle en fonction du SKU.
+
+- Bienvenue (`bienvenue_abonnement_page.dart`)
+  - Écran de confirmation après activation de l’abonnement.
+
+- Gérer (`gerer_mon_abonnement_page.dart`)
+  - “Gérer sur Google Play”: ouvre la gestion d’abonnement du compte.
+  - “Restaurer mes achats”: relance `restore()`.
+
+### Gating Premium
+- L’UI s’appuie sur:
+  - `profil.estPremium == true` pour déverrouiller les fonctionnalités Premium.
+  - `vie.livesInfinite == true` pour masquer les limitations de vies.
+  - Les écrans d’offres détectent `current.etat == 'ACTIVE'` pour basculer automatiquement vers la page de bienvenue.
+
+### Points d’intégration clés (référence code)
+- Service: `lib/services/premium_service.dart` (flux complet IAP, CF, Firestore)
+- UI offres: `lib/pages/Abonnement/choix_offre_page.dart`
+- UI bienvenue: `lib/pages/Abonnement/bienvenue_abonnement_page.dart`
+- UI gestion: `lib/pages/Abonnement/gerer_mon_abonnement_page.dart`
+
+### Dépannage rapide
+- Produits non visibles → vérifier publication/activation des abonnements/offres et compte test sur l’appareil.
+- Achat ne s’ouvre pas → vérifier Play Billing disponible et `packageName`.
+- Pas de synchro Premium → vérifier la CF `verifierAbonnementV2` (logs Firebase) ou la restauration.
+
+---
+
+# Guide Play Console (Android)
+
+## Pré‑requis
+- Compte Google Play Console (droits de publication)
+- Profil marchand activé
+- Identifiant app: `com.mindbird.app`
+
+## Créer les abonnements
+1. Play Console > Monétiser > Produits > Abonnements
+2. Créer/activer les variantes (mensuel, 6 mois, annuel) et leurs offres (essai/remise)
+3. Publier chaque abonnement/offre
+
+## Comptes de test
+- Paramètres > Licence de test: ajouter les Gmail
+- Sur l’appareil: utiliser ce compte dans Play Store
+
+## Signature Android (release)
+- Keystore + `android/key.properties` (voir modèle ci‑dessous)
 ```
 keytool -genkeypair -v -keystore android/app/keystore.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
 ```
-- Créer `android/key.properties`:
 ```
 storeFile=android/app/keystore.jks
-storePassword=VOTRE_MOT_DE_PASSE
+storePassword=***
 keyAlias=upload
-keyPassword=VOTRE_MOT_DE_PASSE
+keyPassword=***
 ```
-- Incrémentez le build number dans `pubspec.yaml` avant chaque envoi (ex: `version: 1.0.0+2`)
 
-## 5) Générer et publier un AAB
-- Générer le bundle:
+## Publier un AAB
 ```
 flutter build appbundle --release
 ```
-- Fichier à uploader: `build/app/outputs/bundle/release/app-release.aab`
-- Dans Play Console, crée une nouvelle release (Tests internes recommandé au début), téléverse le AAB, ajoute des testeurs, puis publie
+Uploader `build/app/outputs/bundle/release/app-release.aab` (tests internes recommandé).
 
-## 6) Déclarations “Contenu de l’application” (Play Console)
-- Sécurité des données: compléter le formulaire (Firebase Auth/Firestore/Storage si utilisés)
-- Public cible et contenu: compléter
-- Identifiant publicitaire (Android 13 / AD_ID): l’app n’utilise pas d’Ads SDK → déclarez “N’utilise pas l’Advertising ID” (ne pas ajouter de permission AD_ID)
-- Permissions: vérifier et déclarer celles réellement utilisées (ex: Internet, stockage si besoin)
+## Déclarations Play Console
+- Sécurité des données (Firebase Auth/Firestore/Storage)
+- Public cible
+- Advertising ID: Non (si pas d’Ads SDK)
+- Permissions: uniquement nécessaires
 
-## 7) Tester les achats in-app (IAP)
-1. Installez l’app de test (Tests internes ou `flutter install` sur un appareil connecté au compte de test)
-2. App > Menu Premium > “Choisis un abonnement”
-3. Lancez un achat (sandbox). Après succès:
-   - Firestore: `profil.estPremium = true`
-   - Flag de gating: `livesInfinite = true`
-4. Page “Gérer mon abonnement”:
-   - “Gérer sur Google Play” ouvre la gestion abonnements du compte
-   - “Restaurer mes achats” relance la restauration
+## Tester les achats
+1. Installer la build de test (tests internes)
+2. Lancer un achat depuis l’app
+3. Après succès: Firestore doit montrer `profil.estPremium = true` et `vie.livesInfinite = true`
+4. “Gérer mon abonnement” > “Restaurer mes achats” = restauration
 
-## 8) Notes & bonnes pratiques
-- SKU 6 mois: actuellement mappé sur l’annuel. Pour un vrai 6 mois, créez un 3e SKU et on le branche.
-- Les prix dans l’UI sont dynamiques (label Google Play, devise locale). Pour des promos/essais, utilisez les Offres dans Play Console.
-- À chaque nouvel upload de release: incrémentez le `versionCode` (`pubspec.yaml` champ après le `+`).
-- En cas de message “release verrouillée/brouillon”: supprimez le brouillon et créez une nouvelle release.
+## Dépannage
+- Produits invisibles: vérifier publication/offres et compte test
+- Restauration KO: relancer l’app et `restore()`
+- AAB rejeté: incrémenter `version` (`pubspec.yaml`) puis rebuild
 
-## 9) Dépannage rapide
-- Produits non visibles: vérifier que les abonnements/Offres sont publiés/actifs et que l’appareil utilise un compte test
-- Achat ne s’ouvre pas: vérifier la disponibilité Play Billing et le package name `com.mindbird.app`
-- Restauration: utilisez “Restaurer mes achats” sur la page de gestion
-- Échec d’upload AAB: incrémentez la version (`pubspec.yaml`), rebuild, réessayez
-
----
-Dernière MAJ: automatique via intégration IAP (in_app_purchase). Si un flux change côté Google, mettre à jour ici.
-
-## 10) Checklist restante (à cocher)
-- [ ] Créer `premium_monthly` et `premium_yearly` et les publier (Play Console)
-- [ ] Ajouter les comptes test (Licence de test)
-- [ ] Générer keystore + `android/key.properties` (si pas déjà fait)
-- [ ] Incrémenter `version` dans `pubspec.yaml`
-- [ ] Générer AAB release: `flutter build appbundle --release`
-- [ ] Créer release (Tests internes) et uploader le AAB
-- [ ] Compléter “Contenu de l’application” (Sécurité des données, Public cible, Identifiant publicitaire = Non)
-- [ ] Tester l’achat sandbox (mensuel/annuel)
-- [ ] Vérifier Firestore: `profil.estPremium = true` et `livesInfinite = true`
-- [ ] Restauration via “Gérer mon abonnement” > “Restaurer mes achats”
+## Checklist
+- [ ] Abonnements/offres publiés
+- [ ] Comptes test ajoutés
+- [ ] Keystore configuré
+- [ ] `version` incrémentée
+- [ ] AAB généré et uploadé (tests internes)
+- [ ] Achat sandbox OK → Firestore à jour
+- [ ] Restauration OK

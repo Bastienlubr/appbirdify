@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'Users/streak_service.dart';
 import 'Perchoir/fiche_oiseau_service.dart';
+import '../core/iap_flags.dart';
 
 class DevToolsService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -112,6 +113,10 @@ class DevToolsService {
   /// Active/désactive le mode vies infinies sur le compte courant
   static Future<void> setInfiniteLives(bool enabled) async {
     try {
+      if (!kEnableClientFallback) {
+        if (kDebugMode) debugPrint('⏭️ setInfiniteLives ignoré (kEnableClientFallback=false)');
+        return;
+      }
       final user = _auth.currentUser;
       if (user == null) return;
 
@@ -420,6 +425,10 @@ class DevToolsService {
   /// Assure l'unicité de livesInfinite: place sous vie.livesInfinite et supprime la racine
   static Future<void> fixLivesInfinitePlacement() async {
     try {
+      if (!kEnableClientFallback) {
+        if (kDebugMode) debugPrint('⏭️ fixLivesInfinitePlacement ignoré (kEnableClientFallback=false)');
+        return;
+      }
       final user = _auth.currentUser;
       if (user == null) return;
       final ref = _firestore.collection('utilisateurs').doc(user.uid);
@@ -445,6 +454,10 @@ class DevToolsService {
   /// Supprime explicitement l'ancien champ racine livesInfinite (sans toucher à vie.livesInfinite)
   static Future<void> deleteRootLivesInfinite() async {
     try {
+      if (!kEnableClientFallback) {
+        if (kDebugMode) debugPrint('⏭️ deleteRootLivesInfinite ignoré (kEnableClientFallback=false)');
+        return;
+      }
       final user = _auth.currentUser;
       if (user == null) return;
       final ref = _firestore.collection('utilisateurs').doc(user.uid);
@@ -473,6 +486,10 @@ class DevToolsService {
   /// Définit l'état premium et synchronise livesInfinite en conséquence
   static Future<void> setPremium(bool enabled) async {
     try {
+      if (!kEnableClientFallback) {
+        if (kDebugMode) debugPrint('⏭️ setPremium ignoré (kEnableClientFallback=false)');
+        return;
+      }
       final user = _auth.currentUser;
       if (user == null) return;
       await _firestore.collection('utilisateurs').doc(user.uid).set({
@@ -495,6 +512,10 @@ class DevToolsService {
 
   /// Inverse l'état premium actuel
   static Future<void> togglePremium() async {
+    if (!kEnableClientFallback) {
+      if (kDebugMode) debugPrint('⏭️ togglePremium ignoré (kEnableClientFallback=false)');
+      return;
+    }
     final current = await isPremium();
     await setPremium(!current);
   }

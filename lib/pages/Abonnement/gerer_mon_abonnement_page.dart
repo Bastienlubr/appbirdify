@@ -3,7 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../widgets/boutons/bouton_universel.dart';
 // import supprimé: premium_service
 import 'package:url_launcher/url_launcher.dart';
-import '../../services/premium_service.dart';
+// PremiumService supprimé lors de la refonte
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 // premium_service supprimé
@@ -235,7 +235,13 @@ class _BottomButtons extends StatelessWidget {
             width: 274.82,
             height: 40.73,
             child: BoutonUniversel(
-              onPressed: () async { try { await PremiumService.instance.restore(); } catch (_) {} },
+              onPressed: () async {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Restauration indisponible pendant la refonte.')),
+                  );
+                }
+              },
               size: BoutonUniverselTaille.small,
               borderRadius: 10,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -765,9 +771,7 @@ class _RestoreOnOpenOnceState extends State<_RestoreOnOpenOnce> {
     super.didChangeDependencies();
     if (_did) return;
     _did = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try { await PremiumService.instance.restore(); } catch (_) {}
-    });
+    // Restauration automatique supprimée pendant la refonte
   }
   @override
   Widget build(BuildContext context) {

@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firestore_service.dart';
 // import supprimé: premium_service
 import 'life_service.dart';
-import '../premium_service.dart';
+// PremiumService supprimé lors de la refonte
 import 'user_profile_service.dart';
 import 'user_avatar_service.dart';
 
@@ -131,8 +131,7 @@ class UserOrchestra {
       // 6) Démarrer la synchronisation temps réel unifiée
       await startRealtime();
 
-      // 7) Démarrer PremiumService (Android seulement)
-      try { await PremiumService.instance.start(); } catch (_) {}
+      // 7) Premium supprimé: aucun démarrage IAP
 
       // 8) Avatar: écouter et précharger la photo de profil pour l'UI
       try {
@@ -152,7 +151,7 @@ class UserOrchestra {
     try {
       stopRealtime();
     } catch (_) {}
-    try { PremiumService.instance.stop(); } catch (_) {}
+    // Premium supprimé: rien à arrêter
     try {
       UserAvatarService.instance.stop();
     } catch (_) {}
@@ -187,6 +186,20 @@ class UserOrchestra {
       await _startSessionsStream(user.uid);
 
       await UserProfileService.updateLastLogin(user.uid);
+      // Si l'accès premium est autorisé, pousser immédiatement l'état premium côté profil et vies
+      try {
+        final currentAbo = await FirebaseFirestore.instance
+            .collection('utilisateurs').doc(user.uid)
+            .collection('abonnement').doc('current').get();
+        final d = currentAbo.data();
+        final bool accesAutorise = d?['accesAutorise'] == true;
+        if (accesAutorise) {
+          await FirebaseFirestore.instance.collection('utilisateurs').doc(user.uid).set({
+            'profil': {'estPremium': true},
+            'vie': {'livesInfinite': true},
+          }, SetOptions(merge: true));
+        }
+      } catch (_) {}
       if (kDebugMode) debugPrint('✅ Sync temps réel démarrée');
     } catch (e) {
       if (kDebugMode) debugPrint('❌ Erreur démarrage sync temps réel: $e');

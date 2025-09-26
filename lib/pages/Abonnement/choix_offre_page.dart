@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../widgets/boutons/bouton_universel.dart';
-import '../../services/premium_service.dart';
+import '../../services/iap_service.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -20,6 +21,7 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _aboSub;
   bool _navigatedAfterActivation = false;
   bool _selectionLocked = false; // fixe la sélection en fonction de Firestore si déjà abonné
+  bool _isVerifying = false; // bandeau PENDING / en vérification
 
   static const double _baseW = 375;
   static const double _baseH = 812;
@@ -60,6 +62,8 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
                         setState(() => _selection = t);
                       },
                       onContinue: _onContinue,
+                      isVerifying: _isVerifying,
+                      onRestore: _onRestoreTap,
                     ),
                   ),
                 ),
@@ -76,6 +80,19 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
     super.initState();
     _listenActivation();
     _initSelectionFromFirestore();
+    // Init IAP réel
+    // ignore: discarded_futures
+    IapService.instance.init();
+  }
+
+  Future<void> _onRestoreTap() async {
+    try {
+      await IapService.instance.restore();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Restauration demandée.')),
+      );
+    } catch (_) {}
   }
 
   @override
@@ -97,6 +114,8 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
       if (!mounted || _navigatedAfterActivation) return;
       final data = snap.data();
       final etat = data != null ? data['etat'] as String? : null;
+      final String? phase = data != null ? data['phase'] as String? : null;
+      final bool accesAutorise = data != null ? (data['accesAutorise'] == true) : false;
       // Si un abonnement existe, fixer la sélection d'après le produit
       final String? productId = (data?['offre']?['productId'] as String?) ?? (data?['subscriptionId'] as String?);
       if (productId != null && productId.isNotEmpty) {
@@ -108,7 +127,14 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
           });
         }
       }
-      if (etat == 'ACTIVE') {
+      // Mettre à jour l'état de vérification selon Firestore
+      if (etat == 'PENDING') {
+        if (!_isVerifying) setState(() => _isVerifying = true);
+      } else {
+        if (_isVerifying) setState(() => _isVerifying = false);
+      }
+      // Navigation immédiate dès que l'accès est autorisé (phase en_attente) ou etat ACTIVE
+      if (etat == 'ACTIVE' || accesAutorise == true || phase == 'en_attente') {
         _navigatedAfterActivation = true;
         // Remplace l’écran d’offres par la page de bienvenue
         Navigator.of(context).pushReplacementNamed('/abonnement/bienvenue');
@@ -150,27 +176,35 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
 
   Future<void> _onContinue() async {
     try {
-      bool ok = false;
-      switch (_selection) {
-        case OffreType.mois1:
-          ok = await PremiumService.instance.buyMonthly();
-          break;
-        case OffreType.mois6:
-          ok = await PremiumService.instance.buySemiAnnual();
-          break;
-        case OffreType.mois12:
-          ok = await PremiumService.instance.buyAnnual();
-          break;
+      final sel = _selection;
+      ProductDetails? product;
+      if (sel == OffreType.mois1) {
+        product = IapService.instance.pickVariantFirstNotOwned(IapService.sku1M);
+      } else if (sel == OffreType.mois6) {
+        product = IapService.instance.pickVariantFirstNotOwned(IapService.sku6M);
+      } else {
+        product = IapService.instance.pickVariantFirstNotOwned(IapService.sku12M);
       }
-      if (!ok && mounted) {
+      if (product == null) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Offre indisponible sur ce device/compte. Vérifie la publication et le compte test.')),
+          const SnackBar(content: Text('Offre indisponible sur ce device/compte.')),
+        );
+        return;
+      }
+      final ok = await IapService.instance.buy(product);
+      if (!mounted) return;
+      if (ok) {
+        setState(() => _isVerifying = true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Achat non démarré. Réessaie plus tard.')),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Achat impossible: $e')),
+        SnackBar(content: Text('Erreur achat: $e')),
       );
     }
   }
@@ -187,7 +221,9 @@ class _Canvas extends StatelessWidget {
   final OffreType selection;
   final ValueChanged<OffreType> onSelect;
   final VoidCallback onContinue;
-  const _Canvas({required this.selection, required this.onSelect, required this.onContinue});
+  final bool isVerifying;
+  final VoidCallback? onRestore;
+  const _Canvas({required this.selection, required this.onSelect, required this.onContinue, this.isVerifying = false, this.onRestore});
 
   // ignore: unused_element
   TextStyle get _fredoka24 => const TextStyle(
@@ -245,6 +281,27 @@ class _Canvas extends StatelessWidget {
               ),
             ),
           ),
+
+          // Bandeau de vérification (PENDING)
+          if (isVerifying)
+            Positioned(
+              left: 26,
+              right: 26,
+              top: 178,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xCCFCFCFE),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 2))],
+                ),
+                child: const Text(
+                  'Paiement en vérification…',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF334355), fontSize: 14, fontFamily: 'Fredoka', fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
 
           // Bande de séparation (plus épaisse)
           Positioned(
@@ -319,6 +376,27 @@ class _Canvas extends StatelessWidget {
               ),
             ),
           ),
+
+          // Lien Restaurer mes achats
+          if (onRestore != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 740,
+              child: Center(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onRestore,
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Text(
+                      'Restaurer mes achats',
+                      style: TextStyle(color: Color(0xFF334355), fontSize: 14, fontFamily: 'Fredoka', fontWeight: FontWeight.w600, decoration: TextDecoration.underline),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

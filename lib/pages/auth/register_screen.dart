@@ -34,7 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _getFirebaseErrorMessage(String code) {
     switch (code) {
       case 'weak-password':
-        return 'Le mot de passe est trop faible. Utilisez au moins 6 caractères.';
+        return 'Le mot de passe est trop faible. Utilisez au moins 8 caractères.';
       case 'email-already-in-use':
         return 'Cette adresse email est déjà utilisée.';
       case 'invalid-email':
@@ -75,7 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       setState(() {
         _errorMessage = 'Le mot de passe doit contenir au moins 8 caractères, une majuscule et un chiffre';
         _isLoading = false;
@@ -86,7 +86,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Règles de robustesse: 8+ caractères, 1 majuscule, 1 chiffre
     final bool hasMinLength = password.length >= 8;
     final bool hasUpper = RegExp(r'[A-Z]').hasMatch(password);
-    final bool hasDigit = RegExp(r'\\d').hasMatch(password);
+    final bool hasDigit = RegExp(r'\d').hasMatch(password);
     if (!(hasMinLength && hasUpper && hasDigit)) {
       setState(() {
         _errorMessage = 'Le mot de passe doit contenir au moins 8 caractères, une majuscule et un chiffre';

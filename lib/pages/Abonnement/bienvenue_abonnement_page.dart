@@ -356,7 +356,7 @@ class _EnvolWelcomePageState extends State<EnvolWelcomePage> with TickerProvider
                             width: 118,
                             height: 112,
                             child: Lottie.asset(
-                              'assets/PAGE/Paywall/clé.json',
+                              'assets/PAGE/paywall/clé.json',
                               fit: BoxFit.contain,
                               repeat: true,
                               delegates: LottieDelegates(values: [
