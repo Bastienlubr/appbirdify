@@ -652,34 +652,107 @@ class _ProfilPageState extends State<ProfilPage> {
             ),
           ),
         ),
+        SizedBox(height: m.dp(18, tabletFactor: 1.0, min: 12, max: 28)),
         SizedBox(
           height: m.dp(210, tabletFactor: 1.0, min: 190, max: 280),
           child: Stack(
             children: [
-              BiomeCarouselEnhanced(
-                loopInfinite: true,
-                showDots: false,
-                viewportFraction: 0.5,
-                compactStyle: true,
-                onBiomeTapped: (biome) {
-                  if (!UserOrchestra.isPremium) {
-                    Navigator.of(context).pushNamed('/abonnement/information');
-                    return;
+              LayoutBuilder(
+                builder: (ctx, cons) {
+                  final double screenW = MediaQuery.of(ctx).size.width;
+                  final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+                  if (isDesktop) {
+                    final List<String> biomes = const [
+                      'Urbain', 'Forestier', 'Agricole', 'Humide', 'Montagnard', 'Littoral'
+                    ];
+                    final double gap = m.dp(8, tabletFactor: 1.0, min: 6, max: 12);
+                    final int count = biomes.length;
+                    final double tile = ((cons.maxWidth - gap * (count - 1)) / count)
+                        .clamp(90.0, cons.maxHeight);
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(count * 2 - 1, (idx) {
+                        if (idx.isOdd) return SizedBox(width: gap);
+                        final int i = idx ~/ 2;
+                        final String name = biomes[i];
+                        final String img = _assetForBiome(name);
+                        return MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              if (!UserOrchestra.isPremium) {
+                                Navigator.of(context).pushNamed('/abonnement/information');
+                                return;
+                              }
+                              final String code = name.isNotEmpty ? name[0].toUpperCase() : '';
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => BilanQuizPage(
+                                    scopeId: code,
+                                    scopeLabel: _formatMilieu(name),
+                                  ),
+                                ),
+                              );
+                            },
+                            child: SizedBox(
+                              width: tile,
+                              height: tile,
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    width: tile,
+                                    height: tile,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(m.dp(16, tabletFactor: 1.0, min: 12, max: 18)),
+                                      boxShadow: const [
+                                        BoxShadow(color: Color(0x1A000000), blurRadius: 10, offset: Offset(0, 4)),
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(m.dp(16, tabletFactor: 1.0, min: 12, max: 18)),
+                                      child: Image.asset(
+                                        img,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    );
                   }
-                  final String name = biome.name;
-                  final String code = name.isNotEmpty ? name[0].toUpperCase() : '';
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => BilanQuizPage(
-                        scopeId: code,
-                        scopeLabel: _formatMilieu(name),
-                      ),
-                    ),
+                  // Mobile / tablette: garder le carrousel compact d’origine
+                  return BiomeCarouselEnhanced(
+                    loopInfinite: true,
+                    showDots: false,
+                    viewportFraction: 0.5,
+                    compactStyle: true,
+                    legacyStyle: true,
+                    onBiomeTapped: (biome) {
+                      if (!UserOrchestra.isPremium) {
+                        Navigator.of(context).pushNamed('/abonnement/information');
+                        return;
+                      }
+                      final String name = biome.name;
+                      final String code = name.isNotEmpty ? name[0].toUpperCase() : '';
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => BilanQuizPage(
+                            scopeId: code,
+                            scopeLabel: _formatMilieu(name),
+                          ),
+                        ),
+                      );
+                    },
+                    selectOnPageChange: false,
+                    disableTapCenterAnimation: false,
                   );
                 },
-                // Pas de sélection au slide dans le Profil: action au tap uniquement
-                selectOnPageChange: false,
-                disableTapCenterAnimation: false,
               ),
               // Fade gauche
               Positioned(
@@ -726,6 +799,7 @@ class _ProfilPageState extends State<ProfilPage> {
             ],
           ),
         ),
+        SizedBox(height: m.gapLarge()),
       ],
     );
   }
@@ -783,7 +857,7 @@ class _ProfilPageState extends State<ProfilPage> {
             ),
           ],
         ),
-        const SizedBox(height: 0),
+        SizedBox(height: m.dp(18, tabletFactor: 1.0, min: 12, max: 26)),
         SizedBox(
           height: m.dp(140, tabletFactor: 1.1, min: 120, max: 200),
           child: ListView.separated(
@@ -793,9 +867,9 @@ class _ProfilPageState extends State<ProfilPage> {
             itemCount: mainBadges.length,
           ),
         ),
-        if (!_showAllBadges) SizedBox(height: m.dp(12)),
+        if (!_showAllBadges) SizedBox(height: m.dp(16)),
         if (_showAllBadges) ...[
-          SizedBox(height: m.gapMedium()),
+          SizedBox(height: m.gapLarge()),
           Wrap(
             spacing: m.dp(12),
             runSpacing: m.dp(12),
@@ -808,7 +882,9 @@ class _ProfilPageState extends State<ProfilPage> {
     // Section verrouillée pour l’instant
 
     // Overlay global non-rectangulaire: désaturation + opacité + pastille centrale
-    return Stack(
+    return Padding(
+      padding: EdgeInsets.only(bottom: m.gapLarge()),
+      child: Stack(
       children: [
         AbsorbPointer(
           absorbing: true,
@@ -861,6 +937,7 @@ class _ProfilPageState extends State<ProfilPage> {
           ),
         ),
       ],
+      ),
     );
   }
 }
@@ -963,7 +1040,9 @@ class TableauDeBord extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double chipHeight = 56;
+        final m = buildResponsiveMetrics(context, constraints);
+        // Hauteur responsive: sur tablette la typo/icônes sont un peu plus grandes
+        final double chipHeight = m.dp(56, tabletFactor: 1.10, min: 56, max: 68);
         const double columnGap = 4;
         const double innerGap = 10;
 
@@ -1059,6 +1138,16 @@ class _StatChipAsset extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Échelle proportionnelle basée sur la hauteur mobile de référence (56)
+    const double kBase = 56.0;
+    final double scale = (height / kBase).clamp(0.9, 1.8);
+
+    final double bigNumber = 38.0 * scale;
+    final double compactNumber = 28.0 * scale;
+    final double smallLabel = 12.0 * scale;
+    final double labelFont = 14.0 * scale;
+    final double secondaryFont = 14.0 * scale;
+
     return Container(
       height: height,
       decoration: ShapeDecoration(
@@ -1096,9 +1185,9 @@ class _StatChipAsset extends StatelessWidget {
                         numberText!,
                         maxLines: 1,
                         softWrap: false,
-                        style: const TextStyle(
-                          color: Color(0xC4334355),
-                          fontSize: 28,
+                        style: TextStyle(
+                          color: const Color(0xC4334355),
+                          fontSize: compactNumber,
                           fontFamily: 'Quicksand',
                           fontWeight: FontWeight.w700,
                           height: 1.0,
@@ -1110,9 +1199,9 @@ class _StatChipAsset extends StatelessWidget {
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xC4334355),
-                        fontSize: 12,
+                      style: TextStyle(
+                        color: const Color(0xC4334355),
+                        fontSize: smallLabel,
                         fontFamily: 'Quicksand',
                         fontWeight: FontWeight.w700,
                         height: 1.0,
@@ -1124,14 +1213,18 @@ class _StatChipAsset extends StatelessWidget {
             ),
           ] else ...[
             if (numberText != null) ...[
-              Text(
-                numberText!,
-                style: const TextStyle(
-                  color: Color(0xC4334355),
-                  fontSize: 38,
-                  fontFamily: 'Quicksand',
-                  fontWeight: FontWeight.w700,
-                  height: 1.0,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  numberText!,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: const Color(0xC4334355),
+                    fontSize: bigNumber,
+                    fontFamily: 'Quicksand',
+                    fontWeight: FontWeight.w700,
+                    height: 1.0,
+                  ),
                 ),
               ),
               const SizedBox(width: 3),
@@ -1147,9 +1240,9 @@ class _StatChipAsset extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xC4334355),
-                      fontSize: 14,
+                    style: TextStyle(
+                      color: const Color(0xC4334355),
+                      fontSize: labelFont,
                       fontFamily: 'Quicksand',
                       fontWeight: FontWeight.w700,
                       height: 1.2,
@@ -1167,9 +1260,9 @@ class _StatChipAsset extends StatelessWidget {
                             maxLines: 1,
                             softWrap: false,
                             overflow: TextOverflow.visible,
-                            style: const TextStyle(
-                              color: Color(0xC4334355),
-                              fontSize: 14,
+                            style: TextStyle(
+                              color: const Color(0xC4334355),
+                              fontSize: secondaryFont,
                               fontFamily: 'Quicksand',
                               fontWeight: FontWeight.w400,
                               height: 1.2,
@@ -1188,9 +1281,9 @@ class _StatChipAsset extends StatelessWidget {
                 label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xC4334355),
-                  fontSize: 14,
+                style: TextStyle(
+                  color: const Color(0xC4334355),
+                  fontSize: labelFont,
                   fontFamily: 'Quicksand',
                   fontWeight: FontWeight.w700,
                   height: 1.2,

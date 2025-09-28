@@ -1,5 +1,6 @@
 import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 // Removed flutter_svg import; using PNG heart asset for performance/consistency
@@ -91,9 +92,22 @@ class LivesPopoverState extends State<LivesPopover>
   Widget build(BuildContext context) {
     final Size size = MediaQuery.of(context).size;
     const double margin = 8.0;
-    final double popWidth = size.width - margin * 2;
-    final double left = margin;
-    final double arrowSize = 12.0;
+    final bool isDesktop = (kIsWeb && size.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+
+    double popWidth;
+    double left;
+    double arrowSize;
+    if (isDesktop) {
+      // Popover compact en desktop (centré sur l’ancre, borné à l’écran)
+      final double desired = size.width * 0.34;
+      popWidth = desired.clamp(300.0, 520.0);
+      left = (widget.anchor.dx - popWidth / 2).clamp(margin, size.width - margin - popWidth);
+      arrowSize = 10.0;
+    } else {
+      popWidth = size.width - margin * 2;
+      left = margin;
+      arrowSize = 12.0;
+    }
     final double topOffset = -10.0; // popover plus haut
 
     // Centre de la flèche (x) relatif au bord gauche du popover

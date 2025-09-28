@@ -591,13 +591,24 @@ class _HomeContentState extends State<HomeContent> {
               ),
 
               Padding(
-                padding: EdgeInsets.only(top: topPadding),
+                padding: EdgeInsets.only(top: (() {
+                  final double screenW = MediaQuery.of(context).size.width;
+                  final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+                  return isDesktop ? (topPadding * 0.85) : topPadding;
+                })()),
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: isTablet ? (isWide ? 1000.0 : 900.0) : 720.0,
-                    ),
+                    constraints: () {
+                      final double screenW = MediaQuery.of(context).size.width;
+                      final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+                      if (isDesktop) {
+                        return BoxConstraints(maxWidth: math.min(screenW * 0.9, 1400.0));
+                      }
+                      return BoxConstraints(
+                        maxWidth: isTablet ? (isWide ? 1000.0 : 900.0) : 720.0,
+                      );
+                    }(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -625,6 +636,8 @@ class _HomeContentState extends State<HomeContent> {
                           isBiomeUnlocked: (biomeName) => _isBiomeUnlocked(biomeName),
                           selectOnPageChange: true,
                           disableTapCenterAnimation: true,
+                          compactStyle: ((kIsWeb && MediaQuery.of(context).size.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux))),
+                          viewportFraction: ((kIsWeb && MediaQuery.of(context).size.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux))) ? 0.45 : 0.55,
                         ),
                         Expanded(
                           child: Padding(
@@ -632,59 +645,35 @@ class _HomeContentState extends State<HomeContent> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                SizedBox(height: spacing * 0.2),
+                                SizedBox(
+                                  height: (() {
+                                    final double screenW = MediaQuery.of(context).size.width;
+                                    final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+                                    return isDesktop ? spacing * 0.06 : spacing * 0.2;
+                                  })(),
+                                ),
                                 Expanded(
-                                  child: Stack(
-                                    children: [
-                                      ListView(
-                                        controller: _missionScrollController,
-                                        padding: EdgeInsets.only(bottom: spacing * 0.8),
+                                  child: LayoutBuilder(
+                                    builder: (ctx, cons) {
+                                      final double screenW = MediaQuery.of(ctx).size.width;
+                                      final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+                                      if (isDesktop) {
+                                        return _buildDesktopMissionsGrid(cons, uiScale, spacing);
+                                      }
+                                      return Stack(
                                         children: [
-                                          _buildQuizCards(uiScale),
-                                          SizedBox(height: spacing * 2.0),
+                                          ListView(
+                                            controller: _missionScrollController,
+                                            padding: EdgeInsets.only(bottom: spacing * 0.8),
+                                            children: [
+                                              _buildQuizCards(uiScale),
+                                              SizedBox(height: spacing * 2.0),
+                                            ],
+                                          ),
+                                          // Dégradés conservés en mobile/tablette seulement
                                         ],
-                                      ),
-                                      Positioned(
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        child: Container(
-                                          height: 30 * uiScale,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                const Color(0xFFF3F5F9).withValues(alpha: 0.0),
-                                                const Color(0xFFF3F5F9).withValues(alpha: 0.4),
-                                                const Color(0xFFF3F5F9).withValues(alpha: 0.7),
-                                              ],
-                                              stops: const [0.0, 0.6, 1.0],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        child: Container(
-                                          height: 25 * uiScale,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.bottomCenter,
-                                              end: Alignment.topCenter,
-                                              colors: [
-                                                const Color(0xFFF3F5F9).withValues(alpha: 0.0),
-                                                const Color(0xFFF3F5F9).withValues(alpha: 0.3),
-                                                const Color(0xFFF3F5F9).withValues(alpha: 0.6),
-                                              ],
-                                              stops: const [0.0, 0.7, 1.0],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                      );
+                                    },
                                   ),
                                 ),
                               ],
@@ -759,7 +748,67 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  Widget _buildQuizCardMission(Mission mission, double uiScale) {
+  Widget _buildDesktopMissionsGrid(BoxConstraints cons, double uiScale, double spacing) {
+    // Grille 2 colonnes x N lignes; pas de scroll
+    // Le nombre de lignes est dynamique selon la hauteur disponible afin d'agrandir les cases
+    final double gridGap = spacing * 0.24; // écart encore réduit pour maximiser la hauteur des tuiles
+    return LayoutBuilder(
+      builder: (context, c) {
+        // Essai avec 4 lignes, sinon fallback 3 lignes si trop bas
+        int rows = 4;
+        double tileExtentRaw = (c.maxHeight - gridGap * (rows - 1)) / rows;
+        if (tileExtentRaw < 135.0) {
+          rows = 3;
+          tileExtentRaw = (c.maxHeight - gridGap * (rows - 1)) / rows;
+        }
+        final double tileExtent = (tileExtentRaw - 1).clamp(0.0, double.infinity);
+        // Échelle desktop renforcée (plus grande) basée sur la hauteur et la largeur dispo
+        final double heightFactor = (tileExtent / 90.0);
+        final double widthFactor = (c.maxWidth / 1100.0).clamp(1.0, 1.4);
+        final double desktopUiScale = (heightFactor * widthFactor).clamp(1.7, 3.0).toDouble();
+
+        // Ordre colonne-major: 1-4 à gauche (haut->bas), 5-8 à droite (haut->bas)
+        final int maxItems = _currentMissions.length.clamp(0, rows * 2);
+        final List<int> displayOrder = [];
+        for (int r = 0; r < rows; r++) {
+          for (int cIdx = 0; cIdx < 2; cIdx++) {
+            final int idx = r + cIdx * rows;
+            if (idx < maxItems) displayOrder.add(idx);
+          }
+        }
+
+        final List<Widget> tiles = displayOrder.map((i) {
+          final mission = _currentMissions[i];
+          final visible = (i < _missionVisibility.length) ? _missionVisibility[i] : true;
+          return AnimatedOpacity(
+            opacity: visible ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              transform: Matrix4.translationValues(0, visible ? 0 : 20, 0),
+              child: _buildQuizCardMission(mission, desktopUiScale, inGrid: true),
+            ),
+          );
+        }).toList();
+
+        return GridView(
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: gridGap,
+            crossAxisSpacing: gridGap,
+            mainAxisExtent: tileExtent,
+          ),
+          children: tiles,
+        );
+      },
+    );
+  }
+
+  Widget _buildQuizCardMission(Mission mission, double uiScale, {bool inGrid = false}) {
     final hasCsvFile = mission.csvFile != null;
     // Sécuriser l'accès à la première mission du biome: toujours déverrouillée si le biome est débloqué
     final bool firstMissionUnlocked = (mission.index == 1) && _isBiomeUnlocked(_selectedBiome);
@@ -770,6 +819,7 @@ class _HomeContentState extends State<HomeContent> {
       hasCsvFile: hasCsvFile,
       isUnlocked: isUnlocked,
       uiScale: uiScale,
+      inGrid: inGrid,
       onTap: (hasCsvFile && isUnlocked)
           ? () => _handleQuizLaunch(mission.id)
           : null,
@@ -917,6 +967,7 @@ class _AnimatedMissionCard extends StatefulWidget {
   final VoidCallback? onTap;
   final VoidCallback? onMissionConsulted;
   final double uiScale;
+  final bool inGrid;
 
   const _AnimatedMissionCard({
     required this.mission,
@@ -925,6 +976,7 @@ class _AnimatedMissionCard extends StatefulWidget {
     required this.uiScale,
     this.onTap,
     this.onMissionConsulted,
+    this.inGrid = false,
   });
 
   @override
@@ -1094,17 +1146,15 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
   @override
   Widget build(BuildContext context) {
     final double ui = widget.uiScale;
-    final double cardHeight = 88.0 * ui;
-    final double bottomMargin = 12.0 * ui;
-    final double cardPadding = 8.0 * ui;
-    final double missionImageSize = 64.0 * ui;
-    final double titleFont = 16.0 * ui;
-    final double subtitleFont = 14.0 * ui;
-    final double starsRailWidth = 28.0 * ui;
-    final double starSize = 24.0 * ui;
-    final double starTop = 5.0 * ui;
-    final double starBottom = 17.0 * ui;
-    final double starRight = 7.0 * ui;
+    final bool inGrid = widget.inGrid;
+    final double cardHeight = (inGrid ? double.infinity : 88.0 * ui);
+    final double bottomMargin = (inGrid ? 4.0 : 12.0) * ui;
+    final double cardPadding = (inGrid ? 6.0 : 8.0) * ui;
+    final double missionImageSize = (inGrid ? 84.0 : 64.0) * ui;
+    final double titleFont = (inGrid ? 20.0 : 16.0) * ui;
+    final double subtitleFont = (inGrid ? 16.0 : 14.0) * ui;
+    final double starsRailWidth = (inGrid ? 36.0 : 28.0) * ui;
+    final double starSize = (inGrid ? 30.0 : 24.0) * ui;
     final double badgeTop = -6.0 * ui;
     final double badgeRight = 45.0 * ui;
     final double badgeFont = 12.0 * ui;
@@ -1116,251 +1166,282 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
           scale: _scaleAnimation.value,
           child: GestureDetector(
             onTap: _handleTap,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // Carte principale de la mission
-                Container(
-                  height: cardHeight,
-                  margin: EdgeInsets.only(bottom: bottomMargin),
-                  padding: EdgeInsets.symmetric(horizontal: cardPadding, vertical: cardPadding),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(20),
-                        blurRadius: 8 * ui,
-                        offset: Offset(0, 2 * ui),
+            child: LayoutBuilder(
+              builder: (context, cons) {
+                // Ajustements dynamiques en mode grille selon la hauteur disponible
+                final double h = cons.maxHeight.isFinite && cons.maxHeight > 0 ? cons.maxHeight : (88.0 * ui);
+                final double dynImage = inGrid ? h * 0.70 : missionImageSize;
+                final double dynTitle = inGrid ? (h * 0.22).clamp(16.0, 28.0) : titleFont;
+                final double dynSubtitle = inGrid ? (h * 0.16).clamp(13.0, 22.0) : subtitleFont;
+                final double dynRailW = inGrid ? (h * 0.38).clamp(28.0, 56.0) : starsRailWidth;
+                final double dynStar = inGrid ? (h * 0.30).clamp(22.0, 40.0) : starSize;
+                final int dynLines = inGrid ? (h >= 160 ? 5 : 4) : 4;
+
+                // Largeur disponible pour la colonne de texte
+                final double textColumnWidth = cons.maxWidth
+                    - (cardPadding * 2)
+                    - (4 * ui) // left spacer
+                    - dynImage
+                    - (16 * ui) // gap image/texte
+                    - (12 * ui) // gap texte/rail
+                    - dynRailW;
+
+                double fitFontSize(String text, double baseSize, int maxLines) {
+                  double size = baseSize;
+                  final TextStyle style = TextStyle(
+                    fontFamily: 'Quicksand',
+                    fontSize: size,
+                    fontWeight: maxLines == 1 ? FontWeight.w700 : FontWeight.w500,
+                  );
+                  TextPainter painter = TextPainter(
+                    text: TextSpan(text: text, style: style),
+                    maxLines: maxLines,
+                    textDirection: TextDirection.ltr,
+                  )..layout(maxWidth: textColumnWidth);
+                  if ((painter.didExceedMaxLines || painter.size.width > textColumnWidth) && size > 10) {
+                    size = baseSize - 1;
+                    final TextStyle s2 = style.copyWith(fontSize: size);
+                    painter = TextPainter(
+                      text: TextSpan(text: text, style: s2),
+                      maxLines: maxLines,
+                      textDirection: TextDirection.ltr,
+                    )..layout(maxWidth: textColumnWidth);
+                    if ((painter.didExceedMaxLines || painter.size.width > textColumnWidth) && size > 10) {
+                      size = baseSize - 2;
+                    }
+                  }
+                  return size;
+                }
+
+                final double fittedTitle = fitFontSize(
+                  widget.mission.titreMission ?? widget.mission.title ?? 'Mission ${widget.mission.index}',
+                  dynTitle,
+                  1,
+                );
+                final double fittedSubtitle = fitFontSize(
+                  widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
+                  dynSubtitle,
+                  dynLines,
+                );
+
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Carte principale de la mission
+                    Container(
+                      height: cardHeight,
+                      margin: EdgeInsets.only(bottom: bottomMargin),
+                      padding: EdgeInsets.symmetric(horizontal: cardPadding, vertical: cardPadding),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(20),
+                            blurRadius: 8 * ui,
+                            offset: Offset(0, 2 * ui),
+                          ),
+                        ],
+                        border: widget.isUnlocked 
+                            ? Border.all(color: const Color(0xFF6A994E).withAlpha(77), width: 1)
+                            : null,
                       ),
-                    ],
-                    border: widget.isUnlocked 
-                        ? Border.all(color: const Color(0xFF6A994E).withAlpha(77), width: 1)
-                        : null,
-                  ),
-                  child: Row(
-                    children: [
-                      // Espacement pour déplacer l'icône vers la droite
-                      SizedBox(width: 4 * ui),
-                      // Image de la mission
-                      Container(
-                        width: missionImageSize,
-                        height: missionImageSize,
-                        decoration: BoxDecoration(
-                          color: widget.isUnlocked 
-                              ? const Color(0xFFD2DBB2)
-                              : Colors.grey[300],
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: !widget.isUnlocked
-                              ? Image.asset(
-                                  'assets/Missionhome/Images/logolock.png',
-                                  width: missionImageSize,
-                                  height: missionImageSize,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    // Fallback vers l'icône de cadenas si l'image ne charge pas
-                                    return SizedBox(
-                                      width: missionImageSize,
-                                      height: missionImageSize,
-                                      child: Icon(
-                                        Icons.lock,
-                                        color: Colors.grey,
-                                        size: 32 * ui,
-                                      ),
-                                    );
-                                  },
-                                )
-                              : widget.mission.iconUrl != null
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(width: 4 * ui),
+                          // Image de la mission
+                          Container(
+                            width: dynImage,
+                            height: dynImage,
+                            decoration: BoxDecoration(
+                              color: widget.isUnlocked 
+                                  ? const Color(0xFFD2DBB2)
+                                  : Colors.grey[300],
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: !widget.isUnlocked
                                   ? Image.asset(
-                                      widget.mission.iconUrl!,
-                                      width: missionImageSize,
-                                      height: missionImageSize,
+                                      'assets/Missionhome/Images/logolock.png',
+                                      width: dynImage,
+                                      height: dynImage,
                                       fit: BoxFit.contain,
                                       errorBuilder: (context, error, stackTrace) {
-                                        // Fallback vers l'icône si l'image ne charge pas
                                         return SizedBox(
-                                          width: missionImageSize,
-                                          height: missionImageSize,
+                                          width: dynImage,
+                                          height: dynImage,
                                           child: Icon(
-                                            Icons.quiz,
-                                            color: const Color(0xFF6A994E),
-                                            size: 32 * ui,
+                                            Icons.lock,
+                                            color: Colors.grey,
+                                            size: (inGrid ? 36.0 : 32.0) * ui,
                                           ),
                                         );
                                       },
                                     )
-                                  : SizedBox(
-                                      width: missionImageSize,
-                                      height: missionImageSize,
-                                      child: Icon(
-                                        Icons.quiz,
-                                        color: const Color(0xFF6A994E),
-                                        size: 32 * ui,
-                                      ),
-                                    ),
-                        ),
-                      ),
-                      
-                      SizedBox(width: 16 * ui),
-                      
-                      // Contenu texte (largeur augmentée pour s'approcher des étoiles)
-                      SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.52, // Largeur augmentée pour s'approcher des étoiles
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              widget.mission.titreMission ?? widget.mission.title ?? 'Mission ${widget.mission.index}',
-                              style: TextStyle(
-                                fontFamily: 'Quicksand',
-                                fontSize: titleFont,
-                                fontWeight: FontWeight.w700,
-                                color: widget.isUnlocked 
-                                    ? const Color(0xFF344356)
-                                    : Colors.grey,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                                  : widget.mission.iconUrl != null
+                                      ? Image.asset(
+                                          widget.mission.iconUrl!,
+                                          width: dynImage,
+                                          height: dynImage,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return SizedBox(
+                                              width: dynImage,
+                                              height: dynImage,
+                                              child: Icon(
+                                                Icons.quiz,
+                                                color: const Color(0xFF6A994E),
+                                                size: (inGrid ? 36.0 : 32.0) * ui,
+                                              ),
+                                            );
+                                          },
+                                        )
+                                      : SizedBox(
+                                          width: dynImage,
+                                          height: dynImage,
+                                          child: Icon(
+                                            Icons.quiz,
+                                            color: const Color(0xFF6A994E),
+                                            size: (inGrid ? 36.0 : 32.0) * ui,
+                                          ),
+                                        ),
                             ),
-                            SizedBox(height: 2 * ui),
-                            Expanded(
-                              child: Text(
-                                widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
-                                style: TextStyle(
-                                  fontFamily: 'Quicksand',
-                                  fontSize: subtitleFont,
-                                  fontWeight: FontWeight.w500,
-                                  color: widget.isUnlocked 
-                                      ? const Color(0xFF344356).withAlpha(179)
-                                      : Colors.grey,
+                          ),
+                          SizedBox(width: 16 * ui),
+                          // Contenu texte
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  widget.mission.titreMission ?? widget.mission.title ?? 'Mission ${widget.mission.index}',
+                                  style: TextStyle(
+                                    fontFamily: 'Quicksand',
+                                    fontSize: fittedTitle,
+                                    fontWeight: FontWeight.w700,
+                                    color: widget.isUnlocked 
+                                        ? const Color(0xFF344356)
+                                        : Colors.grey,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 4, // Plus de lignes pour compenser la largeur réduite
-                                overflow: TextOverflow.ellipsis,
+                                SizedBox(height: 2 * ui),
+                                Text(
+                                  widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
+                                  style: TextStyle(
+                                    fontFamily: 'Quicksand',
+                                    fontSize: fittedSubtitle,
+                                    fontWeight: FontWeight.w500,
+                                    color: widget.isUnlocked 
+                                        ? const Color(0xFF344356).withAlpha(179)
+                                        : Colors.grey,
+                                  ),
+                                  maxLines: dynLines,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Rail d'étoiles à droite
+                          SizedBox(width: 12 * ui),
+                          Container(
+                            width: dynRailW,
+                            height: double.infinity,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD2DBB2),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(7.2),
+                                bottomLeft: Radius.circular(7.2),
+                                topRight: Radius.circular(16),
+                                bottomRight: Radius.circular(16),
                               ),
                             ),
-                            // Espace supplémentaire pour le sous-titre
-                            SizedBox(height: 4 * ui),
-                          ],
-                        ),
-                      ),
-                      
-
-                    ],
-                  ),
-                ),
-                
-                // Système d'étoiles positionné à droite de la case mission (seulement pour les missions débloquées)
-                if (widget.isUnlocked)
-                  Positioned(
-                    top: starTop,
-                    bottom: starBottom,
-                    right: starRight,
-                    child: Container(
-                      width: starsRailWidth,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD2DBB2),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(7.2),
-                          bottomLeft: Radius.circular(7.2),
-                          topRight: Radius.circular(16), // Même courbure que la case mission
-                          bottomRight: Radius.circular(16), // Même courbure que la case mission
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Première étoile (8/10)
-                          Transform.translate(
-                            offset: Offset(-0.8 * ui, 0),
-                            child: Image.asset(
-                              widget.mission.lastStarsEarned >= 1 
-                                  ? 'assets/Images/Bouton/etoile_check.png'
-                                  : 'assets/Images/Bouton/etoile-nocheck.png',
-                              width: starSize,
-                              height: starSize,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                          // Deuxième étoile (8/10)
-                          Transform.translate(
-                            offset: Offset(-0.8 * ui, 0),
-                            child: Image.asset(
-                              widget.mission.lastStarsEarned >= 2 
-                                  ? 'assets/Images/Bouton/etoile_check.png'
-                                  : 'assets/Images/Bouton/etoile-nocheck.png',
-                              width: starSize,
-                              height: starSize,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                          // Troisième étoile (10/10)
-                          Transform.translate(
-                            offset: Offset(-0.8 * ui, 0),
-                            child: Image.asset(
-                              widget.mission.lastStarsEarned >= 3 
-                                  ? 'assets/Images/Bouton/etoile_check.png'
-                                  : 'assets/Images/Bouton/etoile-nocheck.png',
-                              width: starSize,
-                              height: starSize,
-                              fit: BoxFit.contain,
+                            child: LayoutBuilder(
+                              builder: (ctx, rc) {
+                                final double availableH = rc.maxHeight.isFinite ? rc.maxHeight : (h - cardPadding * 2);
+                                final double starInt = (availableH / 3 - 2).clamp(18.0, dynStar).floorToDouble();
+                                final double totalStars = starInt * 3;
+                                final double gap = ((availableH - totalStars) / 4).clamp(0.0, 12.0);
+                                Widget star(bool achieved) => Transform.translate(
+                                  offset: Offset(-0.8 * ui, 0),
+                                  child: Image.asset(
+                                    achieved ? 'assets/Images/Bouton/etoile_check.png' : 'assets/Images/Bouton/etoile-nocheck.png',
+                                    width: starInt,
+                                    height: starInt,
+                                    fit: BoxFit.contain,
+                                  ),
+                                );
+                                return Column(
+                                  mainAxisSize: MainAxisSize.max,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    SizedBox(height: gap),
+                                    star(widget.mission.lastStarsEarned >= 1),
+                                    SizedBox(height: gap),
+                                    star(widget.mission.lastStarsEarned >= 2),
+                                    SizedBox(height: gap),
+                                    star(widget.mission.lastStarsEarned >= 3),
+                                    SizedBox(height: gap),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                
-                // Étiquette "NOUVEAU" positionnée au-dessus de la carte, en haut à droite
-                if (_getAvailabilityText() != null)
-                  Positioned(
-                    top: badgeTop,
-                    right: badgeRight,
-                    child: AnimatedBuilder(
-                      animation: Listenable.merge([_badgeAnimationController, _badgeFloatController]),
-                      builder: (context, child) {
-                        // Calcul du mouvement de flottement fluide et optimisé
-                        final floatValue = _badgeFloatController.value;
-                        final floatOffset = math.sin(floatValue * 2 * math.pi) * 1.5; // Réduit de ±2 à ±1.5 pixels
-                        // Zoom fluide optimisé - utilise une courbe plus douce
-                        final zoomScale = 1.0 - 0.01 * (math.sin(floatValue * 2 * math.pi) + 1) / 2; // Réduit de 0.015 à 0.01
-                        // Séparer l'animation d'apparition du zoom de flottement
-                        final appearanceScale = _badgeScaleAnimation.value;
-                        final combinedScale = appearanceScale * zoomScale;
-                        
-                        return Opacity(
-                          opacity: _badgeOpacityAnimation.value,
-                          child: Transform.scale(
-                            scale: combinedScale,
-                            child: Transform.translate(
-                              offset: Offset(0, floatOffset),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 4 * ui, vertical: 1 * ui),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF6A994E),
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                                child: Text(
-                                  _getAvailabilityText()!,
-                                  style: TextStyle(
-                                    fontFamily: 'Quicksand',
-                                    fontSize: badgeFont,
-                                    fontWeight: FontWeight.w900,
-                                    color: const Color(0xFFFEC868),
+                    // Étiquette "NOUVEAU" positionnée au-dessus de la carte, en haut à droite
+                    if (_getAvailabilityText() != null)
+                      Positioned(
+                        top: badgeTop,
+                        right: badgeRight,
+                        child: AnimatedBuilder(
+                          animation: Listenable.merge([_badgeAnimationController, _badgeFloatController]),
+                          builder: (context, child) {
+                            // Calcul du mouvement de flottement fluide et optimisé
+                            final floatValue = _badgeFloatController.value;
+                            final floatOffset = math.sin(floatValue * 2 * math.pi) * 1.5; // Réduit de ±2 à ±1.5 pixels
+                            // Zoom fluide optimisé - utilise une courbe plus douce
+                            final zoomScale = 1.0 - 0.01 * (math.sin(floatValue * 2 * math.pi) + 1) / 2; // Réduit de 0.015 à 0.01
+                            // Séparer l'animation d'apparition du zoom de flottement
+                            final appearanceScale = _badgeScaleAnimation.value;
+                            final combinedScale = appearanceScale * zoomScale;
+                            
+                            return Opacity(
+                              opacity: _badgeOpacityAnimation.value,
+                              child: Transform.scale(
+                                scale: combinedScale,
+                                child: Transform.translate(
+                                  offset: Offset(0, floatOffset),
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 4 * ui, vertical: 1 * ui),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF6A994E),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: Text(
+                                      _getAvailabilityText()!,
+                                      style: TextStyle(
+                                        fontFamily: 'Quicksand',
+                                        fontSize: badgeFont,
+                                        fontWeight: FontWeight.w900,
+                                        color: const Color(0xFFFEC868),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         );

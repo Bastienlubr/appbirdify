@@ -7,6 +7,7 @@ import '../../services/Users/user_orchestra_service.dart';
 import '../../services/Users/user_profile_service.dart';
 import '../../pages/home_screen.dart';
 import 'questionnaire_screen.dart';
+import 'login_screen.dart';
 import '../../services/Users/onboarding_service.dart';
 import '../../ui/responsive/adaptatif.dart';
 
@@ -633,7 +634,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         GestureDetector(
                           onTap: () {
-                            Navigator.pop(context);
+                            Navigator.of(context).pushReplacement(
+                              PageRouteBuilder(
+                                pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+                                transitionDuration: const Duration(milliseconds: 280),
+                                reverseTransitionDuration: const Duration(milliseconds: 280),
+                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                  const begin = Offset(-1.0, 0.0);
+                                  const end = Offset.zero;
+                                  const curve = Curves.easeInOutCubic;
+                                  final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                                  final offsetAnimation = animation.drive(tween);
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: SlideTransition(
+                                      position: offsetAnimation,
+                                      child: ColoredBox(
+                                        color: const Color(0xFFF3F5F9),
+                                        child: child,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
                           },
                           child: const Text(
                             "Connectez-vous",

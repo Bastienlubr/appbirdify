@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../ui/responsive/responsive.dart';
 import '../../widgets/boutons/bouton_universel.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -20,6 +21,8 @@ class InformationAbonnementPage extends StatelessWidget {
           final double scale = _computeScale(constraints.maxWidth, constraints.maxHeight);
           final double dx = (constraints.maxWidth - _baseW * scale) / 2;
           final double dy = (constraints.maxHeight - _baseH * scale) / 2;
+          final double topSafe = MediaQuery.of(context).padding.top;
+          final bool isLarge = (kIsWeb && constraints.maxWidth >= 900) || MediaQuery.of(context).size.shortestSide >= 600;
 
           return Container(
             width: double.infinity,
@@ -41,9 +44,35 @@ class InformationAbonnementPage extends StatelessWidget {
                   child: Transform.scale(
                     scale: scale,
                     alignment: Alignment.topLeft,
-                    child: _FigmaExactLayer(),
+                    child: _FigmaExactLayer(hideTopChrome: isLarge),
                   ),
                 ),
+                if (isLarge) ...[
+                  Positioned(
+                    left: 16,
+                    top: topSafe + 12,
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(context).maybePop(),
+                      child: SvgPicture.asset(
+                        'assets/Images/Bouton/flechegauchecercle.svg',
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.contain,
+                        colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 16,
+                    top: topSafe + 14,
+                    child: SvgPicture.asset(
+                      'assets/Images/Bouton/logopremiumenvol.svg',
+                      width: 34,
+                      height: 34,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ],
                 // CTA rendu original à l'intérieur de la couche Figma (comme au départ)
                 Positioned(
                   left: dx + 35.82 * scale,
@@ -79,37 +108,7 @@ class InformationAbonnementPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Lien direct vers "Gérer mon abonnement" (toujours disponible)
-                Positioned(
-                  left: dx + 35.82 * scale,
-                  top: dy + (688.60 + 56) * scale,
-                  child: SizedBox(
-                    width: 303.14 * scale,
-                    height: 40 * scale,
-                    child: BoutonUniversel(
-                      onPressed: () => Navigator.of(context).pushNamed('/abonnement/gerer'),
-                      size: BoutonUniverselTaille.small,
-                      borderRadius: 10 * scale,
-                      padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 8 * scale),
-                      backgroundColor: const Color(0xFFFCFCFE),
-                      borderColor: const Color(0xFFDADADA),
-                      shadowColor: const Color(0x22000000),
-                      child: Center(
-                        child: Text(
-                          'Gérer mon abonnement',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: const Color(0xFF334355),
-                            fontSize: 16 * scale,
-                            fontFamily: 'Fredoka',
-                            fontWeight: FontWeight.w600,
-                            height: 1.0,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                // Bouton "Gérer mon abonnement" retiré sur tous les supports
                 // (Retiré) Bouton de test
               ],
             ),
@@ -130,6 +129,8 @@ class InformationAbonnementPage extends StatelessWidget {
 Route _createLeftToRightRoute() => routePageUniverselle(const ChoixOffrePage(), sens: SensEntree.droite);
 
 class _FigmaExactLayer extends StatelessWidget {
+  final bool hideTopChrome;
+  const _FigmaExactLayer({this.hideTopChrome = false});
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -137,32 +138,32 @@ class _FigmaExactLayer extends StatelessWidget {
       height: 812,
       child: Stack(
         children: [
-          // Back arrow inside the page canvas
-          Positioned(
-            left: 26,
-            top: 52,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).maybePop(),
-              child: SvgPicture.asset(
-                'assets/Images/Bouton/flechegauchecercle.svg',
-                width: 36,
-                height: 36,
-                fit: BoxFit.contain,
-                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          if (!hideTopChrome) ...[
+            Positioned(
+              left: 26,
+              top: 52,
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).maybePop(),
+                child: SvgPicture.asset(
+                  'assets/Images/Bouton/flechegauchecercle.svg',
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.contain,
+                  colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                ),
               ),
             ),
-          ),
-          // Logo Premium (opposé au bouton retour)
-          Positioned(
-            right: 26,
-            top: 52,
-            child: SvgPicture.asset(
-              'assets/Images/Bouton/logopremiumenvol.svg',
-              width: 32,
-              height: 32,
-              fit: BoxFit.contain,
+            Positioned(
+              right: 26,
+              top: 52,
+              child: SvgPicture.asset(
+                'assets/Images/Bouton/logopremiumenvol.svg',
+                width: 32,
+                height: 32,
+                fit: BoxFit.contain,
+              ),
             ),
-          ),
+          ],
           Positioned(
             left: 268,
             top: 238,

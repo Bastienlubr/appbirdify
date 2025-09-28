@@ -780,16 +780,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                 transitionsBuilder: (context, animation, secondaryAnimation, child) {
                                   const begin = Offset(1.0, 0.0);
                                   const end = Offset.zero;
-                                  const curve = Curves.easeInOut;
-                                  
-                                  var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                                  var offsetAnimation = animation.drive(tween);
-                                  
+                                  const curve = Curves.easeInOutCubic;
+
+                                  final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                                  final offsetAnimation = animation.drive(tween);
+
                                   return SlideTransition(
                                     position: offsetAnimation,
-                                    child: BackdropFilter(
-                                      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                                      child: child,
+                                    child: ClipRect(
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+                                        child: ColoredBox(
+                                          color: const Color(0xFFF3F5F9),
+                                          child: child,
+                                        ),
+                                      ),
                                     ),
                                   );
                                 },

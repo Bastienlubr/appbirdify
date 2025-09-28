@@ -7,6 +7,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../services/Users/user_orchestra_service.dart';
 import '../../main.dart';
+import 'politique_confidentialite_page.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'conditions_generales_page.dart';
 
 class ParametresPage extends StatefulWidget {
   const ParametresPage({super.key});
@@ -472,6 +475,26 @@ class _ParametresPageState extends State<ParametresPage> {
     }
   }
 
+  Future<void> _launchEmail() async {
+    final Uri uri = Uri(
+      scheme: 'mailto',
+      path: 'admin@mindbird.fr',
+    );
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Impossible d'ouvrir l'e-mail")),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Impossible d'ouvrir l'e-mail")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -600,10 +623,27 @@ class _ParametresPageState extends State<ParametresPage> {
                             _SettingsTile(
                               m: m,
                               leading: Icons.policy_outlined,
-                              title: 'Confidentialité et Conditions',
+                              title: 'Politique de confidentialité',
                               iconBg: iconBg,
                               iconColor: iconColor,
-                              onTap: () {},
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const PolitiqueConfidentialitePage(),
+                                ),
+                              ),
+                            ),
+                            _Divider(m: m),
+                            _SettingsTile(
+                              m: m,
+                              leading: Icons.description_outlined,
+                              title: 'Conditions générales d’utilisation',
+                              iconBg: iconBg,
+                              iconColor: iconColor,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ConditionsGeneralesPage(),
+                                ),
+                              ),
                             ),
                             _Divider(m: m),
                             _SettingsTile(
@@ -612,7 +652,7 @@ class _ParametresPageState extends State<ParametresPage> {
                               title: 'Contactez-nous',
                               iconBg: iconBg,
                               iconColor: iconColor,
-                              onTap: () {},
+                              onTap: _launchEmail,
                             ),
                           ],
                         ),

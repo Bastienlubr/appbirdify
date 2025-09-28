@@ -6,6 +6,7 @@ import '../../services/iap_service.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 enum OffreType { mois1, mois6, mois12 }
 
@@ -34,6 +35,10 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
           final double scale = _computeScale(constraints.maxWidth, constraints.maxHeight);
           final double dx = (constraints.maxWidth - _baseW * scale) / 2;
           final double dy = (constraints.maxHeight - _baseH * scale) / 2;
+          final Size screen = MediaQuery.of(context).size;
+          final double shortest = screen.shortestSide;
+          final bool isLarge = shortest >= 600 || (kIsWeb && constraints.maxWidth >= 900);
+          final double topSafe = MediaQuery.of(context).padding.top;
 
           return Container(
             width: double.infinity,
@@ -64,9 +69,36 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
                       onContinue: _onContinue,
                       isVerifying: _isVerifying,
                       onRestore: _onRestoreTap,
+                      hideTopChrome: isLarge,
                     ),
                   ),
                 ),
+                if (isLarge) ...[
+                  Positioned(
+                    left: 16,
+                    top: topSafe + 12,
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(context).maybePop(),
+                      child: SvgPicture.asset(
+                        'assets/Images/Bouton/flechegauchecercle.svg',
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.contain,
+                        colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 16,
+                    top: topSafe + 14,
+                    child: SvgPicture.asset(
+                      'assets/Images/Bouton/logopremiumenvol.svg',
+                      width: 34,
+                      height: 34,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ],
               ],
             ),
           );
@@ -223,7 +255,8 @@ class _Canvas extends StatelessWidget {
   final VoidCallback onContinue;
   final bool isVerifying;
   final VoidCallback? onRestore;
-  const _Canvas({required this.selection, required this.onSelect, required this.onContinue, this.isVerifying = false, this.onRestore});
+  final bool hideTopChrome; // masque les éléments top-left/right en mode large
+  const _Canvas({required this.selection, required this.onSelect, required this.onContinue, this.isVerifying = false, this.onRestore, this.hideTopChrome = false});
 
   // ignore: unused_element
   TextStyle get _fredoka24 => const TextStyle(
@@ -241,33 +274,33 @@ class _Canvas extends StatelessWidget {
       height: 812,
       child: Stack(
         children: [
-          // Back arrow (top-left)
-          Positioned(
-            left: 26,
-            top: 52,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).maybePop(),
-              child: SvgPicture.asset(
-                'assets/Images/Bouton/flechegauchecercle.svg',
-                width: 36,
-                height: 36,
-                fit: BoxFit.contain,
-                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          if (!hideTopChrome) ...[
+            Positioned(
+              left: 26,
+              top: 52,
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).maybePop(),
+                child: SvgPicture.asset(
+                  'assets/Images/Bouton/flechegauchecercle.svg',
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.contain,
+                  colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                ),
               ),
             ),
-          ),
-          // Logo Premium (opposé au bouton retour)
-          Positioned(
-            right: 26,
-            top: 52,
-            child: SvgPicture.asset(
-              'assets/Images/Bouton/logopremiumenvol.svg',
-              width: 32,
-              height: 32,
-              fit: BoxFit.contain,
+            Positioned(
+              right: 26,
+              top: 52,
+              child: SvgPicture.asset(
+                'assets/Images/Bouton/logopremiumenvol.svg',
+                width: 32,
+                height: 32,
+                fit: BoxFit.contain,
+              ),
             ),
-          ),
-          
+          ],
+
 
           // Titre (centré parfaitement)
           const Positioned(
@@ -303,17 +336,20 @@ class _Canvas extends StatelessWidget {
               ),
             ),
 
-          // Bande de séparation (plus épaisse)
+          // Bande de séparation (centrée horizontalement, largeur alignée aux offres)
           Positioned(
-            left: 26,
-            right: 26,
+            left: 0,
+            right: 0,
             top: 258,
-            child: SizedBox(
-              height: 4,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: const Color(0xB3858585),
-                  borderRadius: BorderRadius.circular(2),
+            child: Center(
+              child: SizedBox(
+                width: 300,
+                height: 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xB3858585),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
             ),
@@ -346,12 +382,14 @@ class _Canvas extends StatelessWidget {
 
           // CTA: Bouton universel style bandeau clair
           Positioned(
-            left: 35.82,
+            left: 0,
+            right: 0,
             top: 688.60,
-            child: SizedBox(
-              width: 303.14,
-              height: 44.92,
-              child: BoutonUniversel(
+            child: Center(
+              child: SizedBox(
+                width: 303.14,
+                height: 44.92,
+                child: BoutonUniversel(
                 onPressed: onContinue,
                 size: BoutonUniverselTaille.small,
                 borderRadius: 10,
@@ -359,17 +397,18 @@ class _Canvas extends StatelessWidget {
                 backgroundColor: const Color(0xFFFCFCFE),
                 borderColor: const Color(0xB3858585),
                 shadowColor: const Color(0xB3858585),
-                child: const Center(
-                  child: Text(
-                    "Commencer mes 3 jours d'essai",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF334355),
-                      fontSize: 20,
-                      fontFamily: 'Fredoka',
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
-                      height: 1.0,
+                  child: const Center(
+                    child: Text(
+                      "Commencer mes 3 jours d'essai",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFF334355),
+                        fontSize: 20,
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                        height: 1.0,
+                      ),
                     ),
                   ),
                 ),
@@ -704,17 +743,19 @@ class _OffersGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      left: 26,
+      left: 0,
+      right: 0,
       top: 284,
-      child: Container(
-        width: 318,
-        decoration: BoxDecoration(
+      child: Center(
+        child: Container(
+          width: 318,
+          decoration: BoxDecoration(
           color: const Color(0xFFFCFCFE),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // 12 mois (cliquable)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -780,7 +821,8 @@ class _OffersGroup extends StatelessWidget {
                 discountOffset: 10,
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

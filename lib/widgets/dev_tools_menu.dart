@@ -75,9 +75,13 @@ class _DevToolsMenuState extends State<DevToolsMenu> {
   Widget build(BuildContext context) {
     if (!kDebugMode) return const SizedBox.shrink();
 
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isDesktop = screenWidth >= 1024;
+    final double leftOffset = isDesktop ? 240 : 20;
+
     return Positioned(
       top: 20,
-      left: 20,
+      left: leftOffset,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
