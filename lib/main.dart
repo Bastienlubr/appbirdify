@@ -19,6 +19,7 @@ import 'pages/Abonnement/gerer_mon_abonnement_page.dart';
 import 'pages/Abonnement/bienvenue_abonnement_page.dart';
 import 'services/outils_developpement/auto_lock_service.dart';
 import 'data/bird_image_alignments.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() async {
   // Handlers globaux d'erreurs au plus tôt (supprimés)
@@ -131,10 +132,36 @@ class RootDecider extends StatelessWidget {
     return FutureBuilder<bool>(
       future: _isFirstLaunch(),
       builder: (context, snapshot) {
-        // Si un utilisateur est déjà connecté → Home directement
         final user = FirebaseAuth.instance.currentUser;
         if (user != null) {
-          return const HomeScreen();
+          // Boot premium-aware: lire l'abonnement courant AVANT d'afficher l'UI
+          final currentRef = FirebaseFirestore.instance
+              .collection('utilisateurs')
+              .doc(user.uid)
+              .collection('abonnement')
+              .doc('current');
+          return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            future: currentRef.get(),
+            builder: (context, aboSnap) {
+              if (!aboSnap.hasData) {
+                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              }
+              final m = aboSnap.data?.data() ?? <String, dynamic>{};
+              final String etat = (m['etat'] as String?) ?? '';
+              final String phase = (m['phase'] as String?) ?? '';
+              final bool accesAutorise = m['accesAutorise'] == true || etat == 'ACTIVE';
+              // Mettre en cohérence profil/vie pour affichage immédiat
+              try {
+                FirebaseFirestore.instance.collection('utilisateurs').doc(user.uid).set({
+                  'profil': {'estPremium': accesAutorise},
+                  'vie': {'livesInfinite': accesAutorise},
+                }, SetOptions(merge: true));
+              } catch (_) {}
+
+              // Toujours afficher la Home au démarrage; la page de bienvenue n'apparaît que juste après l'achat (flux paywall)
+              return const HomeScreen();
+            },
+          );
         }
 
         if (!snapshot.hasData) {
@@ -143,12 +170,10 @@ class RootDecider extends StatelessWidget {
           );
         }
 
-        // Premier lancement : aller à l'inscription directement
         if (snapshot.data == true) {
           return const RegisterScreen();
         }
 
-        // Sinon, écran de connexion
         return const LoginScreen();
       },
     );
