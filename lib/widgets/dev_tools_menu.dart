@@ -510,7 +510,7 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
               String? token = await FirebaseAppCheck.instance.getToken(false);
               token ??= await FirebaseAppCheck.instance.getToken(true);
               if (kDebugMode) {
-                debugPrint('APP_CHECK_DEBUG_TOKEN: ' + (token ?? 'null'));
+                debugPrint('APP_CHECK_DEBUG_TOKEN: ${token ?? 'null'}');
                 debugPrint('👉 Colle ce token dans Firebase Console > App Check > Debug tokens puis relance.');
               }
               if (token != null) {

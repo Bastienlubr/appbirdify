@@ -134,28 +134,26 @@ class _HomeContentState extends State<HomeContent> {
       try {
         if (_prewarmEntry == null) {
           final overlay = Overlay.of(context, rootOverlay: true);
-          if (overlay != null) {
-            final Size screen = MediaQuery.of(context).size;
-            final Offset anchor = Offset(screen.width / 2, 100);
-            _prewarmEntry = OverlayEntry(
-              maintainState: true,
-              opaque: false,
-              builder: (_) => IgnorePointer(
-                ignoring: true,
-                child: Opacity(
-                  opacity: 0.01, // peindre pour remplir les caches GPU sans être visible
-                  child: LivesPopover(
-                    currentLives: _currentLives,
-                    anchor: anchor,
-                    onClose: () {},
-                    prewarm: true,
-                  ),
+          final Size screen = MediaQuery.of(context).size;
+          final Offset anchor = Offset(screen.width / 2, 100);
+          _prewarmEntry = OverlayEntry(
+            maintainState: true,
+            opaque: false,
+            builder: (_) => IgnorePointer(
+              ignoring: true,
+              child: Opacity(
+                opacity: 0.01, // peindre pour remplir les caches GPU sans être visible
+                child: LivesPopover(
+                  currentLives: _currentLives,
+                  anchor: anchor,
+                  onClose: () {},
+                  prewarm: true,
                 ),
               ),
-            );
-            overlay.insert(_prewarmEntry!);
-          }
-        }
+            ),
+          );
+          overlay.insert(_prewarmEntry!);
+                }
       } catch (_) {}
     });
   }

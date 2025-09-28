@@ -8,7 +8,6 @@ import '../../../services/Users/life_service.dart';
 import '../../../services/ads/ad_service.dart';
 import '../../../services/Users/user_orchestra_service.dart';
 import '../../../widgets/boutons/bouton_universel.dart';
-import '../../../ui/animations/transitions.dart';
 
 class LivesPopover extends StatefulWidget {
   final int currentLives;
@@ -586,13 +585,13 @@ class _IntegratedBubblePainter extends CustomPainter {
 
     // Remplir
     final Paint fillPaint = Paint()
-      ..color = fillColor.withOpacity(fillOpacity)
+      ..color = fillColor.withValues(alpha: fillOpacity)
       ..style = PaintingStyle.fill;
     canvas.drawPath(path, fillPaint);
 
     // Contour
     final Paint stroke = Paint()
-      ..color = strokeColor.withOpacity(strokeOpacity)
+      ..color = strokeColor.withValues(alpha: strokeOpacity)
       ..style = PaintingStyle.stroke
       ..strokeWidth = borderWidth
       ..strokeJoin = StrokeJoin.round
@@ -741,6 +740,7 @@ class _AdaptiveStaticLivesRow extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _FirestoreLivesRow extends StatelessWidget {
   final int fallbackCurrent;
   const _FirestoreLivesRow({required this.fallbackCurrent});
@@ -866,6 +866,7 @@ class _FirestoreLivesRow extends StatelessWidget {
 }
 
 // --- Bouton "lite" utilisé uniquement pendant l'animation d'ouverture ---
+// ignore: unused_element
 class _LiteCTAButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;

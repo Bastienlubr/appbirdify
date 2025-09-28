@@ -79,7 +79,7 @@ class IapService {
           offers ??= _tryGetList(() => (gpd as dynamic).billingClientProductDetails?.subscriptionOfferDetails);
           if (offers is List && offers.isNotEmpty) {
             dynamic selected = offers.first;
-            try { selected = (offers as List).firstWhere((o) => _hasPricingPhases(o), orElse: () => offers.first); } catch (_) {}
+            try { selected = (offers).firstWhere((o) => _hasPricingPhases(o), orElse: () => offers.first); } catch (_) {}
             final String? offerToken = _tryGetString(() => selected?.offerToken);
             if (offerToken != null && offerToken.isNotEmpty) {
               param = GooglePlayPurchaseParam(productDetails: product, offerToken: offerToken);
@@ -95,7 +95,11 @@ class IapService {
   }
 
   Future<void> restore() async {
-    try { await _iap.restorePurchases(); } catch (e) {}
+    try {
+      await _iap.restorePurchases();
+    } catch (e) {
+      // Ignorer discrètement les erreurs de restauration (pas bloquant)
+    }
   }
 
   Future<void> _onPurchases(List<PurchaseDetails> purchases) async {
@@ -179,7 +183,7 @@ class IapService {
           : productId.startsWith('premium_6mois')
               ? 'Abonnement 6 mois'
               : 'Abonnement 1 mois';
-      final String? variant = productId.endsWith('_2') ? '2' : '1';
+      final String variant = productId.endsWith('_2') ? '2' : '1';
 
       final currentRef = db.doc('utilisateurs/${user.uid}/abonnement/current');
       final encartRef = db.doc('utilisateurs/${user.uid}/abonnement/encart');
@@ -194,7 +198,7 @@ class IapService {
         'prochaineFacturation': null,
         'offre': {
           'productId': productId,
-          if (variant != null) 'variantId': variant,
+          'variantId': variant,
         },
         'renouvellement': {'auto': true},
         'packageName': 'com.mindbird.app',

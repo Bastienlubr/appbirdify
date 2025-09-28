@@ -359,6 +359,8 @@ class _CurrentSubscriptionCard extends StatelessWidget {
         final Map<String, dynamic>? essai = abo?['essai'] as Map<String, dynamic>?;
         final Map<String, dynamic>? payant = abo?['payant'] as Map<String, dynamic>?;
         final Map<String, dynamic>? prix = abo?['prix'] as Map<String, dynamic>?;
+        // Garder productId pour débogage/affichage potentiel
+        // ignore: unused_local_variable
         final String? productId = (abo?['offre']?['productId'] as String?) ?? abo?['subscriptionId'] as String?;
         final String planLabel = _resolvePlanLabelFromAbo(abo);
         final bool autoRenew = abo?['renouvellement']?['auto'] == true;
@@ -542,7 +544,7 @@ class _HistoryCyclesList extends StatelessWidget {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
             ],
           ),
         );
@@ -563,6 +565,7 @@ String _formatDateFr(DateTime date) {
   return '$d $m $y';
 }
 
+// ignore: unused_element
 String _resolvePlanLabel(Map<String, dynamic>? abo) {
   if (abo == null) return '';
   final String? productId = abo['produitId'] as String?;
@@ -610,6 +613,7 @@ DateTime? _toDate(dynamic v) {
   return null;
 }
 
+// ignore: unused_element
 DateTime? _toDateFromMillis(dynamic v) {
   if (v == null) return null;
   try {

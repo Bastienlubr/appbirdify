@@ -504,6 +504,7 @@ class _EnvolWelcomePageState extends State<EnvolWelcomePage> with TickerProvider
   }
 }
 
+// ignore: unused_element
 class _DecorIcon extends StatelessWidget {
   final double left;
   final double top;
@@ -518,6 +519,7 @@ class _DecorIcon extends StatelessWidget {
     required this.ringSize,
     required this.iconSize,
     required this.assetPath,
+    // ignore: unused_element_parameter
     this.rotationTurns = 0,
   });
 
@@ -564,8 +566,8 @@ class _DecorIcon extends StatelessWidget {
                     center: Alignment.center,
                     radius: 0.65,
                     colors: [
-                      const Color(0xFFFCFCFE).withOpacity(0.40),
-                      const Color(0xFFFCFCFE).withOpacity(0.0),
+                      const Color(0xFFFCFCFE).withValues(alpha: 0.40),
+                      const Color(0xFFFCFCFE).withValues(alpha: 0.0),
                     ],
                     stops: const [0.0, 1.0],
                   ),
@@ -600,7 +602,6 @@ class _DecorIconBare extends StatelessWidget {
     required this.assetPath,
     this.rotationTurns = 0,
     this.contentOpacity = 1.0,
-    super.key,
   });
 
   @override
@@ -653,8 +654,8 @@ class _DecorIconBare extends StatelessWidget {
                         center: Alignment.center,
                         radius: 0.65,
                         colors: [
-                          const Color(0xFFFCFCFE).withOpacity(0.40),
-                          const Color(0xFFFCFCFE).withOpacity(0.0),
+                          const Color(0xFFFCFCFE).withValues(alpha: 0.40),
+                          const Color(0xFFFCFCFE).withValues(alpha: 0.0),
                         ],
                         stops: const [0.0, 1.0],
                       ),
@@ -844,6 +845,7 @@ class _RingWithHolesPainter extends CustomPainter {
   }
 }
 
+// ignore: unused_element
 class _CircleWithImage extends StatelessWidget {
   final double size;
   final String imageAsset;
@@ -860,8 +862,8 @@ class _CircleWithImage extends StatelessWidget {
     required this.ringColor,
     required this.fillColor,
     required this.ringWidth,
+    // ignore: unused_element_parameter
     this.innerPadding,
-    super.key,
   });
 
   @override
@@ -882,7 +884,6 @@ class _CircleWithImage extends StatelessWidget {
           child: Transform(
             alignment: Alignment.center,
             transform: Matrix4.identity()
-              ..translate(0.0, 0.0)
               ..rotateZ(rotation),
             child: Padding(
               padding: EdgeInsets.all((innerPadding ?? (ringWidth + 4))),
@@ -901,12 +902,12 @@ class _CircleWithImage extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
+                  gradient: RadialGradient(
                   center: Alignment.center,
                   radius: 0.65,
                   colors: [
-                    fillColor.withOpacity(0.45),
-                    fillColor.withOpacity(0.0),
+                    fillColor.withValues(alpha: 0.45),
+                    fillColor.withValues(alpha: 0.0),
                   ],
                   stops: const [0.0, 1.0],
                 ),

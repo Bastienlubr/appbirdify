@@ -150,6 +150,7 @@ class RootDecider extends StatelessWidget {
               }
               final m = aboSnap.data?.data() ?? <String, dynamic>{};
               final String etat = (m['etat'] as String?) ?? '';
+              // ignore: unused_local_variable
               final String phase = (m['phase'] as String?) ?? '';
               final bool accesAutorise = m['accesAutorise'] == true || etat == 'ACTIVE';
               // Mettre en cohérence profil/vie pour affichage immédiat

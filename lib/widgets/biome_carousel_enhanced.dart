@@ -159,9 +159,10 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced>
           padH = 6.0;
         }
 
-        final double dotsActive = isTablet ? 14 : (12 * phoneScaleUp);
-        final double dotsInactive = isTablet ? 10 : (8 * phoneScaleUp);
-        final double dotsGap = isTablet ? 8 : (6 * phoneScaleUp);
+        // Valeurs calculées inlinées directement où nécessaires (évite variables non utilisées)
+        // final double dotsActive = isTablet ? 14 : (12 * phoneScaleUp);
+        // final double dotsInactive = isTablet ? 10 : (8 * phoneScaleUp);
+        // final double dotsGap = isTablet ? 8 : (6 * phoneScaleUp);
         final double dotsExtra = widget.showDots
             ? (widget.compactStyle
                 ? m.dp(24, tabletFactor: 1.0, min: 16, max: 40)

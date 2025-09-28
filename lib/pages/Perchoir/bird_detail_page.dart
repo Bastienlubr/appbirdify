@@ -1207,6 +1207,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   // (supprimé) _clearCacheAndRefresh non utilisée
 
   // --- Interface de calibration d'alignement --------------------------------
+  // ignore: unused_element
   Widget _buildAlignmentIndicator(ResponsiveMetrics m) {
     final fineValue = BirdImageAlignments.getFineAlignment(widget.bird.genus, widget.bird.species);
     final alignmentDesc = BirdImageAlignments.getAlignmentDescription(widget.bird.genus, widget.bird.species);
@@ -1867,7 +1868,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: const Color(0xFF606D7C)
-                          .withOpacity((_miniTitleHidden ? 0.0 : opacity) * 0.5), // 0.5 = alpha base (0x7F)
+                          .withValues(alpha: (_miniTitleHidden ? 0.0 : opacity) * 0.5), // 0.5 = alpha base (0x7F)
                       fontSize: m.font(12, tabletFactor: 1.0, min: 10, max: 16), // Plus petit
                       fontFamily: 'Quicksand',
                       fontWeight: FontWeight.w900, // Même poids que sous les onglets

@@ -2109,6 +2109,7 @@ class _LivesDisplayWidget extends StatefulWidget {
 class _LivesDisplayWidgetState extends State<_LivesDisplayWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
+  // ignore: unused_field
   late Animation<double> _pulseAnimation;
   
   @override

@@ -361,8 +361,8 @@ class _Canvas extends StatelessWidget {
             const String forcedSemiTotal = '23,99 €'; // 6 mois (total)
             const String forcedYearlyTotal = '39,99 €'; // 12 mois (total)
             final String monthlyLabel = '${forcedMonthly.toStringAsFixed(2).replaceAll('.', ',')} € / mois';
-            const String? semiStruck = '29,94 €';
-            const String? yearlyStruck = '59,88 €';
+            const String semiStruck = '29,94 €';
+            const String yearlyStruck = '59,88 €';
             const String yearlyPerMonth = '2,83 € / mois';
             const String semiPerMonth = '3,83 € / mois';
             final String yearlyTotal = forcedYearlyTotal;

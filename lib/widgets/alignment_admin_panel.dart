@@ -58,7 +58,9 @@ class _AlignmentAdminPanelState extends State<AlignmentAdminPanel> {
 
     try {
       await BirdImageAlignments.lockAllAlignments();
+      if (!mounted) return;
       await _loadData();
+      if (!mounted) return;
       _showSuccessSnackBar('Alignements verrouillés en mode production !');
     } catch (e) {
       _showErrorSnackBar('Erreur lors du verrouillage: $e');
@@ -76,7 +78,9 @@ class _AlignmentAdminPanelState extends State<AlignmentAdminPanel> {
 
     try {
       await BirdImageAlignments.enableDevMode();
+      if (!mounted) return;
       await _loadData();
+      if (!mounted) return;
       _showSuccessSnackBar('Mode développement réactivé !');
     } catch (e) {
       _showErrorSnackBar('Erreur lors du déverrouillage: $e');
@@ -381,11 +385,13 @@ class _AlignmentAdminPanelState extends State<AlignmentAdminPanel> {
     );
   }
 
+  // ignore: unused_element
   Future<void> _exportAlignments() async {
     try {
       final data = await BirdImageAlignments.exportCalibratedAlignments();
       final jsonString = _prettyJson(data);
       // Montrer un dialog avec copie
+      if (!mounted) return;
       await showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -401,11 +407,13 @@ class _AlignmentAdminPanelState extends State<AlignmentAdminPanel> {
           ],
         ),
       );
+      if (!mounted) return;
     } catch (e) {
       _showErrorSnackBar('Erreur export: $e');
     }
   }
 
+  // ignore: unused_element
   Future<void> _importAlignments() async {
     final controller = TextEditingController();
     final confirmed = await showDialog<bool>(
@@ -427,13 +435,16 @@ class _AlignmentAdminPanelState extends State<AlignmentAdminPanel> {
         ],
       ),
     );
+    if (!mounted) return;
     if (confirmed != true) return;
 
     try {
       final Map<String, dynamic> decoded = <String, dynamic>{};
       final Map<String, double> casted = decoded.map((k, v) => MapEntry(k, (v as num).toDouble()));
       await BirdImageAlignments.importAlignments(casted);
+      if (!mounted) return;
       await _loadData();
+      if (!mounted) return;
       _showSuccessSnackBar('Cadrages importés (${casted.length})');
     } catch (e) {
       _showErrorSnackBar('JSON invalide: $e');
@@ -444,6 +455,7 @@ class _AlignmentAdminPanelState extends State<AlignmentAdminPanel> {
     return data.toString();
   }
 
+  // ignore: unused_element
   Future<void> _showCalibratedSpecies() async {
     try {
       final map = await BirdImageAlignments.exportCalibratedAlignments();
@@ -454,6 +466,7 @@ class _AlignmentAdminPanelState extends State<AlignmentAdminPanel> {
         buffer.writeln('${e.key}: ${e.value.toStringAsFixed(2)}');
       }
       final text = buffer.isEmpty ? 'Aucune espèce calibrée pour le moment.' : buffer.toString();
+      if (!mounted) return;
       await showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -469,6 +482,7 @@ class _AlignmentAdminPanelState extends State<AlignmentAdminPanel> {
           ],
         ),
       );
+      if (!mounted) return;
     } catch (e) {
       _showErrorSnackBar('Erreur lors de la récupération: $e');
     }

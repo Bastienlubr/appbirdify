@@ -126,6 +126,7 @@ class InformationAbonnementPage extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 Route _createLeftToRightRoute() => routePageUniverselle(const ChoixOffrePage(), sens: SensEntree.droite);
 
 class _FigmaExactLayer extends StatelessWidget {

@@ -38,6 +38,7 @@ class _Content extends StatelessWidget {
         fontSize: 20,
         color: Color(0xFF334355),
       );
+  // ignore: unused_element
   TextStyle get _h2 => const TextStyle(
         fontFamily: 'Quicksand',
         fontWeight: FontWeight.w700,
