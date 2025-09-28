@@ -461,6 +461,17 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           ),
         ),
         const SizedBox(height: 12),
+        _buildActionButton(
+          icon: Icons.rocket_launch,
+          label: '🚀 Navigation rapide (DEV)',
+          onPressed: () {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) navigator.pop();
+            Future<void>(() async {
+              navigator.pushNamed('/dev/quick-nav');
+            });
+          },
+        ),
         // (supprimé) Interface test Auto-Fiche IA
         // Toggle Mode Cadrage (DEV)
         _buildActionButton(

@@ -71,6 +71,7 @@ dependencies:
   image_picker: ^1.1.2
   country_picker: ^2.0.27
   package_info_plus: ^8.0.2
+  responsive_framework: ^1.5.1
   
 
 

@@ -18,6 +18,7 @@ import 'Accueil/widgets/lives_popover.dart';
 import 'Quiz/quiz_selection_page.dart';
 // import '../ui/animations/transitions.dart'; // (désactivé) Animations centralisées
 import 'package:flutter_svg/flutter_svg.dart';
+import '../widgets/home_side_nav.dart';
 
 
 
@@ -35,6 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   
   @override
   Widget build(BuildContext context) {
+    final Size vs = MediaQuery.of(context).size;
+    final bool isDesktop = (kIsWeb && vs.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -52,16 +55,27 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
-      body: (
-        _currentIndex == 3 
-          ? const BaseOrnithoPage() 
-          : _currentIndex == 2 
-            ? const ProfilPage() 
-            : _currentIndex == 0
-              ? const QuizSelectionPage()
-              : HomeContent(key: _homeContentKey)
+      body: Row(
+        children: [
+          if (isDesktop)
+            HomeSideNav(
+              currentIndex: _currentIndex,
+              onTabSelected: (idx) => setState(() => _currentIndex = idx),
+            ),
+          Expanded(
+            child: (
+              _currentIndex == 3 
+                ? const BaseOrnithoPage() 
+                : _currentIndex == 2 
+                  ? const ProfilPage() 
+                  : _currentIndex == 0
+                    ? const QuizSelectionPage()
+                    : HomeContent(key: _homeContentKey)
+            ),
+          ),
+        ],
       ),
-      bottomNavigationBar: HomeBottomNavBar(
+      bottomNavigationBar: isDesktop ? null : HomeBottomNavBar(
         currentIndex: _currentIndex,
         onTabSelected: (idx) {
           if (kDebugMode) debugPrint('🧭 Onglet sélectionné: $idx');

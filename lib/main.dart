@@ -20,6 +20,7 @@ import 'pages/Abonnement/bienvenue_abonnement_page.dart';
 import 'services/outils_developpement/auto_lock_service.dart';
 import 'data/bird_image_alignments.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'services/outils_developpement/dev_quick_nav_page.dart';
 
 void main() async {
   // Handlers globaux d'erreurs au plus tôt (supprimés)
@@ -108,6 +109,7 @@ class MyApp extends StatelessWidget {
         '/abonnement/choix-offre': (context) => const ChoixOffrePage(),
         '/abonnement/gerer': (context) => GererMonAbonnementPage(titleHorizontalOffset: 8),
         '/abonnement/bienvenue': (context) => const EnvolWelcomePage(),
+        if (!kReleaseMode) '/dev/quick-nav': (context) => const DevQuickNavPage(),
         // route '/abonnement/annulation-motif' supprimée
       },
     ).withAutoLock();

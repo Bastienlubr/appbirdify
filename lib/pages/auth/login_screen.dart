@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import '../../services/Users/auth_service.dart';
 // import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform; // Unused
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:ui';
 import 'register_screen.dart';
-import '../../ui/responsive/responsive.dart';
+import '../../ui/responsive/adaptatif.dart';
 import '../home_screen.dart';
 import '../../services/Users/user_orchestra_service.dart';
 import 'questionnaire_screen.dart';
@@ -469,13 +470,23 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: const Color(0xFFF3F5F9),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final m = buildResponsiveMetrics(context, constraints);
-          final double contentTop = m.isTablet ? m.dp(80, tabletFactor: 1.0, min: 60, max: 140) : m.dp(80, min: 56, max: 120);
-          final double fieldHeight = m.dp(70, tabletFactor: 1.05, min: 58, max: 84);
+          final m = buildAdaptiveMetrics(context, constraints);
+          final double fieldHeight = m.dp(76, tabletFactor: 1.18, desktopFactor: 0.82, min: 64, max: 100);
+          final double desktopTop = m.dp(120, desktopFactor: 1.1, min: 80, max: 200);
+          final double contentEstimate = m.isDesktop
+              ? 0
+              : ((fieldHeight * 2) + m.dp(360, tabletFactor: 1.1, min: 300, max: 520));
+          final double centeredTopForMobileTablet = ((constraints.maxHeight - contentEstimate) / 2)
+              .clamp(m.dp(40, min: 24, max: 200), m.dp(260, tabletFactor: 1.2, min: 120, max: 360))
+              .toDouble();
+          final double contentTop = m.isDesktop ? desktopTop : centeredTopForMobileTablet;
           final double rawContentWidth = constraints.maxWidth * 0.85;
-          final double actualContentWidthLB = m.isTablet
-              ? rawContentWidth.clamp(360.0, 520.0)
-              : rawContentWidth.clamp(300.0, 400.0);
+          final double actualContentWidthLB = m.isDesktop
+              ? rawContentWidth.clamp(420.0, 560.0)
+              : (m.isTablet
+                  ? (constraints.maxWidth * 0.65).clamp(460.0, 760.0)
+                  : rawContentWidth.clamp(300.0, 420.0));
+          
           return Stack(
             children: [
           // Contenu principal centré
@@ -490,81 +501,67 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'Connexion',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 30,
+                        fontSize: m.font(30, tabletFactor: 1.20, desktopFactor: 0.84, min: 26, max: 42),
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF344356),
+                        color: const Color(0xFF344356),
                         fontFamily: 'Quicksand',
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'Connectez-vous avec votre compte',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: m.font(18, tabletFactor: 1.10, desktopFactor: 0.86, min: 16, max: 26),
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF606D7C),
+                        color: const Color(0xFF606D7C),
                         fontFamily: 'Quicksand',
                         height: 1.56,
                       ),
                     ),
                     const SizedBox(height: 50),
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: fieldHeight,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color.fromRGBO(60, 128, 209, 0.085),
-                                blurRadius: 19,
-                                offset: Offset(0, 12),
-                              ),
-                            ],
+                    Container(
+                      width: double.infinity,
+                      height: fieldHeight,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color.fromRGBO(60, 128, 209, 0.085),
+                            blurRadius: 19,
+                            offset: Offset(0, 12),
                           ),
-                          child: TextField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              color: Color(0xFF334355),
-                              fontFamily: 'Quicksand',
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Adresse email',
-                              hintStyle: TextStyle(
-                                color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
-                                fontSize: 20,
-                                fontFamily: 'Quicksand',
-                              ),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                            ),
-                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        style: TextStyle(
+                          fontSize: m.font(20, tabletFactor: 1.12, desktopFactor: 0.86, min: 18, max: 26),
+                          color: const Color(0xFF334355),
+                          fontFamily: 'Quicksand',
                         ),
-                        Positioned(
-                          right: m.dp(20, min: 6, max: 20),
-                          top: -(fieldHeight * 0.67),
-                          child: Image.asset(
-                            'assets/Images/Bouton/mascotte.png',
-                            width: m.dp(60, tabletFactor: 1.2, min: 40, max: 64),
-                            height: m.dp(60, tabletFactor: 1.2, min: 40, max: 64),
+                        decoration: InputDecoration(
+                          hintText: 'Adresse email',
+                          hintStyle: TextStyle(
+                            color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
+                            fontSize: m.font(20, tabletFactor: 1.08, desktopFactor: 0.86, min: 16, max: 24),
+                            fontFamily: 'Quicksand',
                           ),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(horizontal: m.dp(20, tabletFactor: 1.0, desktopFactor: 0.85, min: 16, max: 28), vertical: m.dp(22, tabletFactor: 1.1, desktopFactor: 0.85, min: 18, max: 28)),
                         ),
-                      ],
+                      ),
                     ),
                     const SizedBox(height: 20),
                     Container(
                       width: double.infinity,
-                      height: 70,
+                      height: fieldHeight,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -579,20 +576,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: TextField(
                         controller: _passwordController,
                         obscureText: true,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          color: Color(0xFF334355),
+                        style: TextStyle(
+                          fontSize: m.font(20, tabletFactor: 1.12, desktopFactor: 0.86, min: 18, max: 26),
+                          color: const Color(0xFF334355),
                           fontFamily: 'Quicksand',
                         ),
                         decoration: InputDecoration(
                           hintText: 'Mot de passe',
                           hintStyle: TextStyle(
                             color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
-                            fontSize: 20,
+                            fontSize: m.font(20, tabletFactor: 1.08, desktopFactor: 0.86, min: 16, max: 24),
                             fontFamily: 'Quicksand',
                           ),
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                          contentPadding: EdgeInsets.symmetric(horizontal: m.dp(20, tabletFactor: 1.0, desktopFactor: 0.85, min: 16, max: 28), vertical: m.dp(22, tabletFactor: 1.1, desktopFactor: 0.85, min: 18, max: 28)),
                         ),
                       ),
                     ),
@@ -683,7 +680,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             backgroundColor: Colors.white,
                             foregroundColor: const Color(0xFF334355),
                             elevation: 1,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: EdgeInsets.symmetric(horizontal: m.dp(18, tabletFactor: 1.0, desktopFactor: 0.85, min: 14, max: 26), vertical: m.dp(12, tabletFactor: 1.0, desktopFactor: 0.85, min: 10, max: 18)),
                           ),
                           icon: SvgPicture.asset('assets/PAGE/Authentification/google icon.svg', width: 20, height: 20),
                           label: const Text('Google'),
@@ -695,7 +692,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             backgroundColor: Colors.white,
                             foregroundColor: const Color(0xFF334355),
                             elevation: 1,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: EdgeInsets.symmetric(horizontal: m.dp(18, tabletFactor: 1.0, desktopFactor: 0.85, min: 14, max: 26), vertical: m.dp(12, tabletFactor: 1.0, desktopFactor: 0.85, min: 10, max: 18)),
                           ),
                           icon: const Icon(Icons.phone_iphone, size: 20),
                           label: const Text('Téléphone'),
@@ -705,9 +702,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 18),
                     GestureDetector(
                       onTap: _handleLogin,
-                      child: Container(
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: Container(
                         width: double.infinity,
-                        height: 60,
+                        height: m.dp(68, tabletFactor: 1.15, desktopFactor: 0.84, min: 56, max: 84),
                         decoration: BoxDecoration(
                           color: const Color(0xFF6A994E),
                           borderRadius: BorderRadius.circular(20),
@@ -722,11 +721,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
-                            const Center(
+                            Center(
                               child: Text(
                                 'CONTINUER',
                                 style: TextStyle(
-                                  fontSize: 18,
+                                  fontSize: m.font(18, tabletFactor: 1.12, desktopFactor: 0.86, min: 16, max: 24),
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                   fontFamily: 'Quicksand',
@@ -737,8 +736,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               right: 16,
                               top: 16,
                               child: Container(
-                                width: 28,
-                                height: 28,
+                                width: m.dp(32, tabletFactor: 1.0, desktopFactor: 0.85, min: 26, max: 40),
+                                height: m.dp(32, tabletFactor: 1.0, desktopFactor: 0.85, min: 26, max: 40),
                                 decoration: const BoxDecoration(
                                   color: Colors.white,
                                   shape: BoxShape.circle,
@@ -746,8 +745,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 alignment: Alignment.center,
                                 child: SvgPicture.asset(
                                   'assets/Images/Bouton/bouton droite.svg',
-                                  width: 18,
-                                  height: 18,
+                                  width: m.dp(20, tabletFactor: 1.0, desktopFactor: 0.85, min: 16, max: 24),
+                                  height: m.dp(20, tabletFactor: 1.0, desktopFactor: 0.85, min: 16, max: 24),
                                   fit: BoxFit.contain,
                                   alignment: Alignment.center,
                                   colorFilter: const ColorFilter.mode(Color(0xFF6A994E), BlendMode.srcIn),
@@ -757,6 +756,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
                       ),
+                    ),
                     ),
                     const SizedBox(height: 20),
                     Wrap(

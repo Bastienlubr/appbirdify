@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:math' as math;
 // import '../../ui/responsive/responsive.dart'; // Unused
@@ -196,86 +197,168 @@ class _IntroBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double vh = viewportHeight ?? MediaQuery.of(context).size.height;
-    // Décalage vers le bas (légèrement réduit pour remonter le bloc)
-    final double topGap = (vh * 0.24).clamp(80.0, 300.0);
+    final Size vs = MediaQuery.of(context).size;
+    final double vh = viewportHeight ?? vs.height;
+    final bool isDesktop = (kIsWeb && vs.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+    final bool isTablet = !isDesktop && (vs.shortestSide >= 600);
+    // Position plus basse sur tablette
+    final double topGap = (vh * (isTablet ? 0.34 : 0.24)).clamp(80.0, isTablet ? 560.0 : 300.0);
 
     return Column(
       children: [
         SizedBox(height: topGap),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color.fromRGBO(60, 128, 209, 0.085),
-                    blurRadius: 19,
-                    offset: Offset(0, 12),
-                  ),
-                ],
-                color: Colors.white,
+        if (!isDesktop)
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color.fromRGBO(60, 128, 209, 0.085),
+                      blurRadius: 19,
+                      offset: Offset(0, 12),
+                    ),
+                  ],
+                  color: Colors.white,
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    Text(
+                      'Prêt·e à partir à l’aventure ?',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFF344356),
+                        fontSize: 23 * (isTablet ? 1.08 : 1.0),
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'D’abord, dis-nous un peu qui tu es pour qu’on adapte ton parcours.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: const Color(0xCC344356),
+                        fontSize: 20 * (isTablet ? 1.08 : 1.0),
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Avant de débloquer ta première mission, réponds à 3 questions rapides',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: const Color(0xFF344356),
+                        fontSize: 16 * (isTablet ? 1.08 : 1.0),
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
               ),
-              child: Column(
-                children: const [
-                  SizedBox(height: 8),
-                  Text(
-                    'Prêt·e à partir à l’aventure ?',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF344356),
-                      fontSize: 23,
-                      fontFamily: 'Fredoka',
-                      fontWeight: FontWeight.w700,
+              Positioned(
+                right: 0,
+                top: isTablet ? -100 : -70,
+                child: Image.asset(
+                  'assets/Images/Bouton/mascotte livre.png',
+                  width: isTablet ? 160 : 120,
+                  height: isTablet ? 160 : 120,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                ),
+              ),
+            ],
+          )
+        else
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Carte blanche auto-ajustée au contenu
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color.fromRGBO(60, 128, 209, 0.085),
+                          blurRadius: 19,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Text(
+                            'Prêt·e à partir à l’aventure ?',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFF344356),
+                              fontSize: 30,
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            'D’abord, dis-nous un peu qui tu es pour qu’on adapte ton parcours.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xCC344356),
+                              fontSize: 22,
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            'Avant de débloquer ta première mission, réponds à 3 questions rapides',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFF344356),
+                              fontSize: 18,
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          SizedBox(height: 14),
+                        ],
+                      ),
                     ),
                   ),
-                  SizedBox(height: 10),
-                  Text(
-                    'D’abord, dis-nous un peu qui tu es pour qu’on adapte ton parcours.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xCC344356),
-                      fontSize: 20,
-                      fontFamily: 'Fredoka',
-                      fontWeight: FontWeight.w400,
+                  // Mascotte non contrainte par la carte (dépasse au-dessus)
+                  Positioned(
+                    right: -20,
+                    top: -108,
+                    child: Image.asset(
+                      'assets/Images/Bouton/mascotte livre.png',
+                      width: 160,
+                      height: 160,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                     ),
                   ),
-                  SizedBox(height: 10),
-                  Text(
-                    'Avant de débloquer ta première mission, réponds à 3 questions rapides',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF344356),
-                      fontSize: 16,
-                      fontFamily: 'Fredoka',
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: 12),
                 ],
               ),
             ),
-            Positioned(
-              right: 0,
-              top: -70,
-              child: Image.asset(
-                'assets/Images/Bouton/mascotte livre.png',
-                width: 120,
-                height: 120,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-              ),
-            ),
-          ],
-        ),
+          ),
         const SizedBox(height: 24),
         SizedBox(
-          width: 315,
-          height: 58,
+          width: isTablet ? 400 : 315,
+          height: isTablet ? 76 : 58,
           child: Stack(
             children: [
               Positioned.fill(
@@ -283,13 +366,13 @@ class _IntroBlock extends StatelessWidget {
                   onPressed: onContinue,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6A994E),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isTablet ? 22 : 16)),
                   ),
-                  child: const Text(
+                  child: Text(
                     'CONTINUER',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: isTablet ? 20 : 16,
                       fontFamily: 'Quicksand',
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1,
@@ -299,16 +382,19 @@ class _IntroBlock extends StatelessWidget {
               ),
               Positioned(
                 right: 14,
-                top: 14,
+                top: isTablet ? 22 : 14,
                 child: Container(
-                  width: 30,
-                  height: 30,
+                  width: isTablet ? 38 : 30,
+                  height: isTablet ? 38 : 30,
                   decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                   child: Center(
-                    child: _SafeSvgAsset(
-                      assetPath: 'assets/Images/Bouton/bouton droite.svg',
-                      width: 16,
-                      height: 16,
+                    child: ColorFiltered(
+                      colorFilter: const ColorFilter.mode(Color(0xFF6A994E), BlendMode.srcIn),
+                      child: _SafeSvgAsset(
+                        assetPath: 'assets/Images/Bouton/bouton droite.svg',
+                        width: isTablet ? 22 : 16,
+                        height: isTablet ? 22 : 16,
+                      ),
                     ),
                   ),
                 ),
@@ -420,25 +506,31 @@ class _QuizStyleProgressBarState extends State<_QuizStyleProgressBar> with Ticke
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  SizedBox(
-                    width: fill,
-                    height: widget.height,
-                    child: Stack(
-                      children: [
-                        Container(color: const Color(0xFFABC270)),
-                        Positioned(
-                          left: 4,
-                          right: 4,
-                          top: 3.5 * widget.ui,
-                          child: Container(
-                            height: 3.5 * widget.ui,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFC2D78D),
-                              borderRadius: BorderRadius.circular(5),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: fill,
+                      height: widget.height,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFABC270),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            left: 4,
+                            right: 4,
+                            top: 3.5 * widget.ui,
+                            child: Container(
+                              height: 3.5 * widget.ui,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFC2D78D),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   // Gouttelettes en overlay (hors clip du remplissage)
@@ -585,9 +677,17 @@ class _QuestionStepHeardFrom extends StatelessWidget {
           }
         }
 
-        final double cardWidth = (width * 0.94).clamp(300.0, width);
-        final double iconSize = (68 * scale).clamp(56.0, 92.0);
-        final double rowVPad = (14 * scale).clamp(10.0, 22.0);
+        final bool desktopPlatform = (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux))
+            || (kIsWeb && width >= 1024);
+        final double cardWidth = desktopPlatform
+            ? (width * 0.50).clamp(320.0, 520.0)
+            : (width * 0.90).clamp(300.0, width);
+        final double iconSize = desktopPlatform
+            ? (52 * scale).clamp(44.0, 72.0)
+            : (64 * scale).clamp(52.0, 88.0);
+        final double rowVPad = desktopPlatform
+            ? (10 * scale).clamp(8.0, 18.0)
+            : (12 * scale).clamp(8.0, 20.0);
         final double labelFont = (18 * scale).clamp(15.0, 22.0);
         final double titleFont = (30 * scale).clamp(24.0, 36.0);
 
@@ -598,50 +698,49 @@ class _QuestionStepHeardFrom extends StatelessWidget {
             Center(
               child: SizedBox(
                 width: (width * 0.96).clamp(300.0, width),
-                child: Text(
-                  "Où as-tu entendu parler de l’application ?",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: const Color(0xFF344356),
-                    fontFamily: 'Fredoka',
-                    fontWeight: FontWeight.w700,
-                    fontSize: titleFont,
-                    height: 1.08,
-                  ),
-                  maxLines: 2,
-                  softWrap: true,
+                child: Builder(
+                  builder: (context) {
+                    final Size vs = MediaQuery.of(context).size;
+                    final bool desktopPlatform = (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux))
+                        || (kIsWeb && vs.width >= 1024);
+                    final String title = desktopPlatform
+                        ? "Où as-tu entendu parler de l’application ?"
+                        : "Où as-tu entendu parler\nde l’application ?";
+                    return Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: const Color(0xFF344356),
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w700,
+                        fontSize: titleFont,
+                        height: 1.08,
+                      ),
+                      maxLines: desktopPlatform ? 1 : 2,
+                      softWrap: !desktopPlatform,
+                      overflow: TextOverflow.visible,
+                    );
+                  },
                 ),
               ),
             ),
-            SizedBox(height: 8 * scale),
+            SizedBox(height: desktopPlatform ? 36.0 : 8 * scale),
             Center(
-              child: Container(
+              child: SizedBox(
                 width: cardWidth,
-                padding: EdgeInsets.zero,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(17 * scale),
-                ),
                 child: Column(
                   children: [
                     ...List.generate(options.length, (i) {
                       final label = options[i];
                       final selected = value == label;
                       final baseName = baseNameFor(label);
-                      return InkWell(
-                        onTap: () => onChanged(label),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(vertical: rowVPad, horizontal: 16 * scale),
-                          decoration: i == 0
-                              ? null
-                              : BoxDecoration(
-                                  border: Border(
-                                    top: BorderSide(
-                                      color: Colors.black.withValues(alpha: 0.20),
-                                      width: (2 * scale).clamp(1.5, 3.0),
-                                    ),
-                                  ),
-                                ),
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: desktopPlatform ? 6 * scale : 10 * scale),
+                        child: _SelectableOptionCard(
+                          selected: selected,
+                          borderRadius: BorderRadius.circular(desktopPlatform ? 14 * scale : 17 * scale),
+                          onTap: () => onChanged(label),
+                          padding: EdgeInsets.symmetric(vertical: rowVPad, horizontal: desktopPlatform ? 12 * scale : 16 * scale),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -650,7 +749,7 @@ class _QuestionStepHeardFrom extends StatelessWidget {
                                 height: iconSize,
                                 child: _AuthIcon(baseName: baseName, size: iconSize, highlight: selected),
                               ),
-                              SizedBox(width: 14 * scale),
+                              SizedBox(width: desktopPlatform ? 10 * scale : 14 * scale),
                               Expanded(
                                 child: Text(
                                   label,
@@ -659,8 +758,8 @@ class _QuestionStepHeardFrom extends StatelessWidget {
                                     fontFamily: 'Fredoka',
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.6,
-                                    height: 1.1,
-                                    fontSize: labelFont,
+                                    height: 1.08,
+                                    fontSize: desktopPlatform ? (labelFont * 0.95) : labelFont,
                                   ),
                                 ),
                               ),
@@ -707,11 +806,23 @@ class _QuestionStepHeardFrom extends StatelessWidget {
                         height: (30 * scale).clamp(26.0, 38.0),
                         decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                         child: Center(
-                          child: _SafeSvgAsset(
-                            assetPath: 'assets/Images/Bouton/bouton droite.svg',
-                            width: (16 * scale).clamp(14.0, 22.0),
-                            height: (16 * scale).clamp(14.0, 22.0),
-                          ),
+                          child: (onContinue != null)
+                              ? ColorFiltered(
+                                  colorFilter: const ColorFilter.mode(Color(0xFF6A994E), BlendMode.srcIn),
+                                  child: _SafeSvgAsset(
+                                    assetPath: 'assets/Images/Bouton/bouton droite.svg',
+                                    width: (16 * scale).clamp(14.0, 22.0),
+                                    height: (16 * scale).clamp(14.0, 22.0),
+                                  ),
+                                )
+                              : ColorFiltered(
+                                  colorFilter: const ColorFilter.mode(Color(0x80344356), BlendMode.srcIn),
+                                  child: _SafeSvgAsset(
+                                    assetPath: 'assets/Images/Bouton/bouton droite.svg',
+                                    width: (16 * scale).clamp(14.0, 22.0),
+                                    height: (16 * scale).clamp(14.0, 22.0),
+                                  ),
+                                ),
                         ),
                       ),
                     ),
@@ -723,6 +834,55 @@ class _QuestionStepHeardFrom extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _SelectableOptionCard extends StatelessWidget {
+  final bool selected;
+  final BorderRadius borderRadius;
+  final EdgeInsetsGeometry padding;
+  final Widget child;
+  final VoidCallback onTap;
+  const _SelectableOptionCard({
+    required this.selected,
+    required this.borderRadius,
+    required this.padding,
+    required this.child,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: selected ? 1.04 : 1.0,
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: borderRadius,
+        child: SizedBox(
+          width: double.infinity,
+          child: DecoratedBox(
+            decoration: ShapeDecoration(
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                side: selected ? const BorderSide(width: 6, color: Color(0xFFABC270)) : BorderSide.none,
+                borderRadius: borderRadius,
+              ),
+              shadows: selected
+                  ? const [
+                      BoxShadow(color: Color(0x554CAF50), blurRadius: 14, offset: Offset(0, 3)),
+                    ]
+                  : const [],
+            ),
+            child: Padding(
+              padding: padding,
+              child: child,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -748,9 +908,15 @@ class _QuestionStepLevel extends StatelessWidget {
           ['PASSIONNÉ CONFIRMÉ', 'je reconnais un oiseau avant même de le voir'],
         ];
 
-        // Agrandir la carte et la typo
-        final double cardWidth = (width * 0.98).clamp(300.0, width);
-        final double rowVPad = (12 * scale).clamp(10.0, 20.0);
+        // Desktop: cartes plus étroites/compactes, alignées avec l'étape précédente
+        final bool desktopPlatform = (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux))
+            || (kIsWeb && width >= 1024);
+        final double cardWidth = desktopPlatform
+            ? (width * 0.50).clamp(320.0, 520.0)
+            : (width * 0.98).clamp(300.0, width);
+        final double rowVPad = desktopPlatform
+            ? (10 * scale).clamp(8.0, 18.0)
+            : (12 * scale).clamp(10.0, 20.0);
         final double titleFont = (30 * scale).clamp(24.0, 34.0);
         final double labelFont = (20 * scale).clamp(17.0, 24.0);
         final double subFont = (18 * scale).clamp(13.0, 20.0);
@@ -758,131 +924,91 @@ class _QuestionStepLevel extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(height: 6 * scale),
+            SizedBox(height: desktopPlatform ? 24.0 : 6 * scale),
             Center(
               child: SizedBox(
                 width: (width * 0.96).clamp(300.0, width),
-                child: Text(
-                  'Ton oreille est déjà bien entraînée, ou tu débutes ?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: const Color(0xFF344356),
-                    fontFamily: 'Fredoka',
-                    fontWeight: FontWeight.w700,
-                    fontSize: titleFont,
-                    height: 1.08,
-                  ),
-                  maxLines: 2,
-                  softWrap: true,
+                child: Builder(
+                  builder: (context) {
+                    final Size vs = MediaQuery.of(context).size;
+                    final bool desktopTitle = (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux))
+                        || (kIsWeb && vs.width >= 1024);
+                    final String title = desktopTitle
+                        ? 'Ton oreille est déjà bien entraînée, ou tu débutes ?'
+                        : 'Ton oreille est déjà bien entraînée,\nou tu débutes ?';
+                    return Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: const Color(0xFF344356),
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w700,
+                        fontSize: titleFont,
+                        height: 1.08,
+                      ),
+                      maxLines: desktopTitle ? 1 : 2,
+                      softWrap: !desktopTitle,
+                      overflow: TextOverflow.visible,
+                    );
+                  },
                 ),
               ),
             ),
-            SizedBox(height: 8 * scale),
+            SizedBox(height: desktopPlatform ? 24.0 : 8 * scale),
             Expanded(
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
+                    SizedBox(
                       width: cardWidth,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(17 * scale),
-                      ),
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          ...(){
-                            final List<Widget> rows = [];
-                            final int selectedIndex = entries.indexWhere((e) => e[0] == value);
-                            final double sepThickness = (2 * scale).clamp(1.2, 2.5);
-                            for (int i = 0; i < entries.length; i++) {
-                              final label = entries[i][0];
-                              final sub = entries[i][1];
-                              final selected = i == selectedIndex;
-                              // Séparateur avant la ligne (si ni la courante ni la précédente ne sont sélectionnées)
-                              if (i > 0) {
-                                final prevSelected = (i - 1) == selectedIndex;
-                                rows.add(
-                                  Container(
-                                    height: (!prevSelected && !selected) ? sepThickness : 0,
-                                    color: (!prevSelected && !selected)
-                                        ? Colors.black.withValues(alpha: 0.20)
-                                        : Colors.transparent,
-                                    width: double.infinity,
-                                  ),
-                                );
-                              }
-                              // Border radius aligné aux bords de la carte si sélectionné et en extrémité
-                              BorderRadius? br;
-                              if (selected) {
-                                if (i == 0) {
-                                  br = BorderRadius.only(
-                                    topLeft: Radius.circular(17 * scale),
-                                    topRight: Radius.circular(17 * scale),
-                                  );
-                                } else if (i == entries.length - 1) {
-                                  br = BorderRadius.only(
-                                    bottomLeft: Radius.circular(17 * scale),
-                                    bottomRight: Radius.circular(17 * scale),
-                                  );
-                                } else {
-                                  br = BorderRadius.zero;
-                                }
-                              }
-                              rows.add(
-                                InkWell(
-                                  onTap: () => onChanged(label),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: EdgeInsets.symmetric(vertical: rowVPad),
-                                    decoration: BoxDecoration(
-                                      color: selected ? const Color(0xFF6A994E).withValues(alpha: 0.10) : Colors.transparent,
-                                      border: selected
-                                          ? Border.all(
-                                              color: const Color(0xFFABC270),
-                                              width: (2 * scale).clamp(1.2, 2.4),
-                                            )
-                                          : null,
-                                      borderRadius: br,
-                                    ),
-                                    child: Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 14 * scale),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            label,
-                                            style: TextStyle(
-                                              color: selected ? const Color(0xFFABC270) : const Color(0xFF344356),
-                                              fontFamily: 'Fredoka',
-                                              fontWeight: FontWeight.w700,
-                                              letterSpacing: 0.7,
-                                              fontSize: labelFont,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                          SizedBox(height: 1 * scale),
-                                          Text(
-                                            sub,
-                                            style: TextStyle(
-                                              color: const Color(0x99344356),
-                                              fontFamily: 'Fredoka',
-                                              fontWeight: FontWeight.w400,
-                                              letterSpacing: 0.5,
-                                              fontSize: subFont,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+                          ...List.generate(entries.length, (i) {
+                            final label = entries[i][0];
+                            final sub = entries[i][1];
+                            final selected = label == value;
+                            return Padding(
+                              padding: EdgeInsets.only(bottom: desktopPlatform ? 6 * scale : 10 * scale),
+                              child: _SelectableOptionCard(
+                                selected: selected,
+                                borderRadius: BorderRadius.circular(desktopPlatform ? 14 * scale : 17 * scale),
+                                onTap: () => onChanged(label),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: rowVPad,
+                                  horizontal: desktopPlatform ? 12 * scale : 14 * scale,
                                 ),
-                              );
-                            }
-                            return rows;
-                          }(),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      label,
+                                      style: TextStyle(
+                                        color: selected ? const Color(0xFFABC270) : const Color(0xFF344356),
+                                        fontFamily: 'Fredoka',
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.7,
+                                        fontSize: desktopPlatform ? (labelFont * 0.95) : labelFont,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    SizedBox(height: 1 * scale),
+                                    Text(
+                                      sub,
+                                      style: TextStyle(
+                                        color: const Color(0x99344356),
+                                        fontFamily: 'Fredoka',
+                                        fontWeight: FontWeight.w400,
+                                        letterSpacing: 0.5,
+                                        fontSize: subFont,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
                         ],
                       ),
                     ),
@@ -919,11 +1045,23 @@ class _QuestionStepLevel extends StatelessWidget {
                               height: (30 * scale).clamp(26.0, 38.0),
                               decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                               child: Center(
-                                child: _SafeSvgAsset(
-                                  assetPath: 'assets/Images/Bouton/bouton droite.svg',
-                                  width: (16 * scale).clamp(14.0, 22.0),
-                                  height: (16 * scale).clamp(14.0, 22.0),
-                                ),
+                                child: (onContinue != null)
+                                    ? ColorFiltered(
+                                        colorFilter: const ColorFilter.mode(Color(0xFF6A994E), BlendMode.srcIn),
+                                        child: _SafeSvgAsset(
+                                          assetPath: 'assets/Images/Bouton/bouton droite.svg',
+                                          width: (16 * scale).clamp(14.0, 22.0),
+                                          height: (16 * scale).clamp(14.0, 22.0),
+                                        ),
+                                      )
+                                    : ColorFiltered(
+                                        colorFilter: const ColorFilter.mode(Color(0x80344356), BlendMode.srcIn),
+                                        child: _SafeSvgAsset(
+                                          assetPath: 'assets/Images/Bouton/bouton droite.svg',
+                                          width: (16 * scale).clamp(14.0, 22.0),
+                                          height: (16 * scale).clamp(14.0, 22.0),
+                                        ),
+                                      ),
                               ),
                             ),
                           ),
@@ -963,8 +1101,15 @@ class _QuestionStepCommitment extends StatelessWidget {
           ['INTENSIF', 'j’y vais à fond, je veux progresser vite'],
         ];
 
-        final double cardWidth = (width * 0.98).clamp(300.0, width);
-        final double rowVPad = (12 * scale).clamp(10.0, 20.0);
+        // Desktop: cartes plus étroites/compactes, alignées avec les autres étapes
+        final bool desktopPlatform = (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux))
+            || (kIsWeb && width >= 1024);
+        final double cardWidth = desktopPlatform
+            ? (width * 0.50).clamp(320.0, 520.0)
+            : (width * 0.98).clamp(300.0, width);
+        final double rowVPad = desktopPlatform
+            ? (10 * scale).clamp(8.0, 18.0)
+            : (12 * scale).clamp(10.0, 20.0);
         final double titleFont = (30 * scale).clamp(24.0, 34.0);
         final double labelFont = (20 * scale).clamp(17.0, 24.0);
         final double subFont = (18 * scale).clamp(13.0, 20.0);
@@ -972,133 +1117,95 @@ class _QuestionStepCommitment extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(height: 6 * scale),
+            SizedBox(height: desktopPlatform ? 24.0 : 6 * scale),
             Center(
               child: SizedBox(
                 width: (width * 0.96).clamp(300.0, width),
-                child: Text(
-                  'Combien de temps tu es prêt à passer dessus ?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: const Color(0xFF344356),
-                    fontFamily: 'Fredoka',
-                    fontWeight: FontWeight.w700,
-                    fontSize: titleFont,
-                    height: 1.08,
-                  ),
-                  maxLines: 2,
-                  softWrap: true,
+                child: Builder(
+                  builder: (context) {
+                    final Size vs = MediaQuery.of(context).size;
+                    final bool desktopTitle = (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux))
+                        || (kIsWeb && vs.width >= 1024);
+                    final String title = desktopTitle
+                        ? 'Combien de temps tu es prêt à passer dessus ?'
+                        : 'Combien de temps tu es\nprêt à passer dessus ?';
+                    return Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: const Color(0xFF344356),
+                        fontFamily: 'Fredoka',
+                        fontWeight: FontWeight.w700,
+                        fontSize: titleFont,
+                        height: 1.08,
+                      ),
+                      maxLines: desktopTitle ? 1 : 2,
+                      softWrap: !desktopTitle,
+                      overflow: TextOverflow.visible,
+                    );
+                  },
                 ),
               ),
             ),
-            SizedBox(height: 8 * scale),
+            SizedBox(height: desktopPlatform ? 24.0 : 8 * scale),
             Expanded(
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
+                    SizedBox(
                       width: cardWidth,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(17 * scale),
-                      ),
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          ...(){
-                            final List<Widget> rows = [];
-                            final int selectedIndex = entries.indexWhere((e) => e[0] == value);
-                            final double sepThickness = (2 * scale).clamp(1.2, 2.5);
-                            for (int i = 0; i < entries.length; i++) {
-                              final label = entries[i][0];
-                              final sub = entries[i][1];
-                              final selected = i == selectedIndex;
-                              if (i > 0) {
-                                final prevSelected = (i - 1) == selectedIndex;
-                                rows.add(
-                                  Container(
-                                    height: (!prevSelected && !selected) ? sepThickness : 0,
-                                    color: (!prevSelected && !selected)
-                                        ? Colors.black.withValues(alpha: 0.20)
-                                        : Colors.transparent,
-                                    width: double.infinity,
-                                  ),
-                                );
-                              }
-                              BorderRadius? br;
-                              if (selected) {
-                                if (i == 0) {
-                                  br = BorderRadius.only(
-                                    topLeft: Radius.circular(17 * scale),
-                                    topRight: Radius.circular(17 * scale),
-                                  );
-                                } else if (i == entries.length - 1) {
-                                  br = BorderRadius.only(
-                                    bottomLeft: Radius.circular(17 * scale),
-                                    bottomRight: Radius.circular(17 * scale),
-                                  );
-                                } else {
-                                  br = BorderRadius.zero;
-                                }
-                              }
-                              rows.add(
-                                InkWell(
-                                  onTap: () => onChanged(label),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: EdgeInsets.symmetric(vertical: rowVPad),
-                                    decoration: BoxDecoration(
-                                      color: selected ? const Color(0xFFABC270).withValues(alpha: 0.10) : Colors.transparent,
-                                      border: selected
-                                          ? Border.all(
-                                              color: const Color(0xFFABC270),
-                                              width: (2 * scale).clamp(1.2, 2.4),
-                                            )
-                                          : null,
-                                      borderRadius: br,
-                                    ),
-                                    child: Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 14 * scale),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            label,
-                                            style: TextStyle(
-                                              color: selected ? const Color(0xFFABC270) : const Color(0xFF344356),
-                                              fontFamily: 'Fredoka',
-                                              fontWeight: FontWeight.w700,
-                                              letterSpacing: 0.7,
-                                              fontSize: labelFont,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                          SizedBox(height: 1 * scale),
-                                          Text(
-                                            sub,
-                                            style: TextStyle(
-                                              color: const Color(0x99344356),
-                                              fontFamily: 'Fredoka',
-                                              fontWeight: FontWeight.w400,
-                                              letterSpacing: 0.5,
-                                              fontSize: subFont,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+                          ...List.generate(entries.length, (i) {
+                            final label = entries[i][0];
+                            final sub = entries[i][1];
+                            final selected = label == value;
+                            return Padding(
+                              padding: EdgeInsets.only(bottom: desktopPlatform ? 6 * scale : 10 * scale),
+                              child: _SelectableOptionCard(
+                                selected: selected,
+                                borderRadius: BorderRadius.circular(desktopPlatform ? 14 * scale : 17 * scale),
+                                onTap: () => onChanged(label),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: rowVPad,
+                                  horizontal: desktopPlatform ? 12 * scale : 14 * scale,
                                 ),
-                              );
-                            }
-                            return rows;
-                          }(),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      label,
+                                      style: TextStyle(
+                                        color: selected ? const Color(0xFFABC270) : const Color(0xFF344356),
+                                        fontFamily: 'Fredoka',
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.7,
+                                        fontSize: desktopPlatform ? (labelFont * 0.95) : labelFont,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    SizedBox(height: 1 * scale),
+                                    Text(
+                                      sub,
+                                      style: TextStyle(
+                                        color: const Color(0x99344356),
+                                        fontFamily: 'Fredoka',
+                                        fontWeight: FontWeight.w400,
+                                        letterSpacing: 0.5,
+                                        fontSize: subFont,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
                         ],
                       ),
                     ),
-                    SizedBox(height: 30 * scale),
+                    SizedBox(height: 24 * scale),
                     SizedBox(
                       width: cardWidth,
                       height: (58 * scale).clamp(52.0, 72.0),
@@ -1131,11 +1238,23 @@ class _QuestionStepCommitment extends StatelessWidget {
                               height: (30 * scale).clamp(26.0, 38.0),
                               decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                               child: Center(
-                                child: _SafeSvgAsset(
-                                  assetPath: 'assets/Images/Bouton/bouton droite.svg',
-                                  width: (16 * scale).clamp(14.0, 22.0),
-                                  height: (16 * scale).clamp(14.0, 22.0),
-                                ),
+                                child: (onContinue != null)
+                                    ? ColorFiltered(
+                                        colorFilter: const ColorFilter.mode(Color(0xFF6A994E), BlendMode.srcIn),
+                                        child: _SafeSvgAsset(
+                                          assetPath: 'assets/Images/Bouton/bouton droite.svg',
+                                          width: (16 * scale).clamp(14.0, 22.0),
+                                          height: (16 * scale).clamp(14.0, 22.0),
+                                        ),
+                                      )
+                                    : ColorFiltered(
+                                        colorFilter: const ColorFilter.mode(Color(0x80344356), BlendMode.srcIn),
+                                        child: _SafeSvgAsset(
+                                          assetPath: 'assets/Images/Bouton/bouton droite.svg',
+                                          width: (16 * scale).clamp(14.0, 22.0),
+                                          height: (16 * scale).clamp(14.0, 22.0),
+                                        ),
+                                      ),
                               ),
                             ),
                           ),
