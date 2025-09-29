@@ -460,6 +460,7 @@ class _BoutonUniverselState extends State<BoutonUniversel>
     );
 
     final Widget core = MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) {
         if (!widget.disabled) setState(() => _isHovered = true);
       },

@@ -7,6 +7,7 @@ import '../theme/colors.dart';
 import '../pages/auth/login_screen.dart';
 import '../pages/RecompensesUtiles/test_recompenses_access.dart';
 import '../pages/RecompensesUtiles/recompenses_utiles_page.dart';
+import '../pages/Abonnement/bienvenue_abonnement_page.dart';
 import '../pages/RecompensesUtiles/recompenses_utiles_secondaire_page.dart';
 import '../services/Users/recompenses_utiles_service.dart';
 import '../data/bird_image_alignments.dart';
@@ -625,6 +626,19 @@ class _DevToolsPopupState extends State<_DevToolsPopup> {
           onPressed: () {
             Navigator.of(context).pop(); // Fermer le popup d'abord
             TestRecompensesAccess.showRecompensesPage(context);
+          },
+        ),
+        _buildActionButton(
+          icon: Icons.card_giftcard,
+          label: '🕊️ Ouvrir Envol - Bienvenue Abonnement',
+          onPressed: () {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) navigator.pop();
+            Future<void>(() async {
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const EnvolWelcomePage()),
+              );
+            });
           },
         ),
         _buildActionButton(

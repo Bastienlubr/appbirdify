@@ -116,10 +116,13 @@ class LivesPopoverState extends State<LivesPopover>
       children: [
         // Dim backdrop touch-to-dismiss
         Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => dismissWithAnimation(onCompleted: widget.onClose),
-            child: Container(color: Colors.transparent),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.basic,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => dismissWithAnimation(onCompleted: widget.onClose),
+              child: Container(color: Colors.transparent),
+            ),
           ),
         ),
 
@@ -147,7 +150,9 @@ class LivesPopoverState extends State<LivesPopover>
                 opacity: eased,
                 child: Stack(
                   children: [
-                    Material(
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Material(
                       color: Colors.transparent,
                       child: RepaintBoundary(
                         child: _PopoverCard(
@@ -169,6 +174,7 @@ class LivesPopoverState extends State<LivesPopover>
                           strokeOpacityOverride: strokeOpacity,
                           arrowHeightOverride: animatedArrowHeight,
                         ),
+                      ),
                       ),
                     ),
                   ],
@@ -475,6 +481,9 @@ class _ArrowPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (!(size.width.isFinite && size.height.isFinite) || size.width <= 0 || size.height <= 0) {
+      return;
+    }
     final double w = size.width;
     final double h = size.height;
     final double r = (w < h ? w : h) * 0.18; // rayon pour arrondir la pointe
@@ -553,6 +562,10 @@ class _IntegratedBubblePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (!(size.width.isFinite && size.height.isFinite) || size.width <= 0 || size.height <= 0) {
+      return;
+    }
+    if (borderWidth <= 0) return;
     final double left = borderWidth / 2;
     final double right = size.width - borderWidth / 2;
     final double bottom = size.height - borderWidth / 2;

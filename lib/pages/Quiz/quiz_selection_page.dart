@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../ui/responsive/responsive.dart';
 import '../MissionHabitat/quiz_page.dart';
@@ -101,55 +102,90 @@ class _QuizSelectionPageState extends State<QuizSelectionPage> {
                 final images = visibleDocs.map((d) => (d.data()['imageUrl'] ?? '').toString()).toList();
                 final descriptions = visibleDocs.map((d) => (d.data()['description'] ?? '').toString()).toList();
 
+                final double screenW = MediaQuery.of(context).size.width;
+                final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
                 final double cardW = (constraints.maxWidth - horizontalPadding * 2 - gutter) / 2;
                 final double cardH = cardW * 0.96;
                 final double topH = cardH * 0.52;
+                // Réduction spécifique desktop: tuiles plus petites visuellement
+                final double scale = isDesktop ? 0.62 : 1.0;
+                final double cardWScaled = cardW * scale;
+                final double cardHScaled = cardH * scale;
+                final double topHScaled = topH * scale;
 
-                return SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: m.dp(24), vertical: m.dp(16)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                return Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(m.dp(24), m.dp(16), m.dp(24), m.dp(8)),
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          GestureDetector(
-                            onTap: () => setState(() => _showCustomQuizzes = false),
-                            child: _TabLabel(label: 'QUIZ', selected: !_showCustomQuizzes),
+                          SizedBox(
+                            width: 200,
+                            child: Center(
+                              child: GestureDetector(
+                                onTap: () => setState(() => _showCustomQuizzes = false),
+                                child: _TabLabel(label: 'QUIZ', selected: !_showCustomQuizzes),
+                              ),
+                            ),
                           ),
                           SizedBox(width: m.dp(24)),
-                          GestureDetector(
-                            onTap: () => setState(() => _showCustomQuizzes = true),
-                            child: _TabLabel(label: 'MES QUIZ', selected: _showCustomQuizzes),
+                          SizedBox(
+                            width: 200,
+                            child: Center(
+                              child: GestureDetector(
+                                onTap: () => Navigator.of(context).pushNamed('/abonnement/information'),
+                                child: _TabLabel(label: 'MES QUIZ', selected: _showCustomQuizzes),
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      SizedBox(height: m.dp(16)),
-                      // Carte d'action: Créer ton quiz (premium uniquement)
-                      if (!_showCustomQuizzes)
-                        ...(UserOrchestra.isPremium
-                            ? [
-                                _ActionCreateQuizCard(onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(builder: (_) => const CreationQuizPage()),
-                                  );
-                                }),
-                                SizedBox(height: m.dp(16)),
-                              ]
-                            : [
-                                _ActionCreateQuizCardDisabled(onTapPaywall: () {
-                                  Navigator.of(context).pushNamed('/abonnement/information');
-                                }),
-                                SizedBox(height: m.dp(16)),
-                              ]),
-                      // Affichage conditionnel: quiz officiels ou quiz personnalisés
-                      if (_showCustomQuizzes)
-                        _CustomQuizzesSection(cardW: cardW, cardH: cardH, topH: topH, gutter: gutter)
-                      else
-                        ..._buildOfficialQuizzes(visibleDocs, titles, images, descriptions, cardW, cardH, topH, gutter, m),
-                      SizedBox(height: m.dp(40)),
-                    ],
-                  ),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(horizontal: m.dp(24), vertical: m.dp(8)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Carte d'action: Créer ton quiz (premium uniquement)
+                            if (!_showCustomQuizzes)
+                              ...(UserOrchestra.isPremium
+                                  ? [
+                                      Center(
+                                        child: SizedBox(
+                                          width: isDesktop ? (cardWScaled * 2 + gutter) : double.infinity,
+                                          child: _ActionCreateQuizCard(onTap: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(builder: (_) => const CreationQuizPage()),
+                                            );
+                                          }),
+                                        ),
+                                      ),
+                                      SizedBox(height: m.dp(16)),
+                                    ]
+                                  : [
+                                      Center(
+                                        child: SizedBox(
+                                          width: isDesktop ? (cardWScaled * 2 + gutter) : double.infinity,
+                                          child: _ActionCreateQuizCardDisabled(onTapPaywall: () {
+                                            Navigator.of(context).pushNamed('/abonnement/information');
+                                          }),
+                                        ),
+                                      ),
+                                      SizedBox(height: m.dp(16)),
+                                    ]),
+                            // Affichage conditionnel: quiz officiels ou quiz personnalisés
+                            if (_showCustomQuizzes)
+                              _CustomQuizzesSection(cardW: cardWScaled, cardH: cardHScaled, topH: topHScaled, gutter: gutter, centerInExpanded: isDesktop)
+                            else
+                              ..._buildOfficialQuizzes(visibleDocs, titles, images, descriptions, cardWScaled, cardHScaled, topHScaled, gutter, m, centerInExpanded: isDesktop),
+                            SizedBox(height: m.dp(40)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -169,6 +205,7 @@ class _QuizSelectionPageState extends State<QuizSelectionPage> {
     double topH,
     double gutter,
     ResponsiveMetrics m,
+    { bool centerInExpanded = false }
   ) {
     return List.generate(((visibleDocs.length + 1) ~/ 2), (rowIdx) {
                         final i = rowIdx * 2;
@@ -178,31 +215,82 @@ class _QuizSelectionPageState extends State<QuizSelectionPage> {
                           children: [
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: centerInExpanded ? MainAxisAlignment.center : MainAxisAlignment.start,
                               children: [
                                 if (j < visibleDocs.length) ...[
-                                Expanded(
-                                  child: _SmallQuizCard(
-                                    width: cardW,
-                                    height: cardH,
-                                    topImageHeight: topH,
-                                    title: titles[i],
-                                    imageUrl: images[i].isNotEmpty ? images[i] : 'https://placehold.co/140x80',
-                                    selected: _selectedIndex == i,
-                                    onTap: () => setState(() { _selectedIndex = (_selectedIndex == i) ? null : i; }),
-                                  ),
-                                ),
-                                  SizedBox(width: gutter),
-                                  Expanded(
-                                    child: _SmallQuizCard(
+                                  if (centerInExpanded) ...[
+                                    SizedBox(
                                       width: cardW,
-                                      height: cardH,
-                                      topImageHeight: topH,
-                                      title: titles[j],
-                                      imageUrl: images[j].isNotEmpty ? images[j] : 'https://placehold.co/140x80',
-                                      selected: _selectedIndex == j,
-                                      onTap: () => setState(() { _selectedIndex = (_selectedIndex == j) ? null : j; }),
+                                      child: _SmallQuizCard(
+                                        width: cardW,
+                                        height: cardH,
+                                        topImageHeight: topH,
+                                        title: titles[i],
+                                        imageUrl: images[i].isNotEmpty ? images[i] : 'https://placehold.co/140x80',
+                                        description: descriptions[i],
+                                        desktopMode: centerInExpanded,
+                                        onContinue: () {
+                                          final missionId = visibleDocs[i].id;
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => QuizPage(missionId: missionId),
+                                            ),
+                                          );
+                                        },
+                                        selected: _selectedIndex == i,
+                                        onTap: () => setState(() { _selectedIndex = (_selectedIndex == i) ? null : i; }),
+                                      ),
                                     ),
-                                  ),
+                                    SizedBox(width: gutter),
+                                    SizedBox(
+                                      width: cardW,
+                                      child: _SmallQuizCard(
+                                        width: cardW,
+                                        height: cardH,
+                                        topImageHeight: topH,
+                                        title: titles[j],
+                                        imageUrl: images[j].isNotEmpty ? images[j] : 'https://placehold.co/140x80',
+                                        description: descriptions[j],
+                                        desktopMode: centerInExpanded,
+                                        onContinue: () {
+                                          final missionId = visibleDocs[j].id;
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => QuizPage(missionId: missionId),
+                                            ),
+                                          );
+                                        },
+                                        selected: _selectedIndex == j,
+                                        onTap: () => setState(() { _selectedIndex = (_selectedIndex == j) ? null : j; }),
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    Expanded(
+                                      child: _SmallQuizCard(
+                                        width: cardW,
+                                        height: cardH,
+                                        topImageHeight: topH,
+                                        title: titles[i],
+                                        imageUrl: images[i].isNotEmpty ? images[i] : 'https://placehold.co/140x80',
+                                        description: descriptions[i],
+                                        selected: _selectedIndex == i,
+                                        onTap: () => setState(() { _selectedIndex = (_selectedIndex == i) ? null : i; }),
+                                      ),
+                                    ),
+                                    SizedBox(width: gutter),
+                                    Expanded(
+                                      child: _SmallQuizCard(
+                                        width: cardW,
+                                        height: cardH,
+                                        topImageHeight: topH,
+                                        title: titles[j],
+                                        imageUrl: images[j].isNotEmpty ? images[j] : 'https://placehold.co/140x80',
+                                        description: descriptions[j],
+                                        selected: _selectedIndex == j,
+                                        onTap: () => setState(() { _selectedIndex = (_selectedIndex == j) ? null : j; }),
+                                      ),
+                                    ),
+                                  ],
                                 ] else ...[
                                   SizedBox(
                                     width: cardW,
@@ -212,6 +300,7 @@ class _QuizSelectionPageState extends State<QuizSelectionPage> {
                                       topImageHeight: topH,
                                       title: titles[i],
                                       imageUrl: images[i].isNotEmpty ? images[i] : 'https://placehold.co/140x80',
+                                      description: descriptions[i],
                                       selected: _selectedIndex == i,
                                       onTap: () => setState(() { _selectedIndex = (_selectedIndex == i) ? null : i; }),
                                     ),
@@ -219,34 +308,35 @@ class _QuizSelectionPageState extends State<QuizSelectionPage> {
                                 ],
                               ],
                             ),
-                            AnimatedSize(
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOut,
-                              child: (_selectedIndex != null && (_selectedIndex == i || _selectedIndex == j))
-                                  ? Padding(
-                                      padding: EdgeInsets.only(top: m.dp(0), bottom: m.dp(16)),
-                                      child: Transform.translate(
-                                        offset: Offset(0, -m.dp(22)),
-                                        child: _WideDescriptionPanel(
-                                          corner: m.dp(14),
-                                          title: titles[_selectedIndex!].replaceAll('\n', ' '),
-                                          description: descriptions[_selectedIndex!],
-                                          pointerXAlign: pointerAlignForIndex(_selectedIndex!),
-                                          onContinuer: () {
-                                            final missionId = visibleDocs[_selectedIndex!].id;
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) => QuizPage(missionId: missionId),
-                                              ),
-                                            );
-                                          },
+                            if (!centerInExpanded)
+                              AnimatedSize(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                child: (_selectedIndex != null && (_selectedIndex == i || _selectedIndex == j))
+                                    ? Padding(
+                                        padding: EdgeInsets.only(top: m.dp(0), bottom: m.dp(16)),
+                                        child: Transform.translate(
+                                          offset: Offset(0, -m.dp(22)),
+                                          child: _WideDescriptionPanel(
+                                            corner: m.dp(14),
+                                            title: titles[_selectedIndex!].replaceAll('\n', ' '),
+                                            description: descriptions[_selectedIndex!],
+                                            pointerXAlign: pointerAlignForIndex(_selectedIndex!),
+                                            onContinuer: () {
+                                              final missionId = visibleDocs[_selectedIndex!].id;
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => QuizPage(missionId: missionId),
+                                                ),
+                                              );
+                                            },
+                                          ),
                                         ),
-                                      ),
-                                    )
-                                  : const SizedBox.shrink(),
-                            ),
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
                             // Espace entre cette rangée (et son panneau) et la suivante
-                            SizedBox(height: m.dp(24)),
+                            SizedBox(height: m.dp(centerInExpanded ? 18 : 24)),
                           ],
                         );
                       });
@@ -258,7 +348,8 @@ class _CustomQuizzesSection extends StatefulWidget {
   final double cardH;
   final double topH;
   final double gutter;
-  const _CustomQuizzesSection({required this.cardW, required this.cardH, required this.topH, required this.gutter});
+  final bool centerInExpanded;
+  const _CustomQuizzesSection({required this.cardW, required this.cardH, required this.topH, required this.gutter, this.centerInExpanded = false});
 
   @override
   State<_CustomQuizzesSection> createState() => _CustomQuizzesSectionState();
@@ -362,29 +453,56 @@ class _CustomQuizzesSectionState extends State<_CustomQuizzesSection> {
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: widget.centerInExpanded ? MainAxisAlignment.center : MainAxisAlignment.start,
                   children: [
                     if (j < customQuizzes.length) ...[
-                      Expanded(
-                        child: _CustomQuizCard(
-                          quiz: customQuizzes[i],
+                      if (widget.centerInExpanded) ...[
+                        SizedBox(
                           width: widget.cardW,
-                          height: widget.cardH,
-                          topImageHeight: widget.topH,
-                          selected: _selectedIndex == i,
-                          onTap: () => _selectQuiz(customQuizzes[i], i),
+                          child: _CustomQuizCard(
+                            quiz: customQuizzes[i],
+                            width: widget.cardW,
+                            height: widget.cardH,
+                            topImageHeight: widget.topH,
+                            selected: _selectedIndex == i,
+                            onTap: () => _selectQuiz(customQuizzes[i], i),
+                          ),
                         ),
-                      ),
-                      SizedBox(width: widget.gutter),
-                      Expanded(
-                        child: _CustomQuizCard(
-                          quiz: customQuizzes[j],
+                        SizedBox(width: widget.gutter),
+                        SizedBox(
                           width: widget.cardW,
-                          height: widget.cardH,
-                          topImageHeight: widget.topH,
-                          selected: _selectedIndex == j,
-                          onTap: () => _selectQuiz(customQuizzes[j], j),
+                          child: _CustomQuizCard(
+                            quiz: customQuizzes[j],
+                            width: widget.cardW,
+                            height: widget.cardH,
+                            topImageHeight: widget.topH,
+                            selected: _selectedIndex == j,
+                            onTap: () => _selectQuiz(customQuizzes[j], j),
+                          ),
                         ),
-                      ),
+                      ] else ...[
+                        Expanded(
+                          child: _CustomQuizCard(
+                            quiz: customQuizzes[i],
+                            width: widget.cardW,
+                            height: widget.cardH,
+                            topImageHeight: widget.topH,
+                            selected: _selectedIndex == i,
+                            onTap: () => _selectQuiz(customQuizzes[i], i),
+                          ),
+                        ),
+                        SizedBox(width: widget.gutter),
+                        Expanded(
+                          child: _CustomQuizCard(
+                            quiz: customQuizzes[j],
+                            width: widget.cardW,
+                            height: widget.cardH,
+                            topImageHeight: widget.topH,
+                            selected: _selectedIndex == j,
+                            onTap: () => _selectQuiz(customQuizzes[j], j),
+                          ),
+                        ),
+                      ],
                     ] else ...[
                       SizedBox(
                         width: widget.cardW,
@@ -406,9 +524,9 @@ class _CustomQuizzesSectionState extends State<_CustomQuizzesSection> {
                   curve: Curves.easeOut,
                   child: (_selectedIndex != null && (_selectedIndex == i || _selectedIndex == j))
                       ? Padding(
-                          padding: const EdgeInsets.only(top: 0, bottom: 16),
+                          padding: EdgeInsets.only(top: widget.centerInExpanded ? 8 : 0, bottom: 16),
                           child: Transform.translate(
-                            offset: const Offset(0, -22),
+                            offset: Offset(0, widget.centerInExpanded ? -12 : -22),
                             child: _WideDescriptionPanel(
                               corner: 14,
                               title: _selectedQuiz!['name'] ?? 'Quiz sans nom',
@@ -420,7 +538,7 @@ class _CustomQuizzesSectionState extends State<_CustomQuizzesSection> {
                         )
                       : const SizedBox.shrink(),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: widget.centerInExpanded ? 18 : 24),
               ],
             );
           }),
@@ -713,8 +831,16 @@ class _TabLabel extends StatelessWidget {
     final Color muted = const Color(0x8C334355);
     const Color selectedYellow = Color(0xFFFEC868); // texte actif (bottom bar)
     const Color selectedGreen = Color(0xFF6A994E);  // contour actif (bottom bar)
+
+    // Agrandissement en desktop
+    final double screenW = MediaQuery.of(context).size.width;
+    final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+    final double padH = isDesktop ? 22 : 14;
+    final double padV = isDesktop ? 12 : 8;
+    final double fontSize = isDesktop ? 20 : 16;
+
     final Widget pill = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
       decoration: ShapeDecoration(
         color: selected ? selectedGreen : Colors.transparent,
         shape: const StadiumBorder(),
@@ -729,7 +855,7 @@ class _TabLabel extends StatelessWidget {
         textAlign: TextAlign.center,
         style: TextStyle(
           color: selected ? selectedYellow : muted,
-          fontSize: 16,
+          fontSize: fontSize,
           fontFamily: 'Fredoka',
           fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
           letterSpacing: 1,
@@ -738,6 +864,7 @@ class _TabLabel extends StatelessWidget {
       ),
     );
 
+    final double minW = isDesktop ? 160 : 120;
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.center,
@@ -760,7 +887,7 @@ class _TabLabel extends StatelessWidget {
             ),
           ),
         ),
-        pill,
+        SizedBox(width: minW, child: Center(child: pill)),
       ],
     );
   }
@@ -772,8 +899,11 @@ class _SmallQuizCard extends StatelessWidget {
   final double topImageHeight;
   final String title;
   final String imageUrl;
+  final String? description; // Desktop: description intégrée
   final bool selected;
   final VoidCallback? onTap;
+  final bool desktopMode; // si true, on rend tout le contenu dans la tuile (pas de popup)
+  final VoidCallback? onContinue; // action bouton dans la tuile (desktop)
 
   const _SmallQuizCard({
     required this.width,
@@ -781,8 +911,11 @@ class _SmallQuizCard extends StatelessWidget {
     required this.topImageHeight,
     required this.title,
     required this.imageUrl,
+    this.description,
     this.selected = false,
     this.onTap,
+    this.desktopMode = false,
+    this.onContinue,
   });
 
   @override
@@ -850,19 +983,76 @@ class _SmallQuizCard extends StatelessWidget {
               top: topImageHeight,
               width: width,
               height: height - topImageHeight,
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 7),
-                  child: Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: const Color(0xFF334355),
-                      fontSize: 16,
-                      fontFamily: 'Quicksand',
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: desktopMode ? MainAxisAlignment.start : MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: const Color(0xFF334355),
+                        fontSize: desktopMode ? 26 : 16,
+                        fontFamily: desktopMode ? 'Fredoka' : 'Quicksand',
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
+                    if (desktopMode && (description?.isNotEmpty ?? false)) ...[
+                      const SizedBox(height: 6),
+                      Expanded(
+                        child: Scrollbar(
+                          thumbVisibility: false,
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(parent: ClampingScrollPhysics()),
+                            padding: EdgeInsets.zero,
+                            child: Text(
+                              description!,
+                              textAlign: TextAlign.center,
+                              softWrap: true,
+                              style: TextStyle(
+                                color: const Color(0xFF6B7280),
+                                fontSize: 16,
+                                fontFamily: 'Fredoka',
+                                height: 1.42,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: desktopMode ? 36 : 30,
+                        child: ElevatedButton(
+                          onPressed: onContinue,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF6A994E),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: EdgeInsets.symmetric(horizontal: desktopMode ? 14 : 12, vertical: 0),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: Text(
+                            'Continuer',
+                            style: TextStyle(
+                              fontFamily: 'Quicksand',
+                              fontSize: desktopMode ? 14.5 : 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 4),
+                      const Text(
+                        '',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -1016,6 +1206,18 @@ class _IntegratedBubblePainterQuiz extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (!(size.width.isFinite && size.height.isFinite) || size.width <= 0 || size.height <= 0) {
+      return;
+    }
+    if (!borderWidth.isFinite || borderWidth <= 0) {
+      return;
+    }
+    if (!cornerRadius.isFinite || cornerRadius < 0) {
+      return;
+    }
+    if (!arrowCenterX.isFinite || !arrowWidth.isFinite || !arrowHeight.isFinite || !topInset.isFinite) {
+      return;
+    }
     final double left = borderWidth / 2;
     final double right = size.width - borderWidth / 2;
     final double bottom = size.height - borderWidth / 2;
@@ -1043,7 +1245,9 @@ class _IntegratedBubblePainterQuiz extends CustomPainter {
     path.arcToPoint(Offset(left + cornerRadius, top), radius: Radius.circular(cornerRadius));
 
     // Ombre douce
-    canvas.drawShadow(path, Colors.black.withAlpha(30), 14, true);
+    if (top >= 0 && bottom >= top && right > left) {
+      canvas.drawShadow(path, Colors.black.withAlpha(30), 14, true);
+    }
 
     // Remplissage
     final Paint fillPaint = Paint()

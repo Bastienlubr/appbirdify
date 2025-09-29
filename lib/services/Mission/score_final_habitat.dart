@@ -510,8 +510,13 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                   .clamp(56.0, 104.0)
                   .toDouble();
               final double buttonStrokeFactor = isTablet ? (isWide ? 1.38 : 2.4) : 1.50;
-              final double buttonTop = (ringSize - (buttonStrokeFactor * stroke) + s.buttonOverlapPx())
+              double buttonTop = (ringSize - (buttonStrokeFactor * stroke) + s.buttonOverlapPx())
                   .clamp(0.0, ringSize);
+              // Remonte le bouton en mode ordinateur (écrans larges)
+              if (isWide) {
+                final double extraLift = stroke * 1.20; // remonte d'environ 1.2x l'épaisseur du trait
+                buttonTop = (buttonTop - extraLift).clamp(0.0, ringSize);
+              }
               final double ringStackHeight = (ringSize + buttonHeight * (isTablet ? 0.74 : 0.60)).toDouble();
 
               // 6) Check & score offsets
@@ -542,26 +547,28 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
             final layout = calculateLayout();
 
             return Center(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                                  padding: EdgeInsets.only(
+              child: FittedBox(
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+                child: Padding(
+                  padding: EdgeInsets.only(
                     top: isTablet ? layout.spacing * 0.5 : 0, // Plus d'espace en haut sur tablettes
                     left: layout.spacing,
                     right: layout.spacing,
                     bottom: layout.spacing,
                   ),
-            child: ConstrainedBox(
+                  child: ConstrainedBox(
                     constraints: BoxConstraints(
                       maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0, // Plus large sur tablettes
                     ),
-                  child: Column(
+                    child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // Bloc 1: Header "C'est terminé"
                       Container(
                         width: double.infinity,
-                        padding: EdgeInsets.fromLTRB(layout.spacing, layout.spacing * 0.1, layout.spacing, layout.spacing), // Moins de padding en haut pour remonter
+                        padding: EdgeInsets.fromLTRB(layout.spacing, layout.spacing * 0.1, layout.spacing, layout.spacing * 0.6), // Réduction de l'espace bas
                         decoration: BoxDecoration(
                           border: _showBlockBorders ? Border.all(color: Colors.red, width: 2) : null,
                           borderRadius: BorderRadius.circular(16),
@@ -600,12 +607,12 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                         ),
                       ),
 
-                       SizedBox(height: layout.spacing),
+                       SizedBox(height: layout.spacing * 0.35),
 
                       // Bloc 2: Score + Anneau + Bouton récap
                       Container(
                         width: double.infinity,
-                        padding: EdgeInsets.all(layout.spacing),
+                        padding: EdgeInsets.fromLTRB(layout.spacing, layout.spacing * 0.6, layout.spacing, layout.spacing),
                         decoration: BoxDecoration(
                           border: _showBlockBorders ? Border.all(color: Colors.red, width: 2) : null,
                           borderRadius: BorderRadius.circular(16),
@@ -827,13 +834,13 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                         ),
                       ),
 
-                        // Plus d'espace entre le bloc 2 et le bloc 3 pour donner de l'air aux phrases
-                        SizedBox(height: isTablet ? layout.spacing * 0.2 : layout.spacing * 0.4), // Plus d'espace sur mobile
+                        // Espace encore réduit (plus serré sur écrans larges)
+                        SizedBox(height: isWide ? layout.spacing * 0.06 : (isTablet ? layout.spacing * 0.10 : layout.spacing * 0.18)),
 
                       // Bloc 3: Textes de félicitations
                       Container(
                         width: double.infinity,
-                          padding: EdgeInsets.all(layout.spacing * 0.8), // Padding réduit mais suffisant
+                          padding: EdgeInsets.all(layout.spacing * 0.5), // Padding encore réduit pour rapprocher du bloc 2
                         decoration: BoxDecoration(
                           border: _showBlockBorders ? Border.all(color: Colors.red, width: 2) : null,
                           borderRadius: BorderRadius.circular(16),
@@ -886,7 +893,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                       ),
 
                         // Espacement dynamique après le bloc 3 selon la longueur des phrases
-                        SizedBox(height: _getDynamicSpacing(_useTestScore ? _testScore : widget.score, widget.totalQuestions, layout.spacing, isTablet)),
+                        SizedBox(height: _getDynamicSpacing(_useTestScore ? _testScore : widget.score, widget.totalQuestions, layout.spacing, isTablet, isWide)),
                         
                         // Espacement supplémentaire pour mobile pour éviter que le bouton soit trop proche
                         if (!isTablet) SizedBox(height: layout.spacing * 0.3),
@@ -951,10 +958,17 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                                     color: Colors.white,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
-                                    Icons.arrow_forward,
-                                    color: Color(0xFF6A994E),
-                                    size: 20,
+                                  child: Center(
+                                    child: Transform.translate(
+                                      offset: const Offset(1.0, 0.0), // léger décalage vers la droite
+                                      child: SvgPicture.asset(
+                                        'assets/Images/Bouton/bouton droite.svg',
+                                        width: 18,
+                                        height: 18,
+                                        fit: BoxFit.contain,
+                                        colorFilter: const ColorFilter.mode(Color(0xFF6A994E), BlendMode.srcIn),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -964,9 +978,10 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
                         ),
                   ),
                 ],
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
             );
           },
            ),
@@ -1495,7 +1510,7 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
   }
 
   /// Détermine l'espacement dynamique après le bloc 3 en fonction de la longueur des phrases
-  double _getDynamicSpacing(int score, int totalQuestions, double spacing, bool isTablet) {
+  double _getDynamicSpacing(int score, int totalQuestions, double spacing, bool isTablet, bool isWide) {
     final percentage = (score / totalQuestions) * 100;
     
     // Espacement de base selon la note
@@ -1513,6 +1528,10 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
     // Sur mobile, augmenter l'espacement pour éviter que le bouton soit trop proche
     if (!isTablet) {
       baseSpacing *= 1.5; // +50% d'espacement sur mobile
+    }
+    // Sur écrans larges (desktop), resserrer un peu plus pour remonter le bloc suivant
+    if (isWide) {
+      baseSpacing *= 0.78;
     }
     
     return baseSpacing;
@@ -2127,6 +2146,14 @@ class _RoundedArcSpinnerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Garde-fous contre tailles invalides
+    if (!(size.width.isFinite && size.height.isFinite) || size.width <= 0 || size.height <= 0) {
+      return;
+    }
+    final double minSide = math.min(size.width, size.height);
+    if (!strokeWidth.isFinite || strokeWidth <= 0 || strokeWidth >= minSide) {
+      return;
+    }
     final Paint paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -2167,6 +2194,19 @@ class _TwoSemiCircleRingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Garde-fous contre tailles/valeurs invalides
+    if (!(size.width.isFinite && size.height.isFinite) || size.width <= 0 || size.height <= 0) {
+      return;
+    }
+    if (!strokeWidth.isFinite || strokeWidth <= 0) {
+      return;
+    }
+    if (!progress.isFinite) {
+      return;
+    }
+    if (!deadZoneAngleRad.isFinite || !deadZoneTopAngleRad.isFinite) {
+      return;
+    }
     final Paint fgPaint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -2195,6 +2235,9 @@ class _TwoSemiCircleRingPainter extends CustomPainter {
 
     final Rect rect = Offset.zero & size;
     final Rect arcRect = rect.deflate(strokeWidth / 2);
+    if (arcRect.width <= 0 || arcRect.height <= 0) {
+      return;
+    }
 
     // Calcul des angles disponibles pour le dessin
     final double bottomGap = deadZoneAngleRad.clamp(0.0, math.pi / 3);

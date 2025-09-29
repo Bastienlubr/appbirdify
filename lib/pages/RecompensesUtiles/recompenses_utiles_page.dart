@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../services/Users/recompenses_utiles_service.dart';
 import '../../ui/responsive/responsive.dart';
 import '../../ui/scaffold/adaptive_scaffold.dart';
@@ -160,8 +161,12 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
                       .clamp(56.0, 104.0)
                       .toDouble();
                   final double buttonStrokeFactor = isTablet ? (isWide ? 1.38 : 2.4) : 1.50;
-                  final double buttonTop = (ringSize - (buttonStrokeFactor * stroke) + s.buttonOverlapPx())
+                  double buttonTop = (ringSize - (buttonStrokeFactor * stroke) + s.buttonOverlapPx())
                       .clamp(0.0, ringSize);
+                  if (isWide) {
+                    final double extraLift = stroke * 1.20; // alignement similaire Score Final
+                    buttonTop = (buttonTop - extraLift).clamp(0.0, ringSize);
+                  }
                   final double ringStackHeight = (ringSize + buttonHeight * (isTablet ? 0.74 : 0.60)).toDouble();
 
                   // 6) Animation position et taille
@@ -187,52 +192,48 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
 
                 return Stack(
                   children: [
-                    // Effet Sunburst en arrière-plan GLOBAL (derrière tout)
-                    Positioned(
-                      top: layout.animationTop + layout.spacing * 5, // Position globale ajustée
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: _buildSunburstEffect(layout),
-                      ),
-                    ),
-                    
-                    // Contenu principal au-dessus
+                    // Contenu principal (inclut le sunburst imbriqué)
                     Center(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.only(
-                          top: isTablet ? layout.spacing * 0.5 : 0,
-                          left: layout.spacing,
-                          right: layout.spacing,
-                          bottom: layout.spacing,
-                        ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        alignment: Alignment.center,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            top: isTablet ? layout.spacing * 0.5 : 0,
+                            left: layout.spacing,
+                            right: layout.spacing,
+                            bottom: layout.spacing,
                           ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              // Bloc 1: Header "Félicitations !!"
-                              _buildHeaderBlock(layout),
-                              
-                              SizedBox(height: layout.spacing),
-                              
-                              // Bloc 2: Zone principale avec animation centrale
-                              _buildMainBlock(layout),
-                              
-                              SizedBox(height: isTablet ? layout.spacing * 0.2 : layout.spacing * 0.4),
-                              
-                              // Bloc 3: Textes de félicitations
-                              _buildMessageBlock(layout),
-                              
-                              SizedBox(height: layout.spacing * 0.8),
-                              if (!isTablet) SizedBox(height: layout.spacing * 0.3),
-                              
-                              // Bloc 4: Bouton continuer
-                              _buildContinueButton(layout),
-                            ],
+                  child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Transform.translate(
+                                  offset: Offset(0, layout.spacing * 2.00),
+                                  child: _buildHeaderBlock(layout),
+                                ),
+                                SizedBox(height: isWide ? layout.spacing * 0.06 : (isTablet ? layout.spacing * 0.10 : layout.spacing * 0.18)),
+                                Transform.translate(
+                                  offset: Offset(0, layout.spacing * 2.60),
+                                  child: _buildMainBlock(layout),
+                                ),
+                                SizedBox(height: isTablet ? layout.spacing * 0.10 : layout.spacing * 0.18),
+                                Transform.translate(
+                                  offset: Offset(0, -layout.spacing * 0.45),
+                                  child: _buildMessageBlock(layout),
+                                ),
+                                SizedBox(height: _dynamicMessageSpacing(layout.spacing, isTablet, isWide)),
+                                if (!isTablet) SizedBox(height: layout.spacing * 0.2),
+                                Transform.translate(
+                                  offset: Offset(0, -layout.spacing * 0.34),
+                                  child: _buildContinueButton(layout),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -324,10 +325,43 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
               alignment: Alignment.topCenter,
               clipBehavior: Clip.none,
               children: [
-                // Zone d'animation centrale (Sunburst maintenant en arrière-plan global)
-                Positioned(
-                  top: layout.animationTop,
-                  child: _buildAnimationWidget(layout),
+                // Sunburst + Animation imbriqués et centrés
+                Transform.translate(
+                  offset: Offset(0, -layout.ringSize * 0.18),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Sunburst derrière (mêmes proportions que secondaire)
+                      AnimatedBuilder(
+                        animation: _sunburstController,
+                        builder: (context, child) {
+                          return Transform.translate(
+                            offset: Offset(0, -layout.ringSize * 0.27), // remonte davantage le Sunburst
+                            child: Transform.rotate(
+                              angle: _sunburstController.value * 2 * 3.14159,
+                              child: Transform.scale(
+                                scale: 2.05, // agrandit légèrement
+                                child: SizedBox(
+                                  width: layout.ringSize * 2.35,
+                                  height: layout.ringSize * 2.35,
+                                  child: CustomPaint(
+                                    painter: SunburstPainter(),
+                                    size: Size(layout.ringSize * 2.35, layout.ringSize * 2.35),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      // Animation étoiles au-dessus (agrandie)
+                      Transform.scale(
+                        scale: 1.5,
+                        child: _buildAnimationWidget(layout),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -387,149 +421,134 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
 
   /// Bloc 4: Bouton continuer
   Widget _buildContinueButton(_RewardLayout layout) {
-    return Center(
-      child: SizedBox(
-        width: 300,
-        height: (layout.buttonHeight * 1.05).clamp(52.0, 96.0).toDouble(),
-        child: Stack(
-            children: [
-              Positioned.fill(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
+    return SizedBox(
+      width: layout.buttonWidth,
+      height: (layout.buttonHeight * 1.05).clamp(52.0, 96.0).toDouble(),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  if (_recompensesService.secondaireDisponible) {
+                    Navigator.of(context).push(
+                      routePageUniverselle(const RecompensesUtilesSecondairePage(), sens: SensEntree.droite),
+                    );
+                  } else {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      routePageUniverselle(const HomeScreen(), sens: SensEntree.droite),
+                      (route) => false,
+                    );
+                  }
+                },
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6A994E),
                     borderRadius: BorderRadius.circular(16),
-                    onTap: () {
-                      // Si une récompense secondaire est disponible, on l'affiche directement ensuite
-                      if (_recompensesService.secondaireDisponible) {
-                        Navigator.of(context).push(
-                          routePageUniverselle(const RecompensesUtilesSecondairePage(), sens: SensEntree.droite),
-                        );
-                      } else {
-                        // Retour propre à la Home si pas de secondaire
-                        Navigator.of(context).pushAndRemoveUntil(
-                          routePageUniverselle(const HomeScreen(), sens: SensEntree.droite),
-                          (route) => false,
-                        );
-                      }
-                    },
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6A994E),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(25),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(25),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Align(
-                          alignment: Alignment.center,
-                          child: Text(
-                            'Continuer',
-                            style: TextStyle(
-                              fontSize: (20 * layout.scale).clamp(18.0, 28.0).toDouble(),
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              fontFamily: 'Quicksand',
-                            ),
-                          ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Continuer',
+                        style: TextStyle(
+                          fontSize: (20 * layout.scale).clamp(18.0, 28.0).toDouble(),
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontFamily: 'Quicksand',
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-              Positioned(
-                right: 16,
-                top: 12,
-                bottom: 12,
-                child: SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.arrow_forward,
-                      color: Color(0xFF6A994E),
-                      size: 20,
+            ),
+            ),
+          ),
+          Positioned(
+            right: 16,
+            top: 12,
+            bottom: 12,
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: DecoratedBox(
+                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                child: Center(
+                  child: Transform.translate(
+                    offset: const Offset(1.0, 0.0),
+                    child: SvgPicture.asset(
+                      'assets/Images/Bouton/bouton droite.svg',
+                      width: 18,
+                      height: 18,
+                      fit: BoxFit.contain,
+                      colorFilter: const ColorFilter.mode(Color(0xFF6A994E), BlendMode.srcIn),
                     ),
                   ),
                 ),
               ),
-            ],
-        ),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  double _dynamicMessageSpacing(double spacing, bool isTablet, bool isWide) {
+    double base = spacing * (isTablet ? 0.10 : 0.18);
+    if (isWide) base *= 0.78; // harmonisé avec Score Final
+    return base;
   }
 
   /// Construit le widget d'animation
   Widget _buildAnimationWidget(_RewardLayout layout) {
     final animations = _recompenses['animations_disponibles'] as List? ?? [];
     final derniereRecompense = _currentRewardType();
-    
     if (kDebugMode) {
       debugPrint('🎬 Animations disponibles: $animations');
       debugPrint('🌟 Dernière récompense: $derniereRecompense');
     }
-    
-    // Toujours charger l'animation basée sur le type d'étoile
     final animationPath = _recompensesService.getAnimationPourEtoiles(derniereRecompense);
-    
     if (kDebugMode) {
       debugPrint('🎬 Chargement direct de l\'animation: $animationPath');
     }
-    
-    final screenSize = MediaQuery.of(context).size;
-    final screenWidth = screenSize.width;
-    final screenHeight = screenSize.height;
-    
     return SizedBox(
-      width: screenWidth * 0.95,      // 95% de la largeur d'écran
-      height: screenHeight * 0.4,     // 40% de la hauteur d'écran (TRIPLEMENT)!
+      width: layout.ringSize,
+      height: layout.ringSize,
       child: Lottie.asset(
         animationPath,
-        fit: BoxFit.cover,  // Remplit tout l'espace disponible
+        fit: BoxFit.contain,
         repeat: true,
         animate: true,
         onLoaded: (composition) {
           if (kDebugMode) {
-            debugPrint('✅ Animation Lottie chargée avec succès: $animationPath');
-            debugPrint('⏱️ Durée: ${composition.duration}');
-            debugPrint('📐 Taille animation TRIPLÉE: ${screenWidth * 0.95} x ${screenHeight * 0.4}');
+            debugPrint('✅ Animation Lottie chargée: $animationPath, dur=${composition.duration}');
           }
         },
         errorBuilder: (context, error, stackTrace) {
           if (kDebugMode) {
             debugPrint('❌ Erreur chargement animation: $animationPath');
             debugPrint('❌ Détail erreur: $error');
-            debugPrint('❌ Stack trace: $stackTrace');
           }
-          // Afficher un message d'erreur au lieu des étoiles
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.error_outline,
-                  size: layout.ringSize * 0.15,
-                  color: Colors.red,
-                ),
+                Icon(Icons.error_outline, size: layout.ringSize * 0.15, color: Colors.red),
                 SizedBox(height: 8),
-                Text(
-                  'Animation\nindisponible',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: layout.ringSize * 0.05,
-                    color: Colors.red,
-                  ),
-                ),
+                Text('Animation\nindisponible', textAlign: TextAlign.center, style: TextStyle(fontSize: layout.ringSize * 0.05, color: Colors.red)),
               ],
             ),
           );

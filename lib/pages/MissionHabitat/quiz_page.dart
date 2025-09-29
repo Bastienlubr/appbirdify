@@ -17,6 +17,9 @@ import '../../models/bird.dart';
 import '../../models/answer_recap.dart';
 // removed unused import
 import 'mission_unloading_screen.dart';
+import '../../services/Users/life_service.dart';
+import '../../services/ads/ad_service.dart';
+import '../../widgets/boutons/bouton_universel.dart';
 
 class QuizPage extends StatefulWidget {
   final String missionId;
@@ -247,18 +250,21 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
           builder: (context, constraints) {
             final m = buildResponsiveMetrics(context, constraints);
             final double ui = m.isTablet ? (m.localScale * 1.20).clamp(1.0, 1.5) : 1.0;
+            final double screenW = MediaQuery.of(context).size.width;
+            final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
             final double topButtonsTop = 30.0 * ui;
             final double topButtonsLeft = 35.0 * ui;
             final double livesTop = 5.0 * ui;
             final double livesRight = 30.0 * ui;
-            final double questionCounterTop = 30.0 * ui;
-            final double progressTop = 70.0 * ui;
+            final double questionCounterTop = (isDesktop ? 2.0 : 10.0) * ui;
+            final double progressTop = (isDesktop ? 60.0 : 70.0) * ui;
             final double progressSide = 20.0 * ui;
             final double progressWidth = m.isTablet ? (m.maxWidth * 0.66) : (300.0 * ui);
-            final double progressHeight = (14.0 * ui).toDouble();
-            final double baseAudioSize = m.isTablet ? (m.shortest * 0.30).clamp(220.0, 300.0) : (160.0 * ui);
+            final double progressHeight = ((isDesktop ? 10.0 : 14.0) * ui).toDouble();
+            final double baseAudioSizeRaw = m.isTablet ? (m.shortest * 0.30).clamp(220.0, 300.0) : (160.0 * ui);
+            final double baseAudioSize = isDesktop ? (baseAudioSizeRaw * 0.9) : baseAudioSizeRaw;
             final double audioSize = baseAudioSize;
-            final double audioTop = m.isTablet ? 230.0 * ui : 185.0;
+            final double audioTop = m.isTablet ? ((isDesktop ? 160.0 : 230.0) * ui) : 185.0;
             // Mobile: conserver le rendu d'origine (3:4, 195x260). Tablette: 4:3 agrandi
             // Exiger un format portrait 3:4 (vertical) sur tous les écrans
             final double imageAspect = (3.0 / 4.0); // width / height
@@ -272,27 +278,27 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
               // Déterminer la hauteur d'abord (portrait), puis calculer la largeur via 3:4
               final double targetHeight = math.min(m.box.height * 0.42, m.shortest * 0.80)
                   .clamp(380.0, 720.0);
-              imageHeight = targetHeight;
+              imageHeight = isDesktop ? (targetHeight * 0.92) : targetHeight;
               imageWidth = (imageHeight * imageAspect);
             } else {
               // Mobile A54: taille optimisée
               imageWidth = 220.0;
               imageHeight = 290.0;
             }
-            final double titleFont = m.isTablet ? m.font(28, tabletFactor: 1.2, min: 24, max: 40) : 28.0;
-            final double titleTopSpacer = m.isTablet ? 35.0 * ui : 13.0 * ui;
+            final double titleFont = (m.isTablet ? m.font(28, tabletFactor: 1.2, min: 24, max: 40) : 28.0) * (isDesktop ? 0.85 : 1.0);
+            final double titleTopSpacer = (m.isTablet ? 35.0 * ui : 13.0 * ui) * (isDesktop ? 0.9 : 1.0);
             final int optionCount = question.options.length;
-            final double approxAnswersHeight = (optionCount * (50.0 * ui)) + ((optionCount - 1) * (12.0 * ui));
+            final double approxAnswersHeight = (optionCount * ((isDesktop ? 44.0 : 50.0) * ui)) + ((optionCount - 1) * (12.0 * ui));
             // Espace souhaité sous le bloc 3 (juste milieu)
             final double bottomGap = math.max(64.0 * ui, m.box.height * 0.08);
             // Hauteur approximative du titre (2 lignes max)
             final double titleHeightApprox = (titleFont * 2.0 * 1.15);
             final double usedBeforeSpacer = (80.0 * ui) + titleTopSpacer + titleHeightApprox;
             final double answersTopSpacer = m.isTablet
-                ? ((m.box.height - approxAnswersHeight - bottomGap) - usedBeforeSpacer).clamp(200.0 * ui, 480.0 * ui)
+                ? (((m.box.height - approxAnswersHeight - bottomGap) - usedBeforeSpacer) * (isDesktop ? 0.9 : 1.0)).clamp(180.0 * ui, 460.0 * ui)
                 : 320.0 * ui;
-            final double answerHeight = 50.0 * ui;
-            final double answerFont = 22.0 * ui;
+            final double answerHeight = (isDesktop ? 44.0 : 50.0) * ui;
+            final double answerFont = (isDesktop ? 18.0 : 22.0) * ui;
             // Rayon des coins proportionnel à la taille de l'image - juste milieu
             final double imageRadius = m.isTablet
                 ? (imageWidth * 0.055).clamp(21.0, 38.0)
@@ -455,36 +461,44 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
               ),
             ),
             
-            // Icône de vie avec compteur en haut à droite
-            Positioned(
-              top: livesTop,
-              right: livesRight,
-              child: _LivesDisplayWidget(
-                lives: _visibleLives,
-                isSyncing: _isLivesSyncing,
-                isInfinite: UserOrchestra.isPremium,
-                uiScale: ui,
-              ),
-            ),
+            // (supprimé) Affichage séparé des vies en haut à droite. On affiche désormais les vies à côté du compteur.
             
 
             
-            // Compteur de questions centré horizontalement en haut
+            // Compteur centré; vies à droite du compteur sans déplacer le texte (placeholder à gauche)
             Align(
               alignment: Alignment.topCenter,
         child: Padding(
                 padding: EdgeInsets.only(top: questionCounterTop),
-                child: Opacity(
-                  opacity: 0.6,
-                  child: Text(
-                    '${_currentQuestionIndex + 1} sur ${_questions.length}',
-                style: TextStyle(
-                  fontFamily: 'Quicksand',
-                  fontSize: 20 * ui,
-                      fontWeight: FontWeight.w500,
-                  color: Colors.black,
-                ),
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Placeholder gauche = largeur des vies + gap pour garder le texte au centre
+                    SizedBox(width: (80 * ui) + (12 * ui)),
+                    Opacity(
+                      opacity: 0.6,
+                      child: Text(
+                        '${_currentQuestionIndex + 1} sur ${_questions.length}',
+                        style: TextStyle(
+                          fontFamily: 'Quicksand',
+                          fontSize: 20 * ui,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12 * ui),
+                    Transform.translate(
+                      offset: Offset(100 * ui, 0),
+                      child: _LivesDisplayWidget(
+                        lives: _visibleLives,
+                        isSyncing: _isLivesSyncing,
+                        isInfinite: UserOrchestra.isPremium,
+                        uiScale: ui,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -547,12 +561,12 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                                             Positioned(
                                               left: 4,
                                               right: 4,
-                                              top: 3.5 * ui,
+                                              top: 2.0 * ui,
                                               child: Container(
                                                 height: 3.5 * ui,
                                                 decoration: BoxDecoration(
                                                   color: const Color(0xFFC2D78D),
-                                                  borderRadius: BorderRadius.circular(5),
+                                                  borderRadius: BorderRadius.circular(4),
                                                 ),
                                               ),
                                             ),
@@ -606,255 +620,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
               ),
             ),
             
-            // Image de la bonne réponse en overlay (par-dessus le bouton audio)
-            Positioned(
-              top: audioTop,
-              left: 0,
-              right: 0,
-              child: Center(
-                                  child: Builder(
-                  builder: (context) {
-                    return IgnorePointer(
-                      ignoring: !_showCorrectAnswerImage, // Ignorer les interactions quand l'image n'est pas visible
-                      child: _showCorrectAnswerImage
-                          ? Builder(
-                              builder: (context) {
-                                // Déterminer la couleur du cadre selon la réponse
-                                final bool isCorrect = _selectedAnswer == _questions[_currentQuestionIndex].correctAnswer;
-                                final Color borderColor = isCorrect 
-                                    ? const Color(0xFFABC270) // Vert pour bonne réponse
-                                    : const Color(0xFFC27070); // Rouge pour mauvaise réponse
-                                
-                                // Widget complet préparé d'avance pour apparition instantanée
-                                final Widget fullElement = SizedBox(
-                                  width: imageWidth,
-                                  height: imageHeight,
-                                  child: Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      if (!_answerImageReady)
-                                        Positioned.fill(
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[200],
-                                              borderRadius: BorderRadius.circular(imageRadius),
-                                            ),
-                                            child: const Center(
-                                              child: SizedBox(
-                                                width: 24,
-                                                height: 24,
-                                                child: CircularProgressIndicator(strokeWidth: 2.2),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      // Contour en arrière-plan - positionné précisément
-                                      Positioned.fill(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(imageRadius),
-                                            border: Border.all(
-                                              color: borderColor,
-                                              width: 10.0,
-                                            ),
-                                            // Ombre subtile pour les mauvaises réponses (flat design)
-                                            boxShadow: !isCorrect ? [
-                                              BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.1),
-                                                offset: const Offset(3, 3),
-                                                blurRadius: 8,
-                                                spreadRadius: 1,
-                                              ),
-                                              BoxShadow(
-                                                color: borderColor.withValues(alpha: 0.2),
-                                                offset: const Offset(1, 1),
-                                                blurRadius: 3,
-                                                spreadRadius: 0,
-                                              ),
-                                            ] : null,
-                                          ),
-                                          // Effet d'ombrage flat design pour les mauvaises réponses
-                                          child: !isCorrect ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(imageRadius),
-                                            child: Stack(
-                                              children: [
-                                                // Ombrage général subtil
-                                                AnimatedBuilder(
-                                                  animation: _shineController!,
-                                                  builder: (context, child) {
-                                                    final progress = _shineController!.value;
-                                                    // Mouvement cyclique très subtil
-                                                    final offset = math.sin(progress * math.pi * 2) * 0.5;
-                                                    
-                                                    return Positioned.fill(
-                                                      child: Container(
-                                                        decoration: BoxDecoration(
-                                                          borderRadius: BorderRadius.circular(imageRadius - 10),
-                                                          gradient: LinearGradient(
-                                                            begin: Alignment.topLeft,
-                                                            end: Alignment.bottomRight,
-                                                            colors: [
-                                                              Colors.transparent,
-                                                              const Color(0xFFC87E7E).withValues(alpha: 0.25 + offset * 0.1),
-                                                              const Color(0xFFC87E7E).withValues(alpha: 0.4 + offset * 0.15),
-                                                              const Color(0xFFC87E7E).withValues(alpha: 0.2 + offset * 0.08),
-                                                            ],
-                                                            stops: const [0.0, 0.3, 0.6, 1.0],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                                // Ligne courbe dans le coin haut-droite
-                                                Positioned(
-                                                  top: 12,
-                                                  right: 12,
-                                                  child: AnimatedBuilder(
-                                                    animation: _shineController!,
-                                                    builder: (context, child) {
-                                                      final progress = _shineController!.value;
-                                                      final shimmer = math.sin(progress * math.pi * 2) * 0.4 + 0.6;
-                                                      
-                                                      return CustomPaint(
-                                                        size: Size(40, 40),
-                                                        painter: _CurvedLinePainter(
-                                                          color: const Color(0xFFC87E7E).withValues(alpha: shimmer),
-                                                          radius: imageRadius * 0.3,
-                                                        ),
-                                                      );
-                                                    },
-                                                  ),
-                                                ),
-                                                // Point décoratif
-                                                Positioned(
-                                                  top: 22,
-                                                  right: 18,
-                                                  child: AnimatedBuilder(
-                                                    animation: _shineController!,
-                                                    builder: (context, child) {
-                                                      final progress = _shineController!.value;
-                                                      final shimmer = math.sin(progress * math.pi * 2 + 1) * 0.3 + 0.7;
-                                                      
-                                                      return Container(
-                                                        width: 6,
-                                                        height: 6,
-                                                        decoration: BoxDecoration(
-                                                          color: const Color(0xFFC87E7E).withValues(alpha: shimmer),
-                                                          shape: BoxShape.circle,
-                                                          boxShadow: [
-                                                            BoxShadow(
-                                                              color: const Color(0xFFC87E7E).withValues(alpha: shimmer * 0.5),
-                                                              blurRadius: 3,
-                                                              spreadRadius: 1,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      );
-                                                    },
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ) : null,
-                                        ),
-                                      ),
-                                      // Effet de brillance UNIQUEMENT pour les bonnes réponses - 2 bandes
-                                      if (isCorrect)
-                                        Positioned.fill(
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(imageRadius),
-                                            child: AnimatedBuilder(
-                                              animation: _shineController!,
-                                              builder: (context, child) {
-                                                final progress = _shineController!.value;
-                                                
-                                                // Bande 1 - première bande verte simple
-                                                final band1Start = 0.0;
-                                                final band1End = 0.6;
-                                                final band1Progress = ((progress - band1Start) / (band1End - band1Start)).clamp(0.0, 1.0);
-                                                final position1 = Tween<double>(begin: -0.8, end: 1.8)
-                                                    .transform(Curves.easeInOut.transform(band1Progress));
-                                                
-                                                // Bande 2 - deuxième bande avec décalage
-                                                final band2Start = 0.2; // Décalage de 20%
-                                                final band2End = 0.8;
-                                                final band2Progress = ((progress - band2Start) / (band2End - band2Start)).clamp(0.0, 1.0);
-                                                final position2 = Tween<double>(begin: -0.8, end: 1.8)
-                                                    .transform(Curves.easeInOut.transform(band2Progress));
-                                                
-                                                return Stack(
-                                                  children: [
-                                                    // Bande 1 - De haut-gauche à bas-droite
-                                                    if (band1Progress > 0)
-                                                      Positioned(
-                                                        left: -imageWidth * 0.3 + (position1 * (imageWidth + imageWidth * 0.6)),
-                                                        top: -imageHeight * 0.3 + (position1 * (imageHeight + imageHeight * 0.6)),
-                                                        child: Transform.rotate(
-                                                          angle: math.atan2(imageHeight, imageWidth), // Angle exact de la diagonale
-                                                          child: Container(
-                                                            width: imageWidth * 0.15,
-                                                            height: math.sqrt(imageWidth * imageWidth + imageHeight * imageHeight),
-                                                            color: const Color(0xFFD2DBB2).withValues(alpha: 0.7),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    // Bande 2 - Même trajectoire avec décalage
-                                                    if (band2Progress > 0)
-                                                      Positioned(
-                                                        left: -imageWidth * 0.3 + (position2 * (imageWidth + imageWidth * 0.6)),
-                                                        top: -imageHeight * 0.3 + (position2 * (imageHeight + imageHeight * 0.6)),
-                                                        child: Transform.rotate(
-                                                          angle: math.atan2(imageHeight, imageWidth), // Même angle exact
-                                                          child: Container(
-                                                            width: imageWidth * 0.12,
-                                                            height: math.sqrt(imageWidth * imageWidth + imageHeight * imageHeight),
-                                                            color: const Color(0xFFD2DBB2).withValues(alpha: 0.6),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                  ],
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                      // Image au-dessus du contour - positionnée précisément
-                                      Positioned(
-                                        left: 10.0,
-                                        top: 10.0,
-                                        right: 10.0,
-                                        bottom: 10.0,
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(imageRadius - 10.0),
-                                          clipBehavior: Clip.antiAliasWithSaveLayer,
-                                          child: _buildCachedImage(fit: BoxFit.cover),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                
-                                // Animation d'apparition sur l'élément complet
-                                return TweenAnimationBuilder<double>(
-                                  tween: Tween(begin: 0.0, end: 1.0),
-                                  duration: const Duration(milliseconds: 500),
-                                  curve: Curves.easeOutBack,
-                                  builder: (context, scale, child) {
-                                    return Transform.scale(
-                                      scale: scale,
-                                      child: fullElement,
-                                    );
-                                  },
-                                );
-                              },
-                            )
-                          : const SizedBox.shrink(),
-                    );
-                  },
-                ),
-              ),
-            ),
+            // (overlay déplacé après les réponses pour rester devant)
             
                         // Contenu principal du quiz
             Padding(
@@ -954,7 +720,13 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                           onTap: _showFeedback ? null : () => _onAnswerSelected(option),
                           child: Container(
                             height: answerHeight,
-                            width: m.isTablet ? (m.maxWidth * 0.85) : MediaQuery.of(context).size.width * 0.85,
+                            width: () {
+                              final double fullW = MediaQuery.of(context).size.width;
+                              if (isDesktop) {
+                                return math.min(m.maxWidth * 0.60, 900.0);
+                              }
+                              return m.isTablet ? (m.maxWidth * 0.80) : (fullW * 0.90);
+                            }(),
                             padding: EdgeInsets.symmetric(horizontal: 16 * ui),
                             decoration: BoxDecoration(
                               color: backgroundColor,
@@ -994,6 +766,231 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
               SizedBox(height: 20 * ui),
             ],
           ),
+            ),
+            // Image de feedback (bonne/mauvaise) rendue APRÈS les réponses pour rester au premier plan
+            Positioned(
+              top: audioTop,
+              left: 0,
+              right: 0,
+              child: Center(
+                                  child: Builder(
+                  builder: (context) {
+                    return IgnorePointer(
+                      ignoring: !_showCorrectAnswerImage,
+                      child: _showCorrectAnswerImage
+                          ? Builder(
+                              builder: (context) {
+                                final bool isCorrect = _selectedAnswer == _questions[_currentQuestionIndex].correctAnswer;
+                                final Color borderColor = isCorrect 
+                                    ? const Color(0xFFABC270)
+                                    : const Color(0xFFC27070);
+                                
+                                final Widget fullElement = SizedBox(
+                                  width: imageWidth,
+                                  height: imageHeight,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      if (!_answerImageReady)
+                                        Positioned.fill(
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(imageRadius),
+                                            ),
+                                            child: const Center(
+                                              child: SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child: CircularProgressIndicator(strokeWidth: 2.2),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      Positioned.fill(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(imageRadius),
+                                            border: Border.all(color: borderColor, width: 10.0),
+                                            boxShadow: !isCorrect
+                                                ? [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.1),
+                                                offset: const Offset(3, 3),
+                                                blurRadius: 8,
+                                                spreadRadius: 1,
+                                              ),
+                                              BoxShadow(
+                                                color: borderColor.withValues(alpha: 0.2),
+                                                offset: const Offset(1, 1),
+                                                blurRadius: 3,
+                                              ),
+                                                  ]
+                                                : null,
+                                          ),
+                                          child: !isCorrect
+                                              ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(imageRadius),
+                                            child: Stack(
+                                              children: [
+                                                AnimatedBuilder(
+                                                  animation: _shineController!,
+                                                  builder: (context, child) {
+                                                    final progress = _shineController!.value;
+                                                    final offset = math.sin(progress * math.pi * 2) * 0.5;
+                                                    return Positioned.fill(
+                                                      child: Container(
+                                                        decoration: BoxDecoration(
+                                                          borderRadius: BorderRadius.circular(imageRadius - 10),
+                                                          gradient: LinearGradient(
+                                                            begin: Alignment.topLeft,
+                                                            end: Alignment.bottomRight,
+                                                            colors: [
+                                                              Colors.transparent,
+                                                              const Color(0xFFC87E7E).withValues(alpha: 0.25 + offset * 0.1),
+                                                              const Color(0xFFC87E7E).withValues(alpha: 0.4 + offset * 0.15),
+                                                              const Color(0xFFC87E7E).withValues(alpha: 0.2 + offset * 0.08),
+                                                            ],
+                                                            stops: const [0.0, 0.3, 0.6, 1.0],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                                Positioned(
+                                                  top: 12,
+                                                  right: 12,
+                                                  child: AnimatedBuilder(
+                                                    animation: _shineController!,
+                                                    builder: (context, child) {
+                                                      final progress = _shineController!.value;
+                                                      final shimmer = math.sin(progress * math.pi * 2) * 0.4 + 0.6;
+                                                      return CustomPaint(
+                                                              size: const Size(40, 40),
+                                                        painter: _CurvedLinePainter(
+                                                          color: const Color(0xFFC87E7E).withValues(alpha: shimmer),
+                                                          radius: imageRadius * 0.3,
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                                Positioned(
+                                                  top: 22,
+                                                  right: 18,
+                                                  child: AnimatedBuilder(
+                                                    animation: _shineController!,
+                                                    builder: (context, child) {
+                                                      final progress = _shineController!.value;
+                                                      final shimmer = math.sin(progress * math.pi * 2 + 1) * 0.3 + 0.7;
+                                                      return Container(
+                                                        width: 6,
+                                                        height: 6,
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFFC87E7E).withValues(alpha: shimmer),
+                                                          shape: BoxShape.circle,
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: const Color(0xFFC87E7E).withValues(alpha: shimmer * 0.5),
+                                                              blurRadius: 3,
+                                                              spreadRadius: 1,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                                )
+                                              : null,
+                                        ),
+                                      ),
+                                      if (isCorrect)
+                                        Positioned.fill(
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(imageRadius),
+                                            child: AnimatedBuilder(
+                                              animation: _shineController!,
+                                              builder: (context, child) {
+                                                final progress = _shineController!.value;
+                                                final band1Start = 0.0;
+                                                final band1End = 0.6;
+                                                final band1Progress = ((progress - band1Start) / (band1End - band1Start)).clamp(0.0, 1.0);
+                                                final position1 = Tween<double>(begin: -0.8, end: 1.8).transform(Curves.easeInOut.transform(band1Progress));
+                                                final band2Start = 0.2;
+                                                final band2End = 0.8;
+                                                final band2Progress = ((progress - band2Start) / (band2End - band2Start)).clamp(0.0, 1.0);
+                                                final position2 = Tween<double>(begin: -0.8, end: 1.8).transform(Curves.easeInOut.transform(band2Progress));
+                                                return Stack(
+                                                  children: [
+                                                    if (band1Progress > 0)
+                                                      Positioned(
+                                                        left: -imageWidth * 0.3 + (position1 * (imageWidth + imageWidth * 0.6)),
+                                                        top: -imageHeight * 0.3 + (position1 * (imageHeight + imageHeight * 0.6)),
+                                                        child: Transform.rotate(
+                                                          angle: math.atan2(imageHeight, imageWidth),
+                                                          child: Container(
+                                                            width: imageWidth * 0.15,
+                                                            height: math.sqrt(imageWidth * imageWidth + imageHeight * imageHeight),
+                                                            color: const Color(0xFFD2DBB2).withValues(alpha: 0.7),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    if (band2Progress > 0)
+                                                      Positioned(
+                                                        left: -imageWidth * 0.3 + (position2 * (imageWidth + imageWidth * 0.6)),
+                                                        top: -imageHeight * 0.3 + (position2 * (imageHeight + imageHeight * 0.6)),
+                                                        child: Transform.rotate(
+                                                          angle: math.atan2(imageHeight, imageWidth),
+                                                          child: Container(
+                                                            width: imageWidth * 0.12,
+                                                            height: math.sqrt(imageWidth * imageWidth + imageHeight * imageHeight),
+                                                            color: const Color(0xFFD2DBB2).withValues(alpha: 0.6),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      Positioned(
+                                        left: 10.0,
+                                        top: 10.0,
+                                        right: 10.0,
+                                        bottom: 10.0,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(imageRadius - 10.0),
+                                          clipBehavior: Clip.antiAliasWithSaveLayer,
+                                          child: _buildCachedImage(fit: BoxFit.cover),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                
+                                return TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0.0, end: 1.0),
+                                  duration: const Duration(milliseconds: 500),
+                                  curve: Curves.easeOutBack,
+                                  builder: (context, scale, child) {
+                                    return Transform.scale(
+                                      scale: scale,
+                                      child: fullElement,
+                                    );
+                                  },
+                                );
+                              },
+                            )
+                          : const SizedBox.shrink(),
+                    );
+                  },
+                ),
+              ),
             ),
           ],
         );
@@ -1688,12 +1685,151 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             color: Color(0xFFBC4749),
           ),
         ),
-        content: Text(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
           'Vous avez perdu toutes vos vies !\nScore final : $_score/${_questions.length}',
+              textAlign: TextAlign.center,
           style: const TextStyle(
             fontFamily: 'Quicksand',
             fontSize: 16,
-          ),
+                color: Color(0xFF334355),
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (!UserOrchestra.isPremium) ...[
+              BoutonUniversel(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pushNamed('/abonnement/information');
+                },
+                size: BoutonUniverselTaille.medium,
+                decorClipToOuter: true,
+                decorPadding: EdgeInsets.zero,
+                decorElements: const [
+                  DecorElement(
+                    assetPath: 'assets/PAGE/Homescreen/cadeau.svg',
+                    position: Offset(0.76, -0.00),
+                    scale: 1.60,
+                    rotationDeg: -15,
+                    zIndex: -1,
+                  ),
+                  DecorElement(
+                    assetPath: 'assets/PAGE/Homescreen/Confetti.svg',
+                    position: Offset(-0.08, -1.32),
+                    scale: 5.20,
+                    rotationDeg: 0,
+                    zIndex: -2,
+                  ),
+                ],
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                borderRadius: 10,
+                backgroundColor: const Color(0xFFFEC868),
+                hoverBackgroundColor: const Color(0xFFFEC868),
+                backgroundGradient: const LinearGradient(
+                  begin: Alignment(0.02, 2.39),
+                  end: Alignment(0.86, -0.76),
+                  colors: [Color(0xDBFEC868), Color(0xFFFFA327)],
+                ),
+                hoverBackgroundGradient: const LinearGradient(
+                  begin: Alignment(0.02, 2.39),
+                  end: Alignment(0.86, -0.76),
+                  colors: [Color(0xDBFEC868), Color(0xFFFFA327)],
+                ),
+                borderColor: const Color(0xFFE89E1C),
+                hoverBorderColor: const Color(0xFFE89E1C),
+                shadowColor: const Color(0xFFE89E1C),
+                child: const Text(
+                  'Avec Envol\nVies illimitées !',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontFamily: 'Fredoka',
+                    fontWeight: FontWeight.w700,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              BoutonUniversel(
+                onPressed: () async {
+                  try {
+                    final rewarded = await AdService.instance.showRewardedIfAvailable();
+                    if (rewarded) {
+                      final uid = LifeService.getCurrentUserId();
+                      if (uid != null) {
+                        final tx = await LifeService.addLivesTransactional(uid, 1);
+                        final after = tx['after'] ?? tx['before'] ?? 0;
+                        if (mounted) {
+                          setState(() {
+                            _visibleLives = after;
+                          });
+                        }
+                      }
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                        _goToNextQuestion();
+                      }
+                    }
+                  } catch (_) {
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).pushNamed('/abonnement/information');
+                    }
+                  }
+                },
+                size: BoutonUniverselTaille.medium,
+                decorClipToOuter: true,
+                decorPadding: EdgeInsets.zero,
+                decorElements: const [
+                  DecorElement(
+                    assetPath: 'assets/PAGE/Homescreen/sablier.svg',
+                    position: Offset(0.01, 0.35),
+                    scale: 1.05,
+                    zIndex: -6,
+                    rotationDeg: 20,
+                  ),
+                  DecorElement(
+                    assetPath: 'assets/PAGE/Homescreen/coeur.svg',
+                    position: Offset(-0.05, 0.47),
+                    scale: 0.75,
+                    rotationDeg: -16,
+                  ),
+                ],
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                borderRadius: 10,
+                backgroundColor: const Color(0xFFABC270),
+                hoverBackgroundColor: const Color(0xFFABC270),
+                backgroundGradient: const LinearGradient(
+                  begin: Alignment(0.04, 1.30),
+                  end: Alignment(1.00, 0.50),
+                  colors: [Color(0xFFABC270), Color(0xFFC2D397)],
+                ),
+                hoverBackgroundGradient: const LinearGradient(
+                  begin: Alignment(0.04, 1.30),
+                  end: Alignment(1.00, 0.50),
+                  colors: [Color(0xFFABC270), Color(0xFFC2D397)],
+                ),
+                borderColor: const Color(0xFF6A994E),
+                hoverBorderColor: const Color(0xFF6A994E),
+                shadowColor: const Color(0xFF6A994E),
+                child: const Text(
+                  'Regarder une pub\npour +1 vie',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontFamily: 'Fredoka',
+                    fontWeight: FontWeight.w700,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           ElevatedButton(

@@ -324,6 +324,7 @@ class _RecapButtonState extends State<RecapButton>
     );
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) {
         if (!widget.disabled) setState(() => _isHovered = true);
       },

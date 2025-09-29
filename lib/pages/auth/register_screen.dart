@@ -161,7 +161,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
           final double centeredTopForMobileTablet = ((constraints.maxHeight - contentEstimate) / 2)
               .clamp(m.dp(40, min: 24, max: 200), m.dp(260, tabletFactor: 1.2, min: 120, max: 360))
               .toDouble();
-          final double contentTop = m.isDesktop ? desktopTop : centeredTopForMobileTablet;
+          // Remonte ENCORE le contenu sur mobile/tablette
+          final double lift = m.dp(72, tabletFactor: 1.20, desktopFactor: 1.0, min: 32, max: 140);
+          final double contentTop = m.isDesktop
+              ? desktopTop
+              : (centeredTopForMobileTablet - lift)
+                  .clamp(m.dp(24, min: 16, max: 200), centeredTopForMobileTablet)
+                  .toDouble();
           final double rawContentWidth = constraints.maxWidth * 0.85;
           final double actualContentWidth = m.isDesktop
               ? rawContentWidth.clamp(420.0, 560.0)
@@ -213,7 +219,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     
-                    const SizedBox(height: 50),
+                    SizedBox(height: m.dp(22, tabletFactor: 1.0, desktopFactor: 0.9, min: 14, max: 32)),
                     
                     // Champ Nom avec mascotte ancrée au carré
                     Container(

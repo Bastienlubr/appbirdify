@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 import '../widgets/biome_carousel_enhanced.dart';
@@ -19,6 +20,9 @@ import 'Quiz/quiz_selection_page.dart';
 // import '../ui/animations/transitions.dart'; // (désactivé) Animations centralisées
 import 'package:flutter_svg/flutter_svg.dart';
 import '../widgets/home_side_nav.dart';
+import '../services/Users/life_service.dart';
+import '../services/ads/ad_service.dart';
+import '../widgets/boutons/bouton_universel.dart';
 
 
 
@@ -63,15 +67,13 @@ class _HomeScreenState extends State<HomeScreen> {
               onTabSelected: (idx) => setState(() => _currentIndex = idx),
             ),
           Expanded(
-            child: (
-              _currentIndex == 3 
+            child: _currentIndex == 3 
                 ? const BaseOrnithoPage() 
                 : _currentIndex == 2 
-                  ? const ProfilPage() 
-                  : _currentIndex == 0
-                    ? const QuizSelectionPage()
-                    : HomeContent(key: _homeContentKey)
-            ),
+                    ? const ProfilPage() 
+                    : _currentIndex == 0
+                        ? const QuizSelectionPage()
+                        : HomeContent(key: _homeContentKey),
           ),
         ],
       ),
@@ -834,6 +836,173 @@ class _HomeContentState extends State<HomeContent> {
   Future<void> _handleQuizLaunch(String missionId) async {
     if (!mounted) return;
     
+    // Si non premium et 0 vie, afficher le pop-up d'options (Envol / Pub)
+    if (!UserOrchestra.isPremium) {
+      // S'assurer d'avoir la valeur fraîche
+      await _loadCurrentLives();
+      if (_currentLives <= 0) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFFF3F5F9),
+            title: const Text(
+              'Plus de vies',
+              style: TextStyle(
+                fontFamily: 'Quicksand',
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFBC4749),
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Tu es à 0 vie. Choisis une option pour continuer :',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontFamily: 'Quicksand', fontSize: 16, color: Color(0xFF334355)),
+                ),
+                const SizedBox(height: 12),
+                BoutonUniversel(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    Navigator.of(context).pushNamed('/abonnement/information');
+                  },
+                  size: BoutonUniverselTaille.medium,
+                  decorClipToOuter: true,
+                  decorPadding: EdgeInsets.zero,
+                  decorElements: const [
+                    DecorElement(
+                      assetPath: 'assets/PAGE/Homescreen/cadeau.svg',
+                      position: Offset(0.76, -0.00),
+                      scale: 1.60,
+                      rotationDeg: -15,
+                      zIndex: -1,
+                    ),
+                    DecorElement(
+                      assetPath: 'assets/PAGE/Homescreen/Confetti.svg',
+                      position: Offset(-0.08, -1.32),
+                      scale: 5.20,
+                      rotationDeg: 0,
+                      zIndex: -2,
+                    ),
+                  ],
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  borderRadius: 10,
+                  backgroundColor: const Color(0xFFFEC868),
+                  hoverBackgroundColor: const Color(0xFFFEC868),
+                  backgroundGradient: const LinearGradient(
+                    begin: Alignment(0.02, 2.39),
+                    end: Alignment(0.86, -0.76),
+                    colors: [Color(0xDBFEC868), Color(0xFFFFA327)],
+                  ),
+                  hoverBackgroundGradient: const LinearGradient(
+                    begin: Alignment(0.02, 2.39),
+                    end: Alignment(0.86, -0.76),
+                    colors: [Color(0xDBFEC868), Color(0xFFFFA327)],
+                  ),
+                  borderColor: const Color(0xFFE89E1C),
+                  hoverBorderColor: const Color(0xFFE89E1C),
+                  shadowColor: const Color(0xFFE89E1C),
+                  child: const Text(
+                    'Avec Envol\nVies illimitées !',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontFamily: 'Fredoka',
+                      fontWeight: FontWeight.w700,
+                      height: 1.0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                BoutonUniversel(
+                  onPressed: () async {
+                    try {
+                      final rewarded = await AdService.instance.showRewardedIfAvailable();
+                      if (rewarded) {
+                        final uid = LifeService.getCurrentUserId();
+                        if (uid != null) {
+                          final tx = await LifeService.addLivesTransactional(uid, 1);
+                          final after = tx['after'] ?? tx['before'] ?? 0;
+                          if (mounted) setState(() => _currentLives = after);
+                        }
+                        if (context.mounted) Navigator.of(ctx).pop();
+                        // Si on a une vie, lancer la mission
+                        if (_currentLives > 0) {
+                          await _handleQuizLaunch(missionId);
+                        }
+                      }
+                    } catch (_) {
+                      if (context.mounted) {
+                        Navigator.of(ctx).pop();
+                        Navigator.of(context).pushNamed('/abonnement/information');
+                      }
+                    }
+                  },
+                  size: BoutonUniverselTaille.medium,
+                  decorClipToOuter: true,
+                  decorPadding: EdgeInsets.zero,
+                  decorElements: const [
+                    DecorElement(
+                      assetPath: 'assets/PAGE/Homescreen/sablier.svg',
+                      position: Offset(0.01, 0.35),
+                      scale: 1.05,
+                      zIndex: -6,
+                      rotationDeg: 20,
+                    ),
+                    DecorElement(
+                      assetPath: 'assets/PAGE/Homescreen/coeur.svg',
+                      position: Offset(-0.05, 0.47),
+                      scale: 0.75,
+                      rotationDeg: -16,
+                    ),
+                  ],
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  borderRadius: 10,
+                  backgroundColor: const Color(0xFFABC270),
+                  hoverBackgroundColor: const Color(0xFFABC270),
+                  backgroundGradient: const LinearGradient(
+                    begin: Alignment(0.04, 1.30),
+                    end: Alignment(1.00, 0.50),
+                    colors: [Color(0xFFABC270), Color(0xFFC2D397)],
+                  ),
+                  hoverBackgroundGradient: const LinearGradient(
+                    begin: Alignment(0.04, 1.30),
+                    end: Alignment(1.00, 0.50),
+                    colors: [Color(0xFFABC270), Color(0xFFC2D397)],
+                  ),
+                  borderColor: const Color(0xFF6A994E),
+                  hoverBorderColor: const Color(0xFF6A994E),
+                  shadowColor: const Color(0xFF6A994E),
+                  child: const Text(
+                    'Regarder une pub\npour +1 vie',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontFamily: 'Fredoka',
+                      fontWeight: FontWeight.w700,
+                      height: 1.0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Annuler'),
+              )
+            ],
+          ),
+        );
+        return; // Bloquer le lancement tant que pas de vie
+      }
+    }
+
     // Navigation vers l'écran de chargement qui préchargera les images
     await Navigator.push(
       context,
@@ -1162,7 +1331,9 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
       builder: (context, child) {
         return Transform.scale(
           scale: _scaleAnimation.value,
-          child: GestureDetector(
+          child: MouseRegion(
+            cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+            child: GestureDetector(
             onTap: _handleTap,
             child: LayoutBuilder(
               builder: (context, cons) {
@@ -1344,51 +1515,53 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                               ],
                             ),
                           ),
-                          // Rail d'étoiles à droite
-                          SizedBox(width: 12 * ui),
-                          Container(
-                            width: dynRailW,
-                            height: double.infinity,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFD2DBB2),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(7.2),
-                                bottomLeft: Radius.circular(7.2),
-                                topRight: Radius.circular(16),
-                                bottomRight: Radius.circular(16),
+                          // Rail d'étoiles à droite (masqué si mission verrouillée)
+                          if (widget.isUnlocked) ...[
+                            SizedBox(width: 12 * ui),
+                            Container(
+                              width: dynRailW,
+                              height: double.infinity,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD2DBB2),
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(7.2),
+                                  bottomLeft: Radius.circular(7.2),
+                                  topRight: Radius.circular(16),
+                                  bottomRight: Radius.circular(16),
+                                ),
+                              ),
+                              child: LayoutBuilder(
+                                builder: (ctx, rc) {
+                                  final double availableH = rc.maxHeight.isFinite ? rc.maxHeight : (h - cardPadding * 2);
+                                  final double starInt = (availableH / 3 - 2).clamp(18.0, dynStar).floorToDouble();
+                                  final double totalStars = starInt * 3;
+                                  final double gap = ((availableH - totalStars) / 4).clamp(0.0, 12.0);
+                                  Widget star(bool achieved) => Transform.translate(
+                                    offset: Offset(-0.8 * ui, 0),
+                                    child: Image.asset(
+                                      achieved ? 'assets/Images/Bouton/etoile_check.png' : 'assets/Images/Bouton/etoile-nocheck.png',
+                                      width: starInt,
+                                      height: starInt,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  );
+                                  return Column(
+                                    mainAxisSize: MainAxisSize.max,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      SizedBox(height: gap),
+                                      star(widget.mission.lastStarsEarned >= 1),
+                                      SizedBox(height: gap),
+                                      star(widget.mission.lastStarsEarned >= 2),
+                                      SizedBox(height: gap),
+                                      star(widget.mission.lastStarsEarned >= 3),
+                                      SizedBox(height: gap),
+                                    ],
+                                  );
+                                },
                               ),
                             ),
-                            child: LayoutBuilder(
-                              builder: (ctx, rc) {
-                                final double availableH = rc.maxHeight.isFinite ? rc.maxHeight : (h - cardPadding * 2);
-                                final double starInt = (availableH / 3 - 2).clamp(18.0, dynStar).floorToDouble();
-                                final double totalStars = starInt * 3;
-                                final double gap = ((availableH - totalStars) / 4).clamp(0.0, 12.0);
-                                Widget star(bool achieved) => Transform.translate(
-                                  offset: Offset(-0.8 * ui, 0),
-                                  child: Image.asset(
-                                    achieved ? 'assets/Images/Bouton/etoile_check.png' : 'assets/Images/Bouton/etoile-nocheck.png',
-                                    width: starInt,
-                                    height: starInt,
-                                    fit: BoxFit.contain,
-                                  ),
-                                );
-                                return Column(
-                                  mainAxisSize: MainAxisSize.max,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    SizedBox(height: gap),
-                                    star(widget.mission.lastStarsEarned >= 1),
-                                    SizedBox(height: gap),
-                                    star(widget.mission.lastStarsEarned >= 2),
-                                    SizedBox(height: gap),
-                                    star(widget.mission.lastStarsEarned >= 3),
-                                    SizedBox(height: gap),
-                                  ],
-                                );
-                              },
-                            ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
@@ -1440,6 +1613,7 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                   ],
                 );
               },
+            ),
             ),
           ),
         );

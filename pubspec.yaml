@@ -116,6 +116,7 @@ flutter:
     - assets/PAGE/Chargement/
     - assets/PAGE/Recompenses utiles/
     - assets/PAGE/Recompenses utiles secondaire/
+    - assets/PAGE/paywall/
     - assets/PAGE/Profil/
     - assets/PAGE/Paramètre/
     - assets/PAGE/Authentification/

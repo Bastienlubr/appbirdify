@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../services/Users/recompenses_utiles_service.dart';
 import '../../ui/responsive/responsive.dart';
@@ -58,23 +59,39 @@ class _RecompensesUtilesSecondairePageState extends State<RecompensesUtilesSecon
           // Le "Rising Fire" (Sunburst) est maintenant rendu sous l'animation dans le bloc principal
           SafeArea(
             child: Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(top: isTablet ? spacing * 0.5 : 0, left: spacing, right: spacing, bottom: spacing),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      _buildHeader(s),
-                      SizedBox(height: spacing),
-                      _buildMainBlock(animationPath, ringSize, ringStackHeight, animationTop),
-                      SizedBox(height: 0),
-                      _buildMessageBlock(s, type, ringSize),
-                      SizedBox(height: spacing * 0.8),
-                      if (!isTablet) SizedBox(height: spacing * 0.3),
-                      _buildContinueButton(s),
-                    ],
+              child: FittedBox(
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+                child: Padding(
+                  padding: EdgeInsets.only(top: isTablet ? spacing * 0.5 : 0, left: spacing, right: spacing, bottom: spacing),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Transform.translate(
+                          offset: Offset(0, spacing * 2.00),
+                          child: _buildHeader(s),
+                        ),
+                        SizedBox(height: isWide ? spacing * 0.06 : (isTablet ? spacing * 0.10 : spacing * 0.18)),
+                        Transform.translate(
+                          offset: Offset(0, spacing * 2.60),
+                          child: _buildMainBlock(animationPath, ringSize, ringStackHeight, animationTop),
+                        ),
+                        SizedBox(height: isTablet ? spacing * 0.10 : spacing * 0.18),
+                        Transform.translate(
+                          offset: Offset(0, -spacing * 0.45),
+                          child: _buildMessageBlock(s, type, ringSize),
+                        ),
+                        SizedBox(height: spacing * 0.6),
+                        if (!isTablet) SizedBox(height: spacing * 0.2),
+                        Transform.translate(
+                          offset: Offset(0, -spacing * 0.34),
+                          child: _buildContinueButton(s),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -132,16 +149,19 @@ class _RecompensesUtilesSecondairePageState extends State<RecompensesUtilesSecon
                 AnimatedBuilder(
                   animation: _sunburstController,
                   builder: (context, child) {
-                    return Transform.rotate(
-                      angle: _sunburstController.value * 2 * 3.14159,
-                      child: Transform.scale(
-                        scale: 1.9,
-                        child: SizedBox(
-                          width: ringSize * 2.2,
-                          height: ringSize * 2.2,
-                          child: CustomPaint(
-                            painter: SunburstPainter(),
-                            size: Size(ringSize * 2.2, ringSize * 2.2),
+                    return Transform.translate(
+                      offset: Offset(0, -ringSize * 0.0), // sunburst abaissé pour la variante vies
+                      child: Transform.rotate(
+                        angle: _sunburstController.value * 2 * 3.14159,
+                        child: Transform.scale(
+                          scale: 2.05, // même agrandissement que la page principale
+                          child: SizedBox(
+                            width: ringSize * 2.35,
+                            height: ringSize * 2.35,
+                            child: CustomPaint(
+                              painter: SunburstPainter(),
+                              size: Size(ringSize * 2.35, ringSize * 2.35),
+                            ),
                           ),
                         ),
                       ),
@@ -208,8 +228,13 @@ class _RecompensesUtilesSecondairePageState extends State<RecompensesUtilesSecon
             : (livesGained == 1)
                 ? 'Super, Tu gagnes une vie !'
             : 'Bravo ! Tu as obtenu une récompense utile.';
-    final String sub = (livesGained >= 3)
-        ? 'Ta maîtrise est totale. Profite de ces 3 vies pour explorer encore plus d’habitat.'
+    // Détection mode ordinateur (desktop-like)
+    final Size screen = MediaQuery.of(context).size;
+    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+    String sub = (livesGained >= 3)
+        ? (isDesktopLike
+            ? 'Ta maîtrise est totale. Profite de ces 3 vies\npour explorer encore plus d’habitat.'
+            : 'Ta maîtrise est totale. Profite de ces 3 vies pour explorer encore plus d’habitat.')
         : (livesGained == 2)
             ? 'Deux vies pour pousser encore plus loin ta progression.'
             : (livesGained == 1)
@@ -269,6 +294,8 @@ class _RecompensesUtilesSecondairePageState extends State<RecompensesUtilesSecon
         child: Stack(
           children: [
             Positioned.fill(
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -312,7 +339,8 @@ class _RecompensesUtilesSecondairePageState extends State<RecompensesUtilesSecon
                 ),
               ),
             ),
-            const Positioned(
+            ),
+            Positioned(
               right: 16,
               top: 12,
               bottom: 12,
@@ -320,8 +348,19 @@ class _RecompensesUtilesSecondairePageState extends State<RecompensesUtilesSecon
                 width: 28,
                 height: 28,
                 child: DecoratedBox(
-                  decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                  child: Icon(Icons.arrow_forward, color: Color(0xFF6A994E), size: 20),
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: Center(
+                    child: Transform.translate(
+                      offset: const Offset(1.0, 0.0),
+                      child: SvgPicture.asset(
+                        'assets/Images/Bouton/bouton droite.svg',
+                        width: 18,
+                        height: 18,
+                        fit: BoxFit.contain,
+                        colorFilter: const ColorFilter.mode(Color(0xFF6A994E), BlendMode.srcIn),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

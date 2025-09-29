@@ -470,7 +470,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final m = buildAdaptiveMetrics(context, constraints);
-          final double fieldHeight = m.dp(76, tabletFactor: 1.18, desktopFactor: 0.82, min: 64, max: 100);
+          final double fieldHeight = m.dp(64, tabletFactor: 1.10, desktopFactor: 0.82, min: 56, max: 88);
           final double desktopTop = m.dp(120, desktopFactor: 1.1, min: 80, max: 200);
           final double contentEstimate = m.isDesktop
               ? 0
@@ -478,7 +478,13 @@ class _LoginScreenState extends State<LoginScreen> {
           final double centeredTopForMobileTablet = ((constraints.maxHeight - contentEstimate) / 2)
               .clamp(m.dp(40, min: 24, max: 200), m.dp(260, tabletFactor: 1.2, min: 120, max: 360))
               .toDouble();
-          final double contentTop = m.isDesktop ? desktopTop : centeredTopForMobileTablet;
+          // Remonte légèrement le contenu sur mobile/tablette pour éviter qu'il apparaisse trop bas
+          final double lift = m.dp(28, tabletFactor: 1.15, desktopFactor: 1.0, min: 16, max: 48);
+          final double contentTop = m.isDesktop
+              ? desktopTop
+              : (centeredTopForMobileTablet - lift)
+                  .clamp(m.dp(24, min: 16, max: 200), centeredTopForMobileTablet)
+                  .toDouble();
           final double rawContentWidth = constraints.maxWidth * 0.85;
           final double actualContentWidthLB = m.isDesktop
               ? rawContentWidth.clamp(420.0, 560.0)
@@ -515,14 +521,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Connectez-vous avec votre compte',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: m.font(18, tabletFactor: 1.10, desktopFactor: 0.86, min: 16, max: 26),
+                        fontSize: m.font(16, tabletFactor: 1.05, desktopFactor: 0.86, min: 14, max: 22),
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF606D7C),
                         fontFamily: 'Quicksand',
                         height: 1.56,
                       ),
                     ),
-                    const SizedBox(height: 50),
+                    SizedBox(height: m.dp(22, tabletFactor: 1.0, desktopFactor: 0.9, min: 14, max: 32)),
                     Container(
                       width: double.infinity,
                       height: fieldHeight,
@@ -541,7 +547,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         style: TextStyle(
-                          fontSize: m.font(20, tabletFactor: 1.12, desktopFactor: 0.86, min: 18, max: 26),
+                          fontSize: m.font(18, tabletFactor: 1.08, desktopFactor: 0.86, min: 16, max: 24),
                           color: const Color(0xFF334355),
                           fontFamily: 'Quicksand',
                         ),
@@ -549,11 +555,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           hintText: 'Adresse email',
                           hintStyle: TextStyle(
                             color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
-                            fontSize: m.font(20, tabletFactor: 1.08, desktopFactor: 0.86, min: 16, max: 24),
+                            fontSize: m.font(18, tabletFactor: 1.04, desktopFactor: 0.86, min: 14, max: 22),
                             fontFamily: 'Quicksand',
                           ),
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: m.dp(20, tabletFactor: 1.0, desktopFactor: 0.85, min: 16, max: 28), vertical: m.dp(22, tabletFactor: 1.1, desktopFactor: 0.85, min: 18, max: 28)),
+                          contentPadding: EdgeInsets.symmetric(horizontal: m.dp(18, tabletFactor: 1.0, desktopFactor: 0.85, min: 14, max: 24), vertical: m.dp(18, tabletFactor: 1.05, desktopFactor: 0.85, min: 14, max: 24)),
                         ),
                       ),
                     ),
@@ -576,7 +582,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _passwordController,
                         obscureText: true,
                         style: TextStyle(
-                          fontSize: m.font(20, tabletFactor: 1.12, desktopFactor: 0.86, min: 18, max: 26),
+                          fontSize: m.font(18, tabletFactor: 1.08, desktopFactor: 0.86, min: 16, max: 24),
                           color: const Color(0xFF334355),
                           fontFamily: 'Quicksand',
                         ),
@@ -584,11 +590,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           hintText: 'Mot de passe',
                           hintStyle: TextStyle(
                             color: const Color(0xFF344356).withAlpha((0.3 * 255).toInt()),
-                            fontSize: m.font(20, tabletFactor: 1.08, desktopFactor: 0.86, min: 16, max: 24),
+                            fontSize: m.font(18, tabletFactor: 1.04, desktopFactor: 0.86, min: 14, max: 22),
                             fontFamily: 'Quicksand',
                           ),
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: m.dp(20, tabletFactor: 1.0, desktopFactor: 0.85, min: 16, max: 28), vertical: m.dp(22, tabletFactor: 1.1, desktopFactor: 0.85, min: 18, max: 28)),
+                          contentPadding: EdgeInsets.symmetric(horizontal: m.dp(18, tabletFactor: 1.0, desktopFactor: 0.85, min: 14, max: 24), vertical: m.dp(18, tabletFactor: 1.05, desktopFactor: 0.85, min: 14, max: 24)),
                         ),
                       ),
                     ),
