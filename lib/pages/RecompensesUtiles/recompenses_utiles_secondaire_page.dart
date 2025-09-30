@@ -42,6 +42,7 @@ class _RecompensesUtilesSecondairePageState extends State<RecompensesUtilesSecon
     final Size screen = MediaQuery.of(context).size;
     final bool isTablet = screen.shortestSide >= 600;
     final bool isWide = screen.aspectRatio >= 0.70;
+    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
     final double baseFactor = isTablet ? (isWide ? 0.54 : 0.61) : (s.isMD || s.isLG || s.isXL ? 0.65 : 0.69);
     double ringSize = (screen.shortestSide * baseFactor).clamp(180.0, isTablet ? 520.0 : 460.0);
     final double spacing = (s.spacing() * (isTablet ? 1.15 : 1.0)).clamp(14.0, isTablet ? 46.0 : 40.0).toDouble();
@@ -56,45 +57,52 @@ class _RecompensesUtilesSecondairePageState extends State<RecompensesUtilesSecon
       body: Stack(
         children: [
           Positioned.fill(child: Container(color: const Color(0xFFF2F5F8))),
-          // Le "Rising Fire" (Sunburst) est maintenant rendu sous l'animation dans le bloc principal
           SafeArea(
             child: Center(
-              child: FittedBox(
-                fit: BoxFit.contain,
-                alignment: Alignment.center,
-                child: Padding(
-                  padding: EdgeInsets.only(top: isTablet ? spacing * 0.5 : 0, left: spacing, right: spacing, bottom: spacing),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Transform.translate(
-                          offset: Offset(0, spacing * 2.00),
-                          child: _buildHeader(s),
+              child: isDesktopLike
+                  ? FittedBox(
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                      child: Padding(
+                        padding: EdgeInsets.only(top: isTablet ? spacing * 0.5 : 0, left: spacing, right: spacing, bottom: spacing),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Transform.translate(offset: Offset(0, spacing * 2.00), child: _buildHeader(s)),
+                              SizedBox(height: isWide ? spacing * 0.06 : (isTablet ? spacing * 0.10 : spacing * 0.18)),
+                              Transform.translate(offset: Offset(0, spacing * 2.60), child: _buildMainBlock(animationPath, ringSize, ringStackHeight, animationTop)),
+                              SizedBox(height: isTablet ? spacing * 0.10 : spacing * 0.18),
+                              Transform.translate(offset: Offset(0, -spacing * 0.45), child: _buildMessageBlock(s, type, ringSize)),
+                              SizedBox(height: spacing * 0.6),
+                              if (!isTablet) SizedBox(height: spacing * 0.2),
+                              Transform.translate(offset: Offset(0, -spacing * 0.34), child: _buildContinueButton(s)),
+                            ],
+                          ),
                         ),
-                        SizedBox(height: isWide ? spacing * 0.06 : (isTablet ? spacing * 0.10 : spacing * 0.18)),
-                        Transform.translate(
-                          offset: Offset(0, spacing * 2.60),
-                          child: _buildMainBlock(animationPath, ringSize, ringStackHeight, animationTop),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: EdgeInsets.only(top: isTablet ? spacing * 0.5 : 0, left: spacing, right: spacing, bottom: spacing),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            _buildHeader(s),
+                            SizedBox(height: spacing),
+                            _buildMainBlock(animationPath, ringSize, ringStackHeight, animationTop),
+                            SizedBox(height: isTablet ? spacing * 0.10 : spacing * 0.18),
+                            _buildMessageBlock(s, type, ringSize),
+                            SizedBox(height: spacing * 0.6),
+                            _buildContinueButton(s),
+                          ],
                         ),
-                        SizedBox(height: isTablet ? spacing * 0.10 : spacing * 0.18),
-                        Transform.translate(
-                          offset: Offset(0, -spacing * 0.45),
-                          child: _buildMessageBlock(s, type, ringSize),
-                        ),
-                        SizedBox(height: spacing * 0.6),
-                        if (!isTablet) SizedBox(height: spacing * 0.2),
-                        Transform.translate(
-                          offset: Offset(0, -spacing * 0.34),
-                          child: _buildContinueButton(s),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              ),
             ),
           ),
         ],

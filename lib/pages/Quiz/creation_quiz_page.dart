@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import '../../widgets/recap_button.dart';
 import '../../ui/responsive/responsive.dart';
 import '../../models/bird.dart';
@@ -176,6 +177,10 @@ class _CreationQuizPageState extends State<CreationQuizPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final m = buildResponsiveMetrics(context, constraints);
+        final bool isDesktop = kIsWeb ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.linux;
         final gridCols = m.isTablet ? (m.isWide ? 5 : 4) : 2;
         final spacing = m.dp(10, tabletFactor: 1.1);
         final aspect = 0.80;
@@ -245,90 +250,110 @@ class _CreationQuizPageState extends State<CreationQuizPage> {
                     Expanded(
                       child: _loading
                           ? const Center(child: CircularProgressIndicator())
-                          : Stack(
-                              children: [
-                                CustomScrollView(
-                                  controller: _scrollController,
-                                  slivers: [
-                                    for (final entry in _groupByFirstLetter(_displayed).entries) ...[
-                                      SliverToBoxAdapter(
-                                        child: Padding(
-                                          padding: EdgeInsets.only(
-                                            left: m.spacing,
-                                            right: m.spacing,
-                                            top: m.gapSmall(),
-                                            bottom: m.dp(6),
+                          : isDesktop
+                              ? Stack(
+                                  children: [
+                                    CustomScrollView(
+                                      controller: _scrollController,
+                                      slivers: [
+                                        for (final entry in _groupByFirstLetter(_displayed).entries) ...[
+                                          SliverToBoxAdapter(
+                                            child: Padding(
+                                              padding: EdgeInsets.only(
+                                                left: m.spacing,
+                                                right: m.spacing,
+                                                top: m.gapSmall(),
+                                                bottom: m.dp(6),
+                                              ),
+                                              child: Text(
+                                                entry.key,
+                                                style: TextStyle(
+                                                  fontFamily: 'Quicksand',
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: m.font(18, tabletFactor: 1.0, min: 14, max: 24),
+                                                  color: const Color(0xFF57534E),
+                                                  height: 1.0,
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                          child: Text(
-                                            entry.key,
-                                            style: TextStyle(
-                                              fontFamily: 'Quicksand',
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: m.font(18, tabletFactor: 1.0, min: 14, max: 24),
-                                              color: const Color(0xFF57534E),
-                                              height: 1.0,
+                                          SliverPadding(
+                                            padding: EdgeInsets.symmetric(horizontal: m.spacing, vertical: m.dp(4)),
+                                            sliver: SliverGrid(
+                                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                                crossAxisCount: gridCols,
+                                                mainAxisSpacing: spacing,
+                                                crossAxisSpacing: spacing,
+                                                childAspectRatio: aspect,
+                                              ),
+                                              delegate: SliverChildBuilderDelegate(
+                                                (context, idx) {
+                                                  final b = entry.value[idx];
+                                                  final selected = _selected.contains(b.nomFr);
+                                                  return _SelectableBirdTile(
+                                                    bird: b,
+                                                    selected: selected,
+                                                    onTap: () => _toggleSelect(b),
+                                                  );
+                                                },
+                                                childCount: entry.value.length,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        // Marge de fin pour laisser le contenu passer sous le panel
+                                        SliverToBoxAdapter(child: SizedBox(height: m.dp(160))),
+                                      ],
+                                    ),
+                                    // Fade top overlay (desktop uniquement)
+                                    IgnorePointer(
+                                      ignoring: true,
+                                      child: AnimatedOpacity(
+                                        duration: const Duration(milliseconds: 120),
+                                        curve: Curves.easeInOut,
+                                        opacity: 0.4,
+                                        child: Align(
+                                          alignment: Alignment.topCenter,
+                                          child: Container(
+                                            height: m.dp(55),
+                                            decoration: const BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  Color(0xFFF3F5F9),
+                                                  Color(0xCCF3F5F9),
+                                                  Color(0x66F3F5F9),
+                                                  Color(0x00F3F5F9),
+                                                ],
+                                                stops: [0.0, 0.25, 0.6, 1.0],
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                      SliverPadding(
-                                        padding: EdgeInsets.symmetric(horizontal: m.spacing, vertical: m.dp(4)),
-                                        sliver: SliverGrid(
-                                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                            crossAxisCount: gridCols,
-                                            mainAxisSpacing: spacing,
-                                            crossAxisSpacing: spacing,
-                                            childAspectRatio: aspect,
-                                          ),
-                                          delegate: SliverChildBuilderDelegate(
-                                            (context, idx) {
-                                              final b = entry.value[idx];
-                                              final selected = _selected.contains(b.nomFr);
-                                              return _SelectableBirdTile(
-                                                bird: b,
-                                                selected: selected,
-                                                onTap: () => _toggleSelect(b),
-                                              );
-                                            },
-                                            childCount: entry.value.length,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                    // Marge de fin pour laisser le contenu passer sous le panel
-                                    SliverToBoxAdapter(child: SizedBox(height: m.dp(160))),
-                                  ],
-                                ),
-                                // Fade top overlay (apparaît quand on scrolle un peu)
-                                IgnorePointer(
-                                  ignoring: true,
-                                  child: AnimatedOpacity(
-                                    duration: const Duration(milliseconds: 120),
-                                    curve: Curves.easeInOut,
-                                    opacity: 0.4,
-                                    child: Align(
-                                      alignment: Alignment.topCenter,
-                                      child: Container(
-                                        height: m.dp(55),
-                                        decoration: const BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topCenter,
-                                            end: Alignment.bottomCenter,
-                                            colors: [
-                                              Color(0xFFF3F5F9),
-                                              Color(0xCCF3F5F9),
-                                              Color(0x66F3F5F9),
-                                              Color(0x00F3F5F9),
-                                            ],
-                                            stops: [0.0, 0.25, 0.6, 1.0],
-                                          ),
-                                        ),
-                                      ),
                                     ),
+                                  ],
+                                )
+                              : GridView.builder(
+                                  padding: EdgeInsets.symmetric(horizontal: m.spacing, vertical: m.dp(4)),
+                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: gridCols,
+                                    mainAxisSpacing: spacing,
+                                    crossAxisSpacing: spacing,
+                                    childAspectRatio: aspect,
                                   ),
+                                  itemCount: _displayed.length,
+                                  itemBuilder: (context, idx) {
+                                    final b = _displayed[idx];
+                                    final selected = _selected.contains(b.nomFr);
+                                    return _SelectableBirdTile(
+                                      bird: b,
+                                      selected: selected,
+                                      onTap: () => _toggleSelect(b),
+                                    );
+                                  },
                                 ),
-                              ],
-                            ),
                     ),
                   ],
                 ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:lottie/lottie.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:appbirdify/pages/home_screen.dart';
 import 'package:appbirdify/widgets/boutons/bouton_universel.dart';
@@ -16,6 +18,10 @@ class _EnvolWelcomePageState extends State<EnvolWelcomePage> with TickerProvider
   AnimationController? _traitsController;
   AnimationController? _necklaceController;
   AnimationController? _upperArcController;
+  // Anneaux rotatifs supplémentaires (rotation continue, sans restart)
+  late final AnimationController _ringCtrl1;
+  late final AnimationController _ringCtrl2;
+  late final AnimationController _ringCtrl3;
   List<double>? _upperArcOpacities; // opacités fixes pour les perles du demi‑cercle
 
   List<double> _getUpperArcOpacities(int count) {
@@ -40,6 +46,13 @@ class _EnvolWelcomePageState extends State<EnvolWelcomePage> with TickerProvider
       ..repeat();
     _upperArcController = AnimationController(vsync: this, duration: const Duration(seconds: 18))
       ..repeat();
+    // Vitesses différentes pour un effet organique, et repeat() pour une rotation infinie sans retour au point de départ
+    _ringCtrl1 = AnimationController(vsync: this, duration: const Duration(seconds: 28))
+      ..repeat();
+    _ringCtrl2 = AnimationController(vsync: this, duration: const Duration(seconds: 34))
+      ..repeat();
+    _ringCtrl3 = AnimationController(vsync: this, duration: const Duration(seconds: 42))
+      ..repeat();
   }
 
   @override
@@ -47,6 +60,9 @@ class _EnvolWelcomePageState extends State<EnvolWelcomePage> with TickerProvider
     _traitsController?.dispose();
     _necklaceController?.dispose();
     _upperArcController?.dispose();
+    _ringCtrl1.dispose();
+    _ringCtrl2.dispose();
+    _ringCtrl3.dispose();
     super.dispose();
   }
 
@@ -160,45 +176,56 @@ class _EnvolWelcomePageState extends State<EnvolWelcomePage> with TickerProvider
     return Scaffold(
       body: Container(
         clipBehavior: Clip.antiAlias,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            // aligné sur x1=350.5,y1=788 vers x2=32,y2=0 du SVG (diagonale BR -> TL)
-            begin: Alignment(0.93, 0.94),
-            end: Alignment(-0.85, -1.00),
-            colors: [
-              Colors.white,
-              Color(0xEDFFB648), // 93% opacity
-              Color(0xFFFEC868),
-            ],
-            stops: [0.0337, 0.8751, 1.0],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x3F000000),
-              blurRadius: 4,
-              offset: Offset(0, 4),
-              spreadRadius: 0,
-            )
-          ],
-        ),
+        decoration: () {
+          final double w = MediaQuery.of(context).size.width;
+          final bool isDesktop = (kIsWeb && w >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+          return BoxDecoration(
+            gradient: const LinearGradient(
+              // aligné sur x1=350.5,y1=788 vers x2=32,y2=0 du SVG (diagonale BR -> TL)
+              begin: Alignment(0.93, 0.94),
+              end: Alignment(-0.85, -1.00),
+              colors: [
+                Colors.white,
+                Color(0xEDFFB648), // 93% opacity
+                Color(0xFFFEC868),
+              ],
+              stops: [0.0337, 0.8751, 1.0],
+            ),
+            boxShadow: isDesktop
+                ? const []
+                : const [
+                    BoxShadow(
+                      color: Color(0x3F000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 4),
+                      spreadRadius: 0,
+                    )
+                  ],
+          );
+        }(),
         child: SafeArea(
           child: Center(
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final double baseW = 375;
                 final double baseH = 812;
-                final double scale = (constraints.maxWidth / baseW).clamp(0.5, 1.2);
+                final bool isDesktop = (kIsWeb && constraints.maxWidth >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+                final double scale = isDesktop
+                    ? math.min(constraints.maxWidth / baseW, constraints.maxHeight / baseH).clamp(0.5, 6.0)
+                    : (constraints.maxWidth / baseW).clamp(0.5, 1.2);
+                final Alignment scaleAlign = isDesktop ? Alignment.center : Alignment.topCenter;
                 // Décalage vertical pour le groupe demi-anneau externe (ajustable)
                 final double outerArcYOffset = 76;
                 final double continueBtnWidth = 180;
                 final double continueBtnLeft = (baseW - continueBtnWidth) / 2;
                 return Transform.scale(
                   scale: scale,
-                  alignment: Alignment.topCenter,
+                  alignment: scaleAlign,
                   child: SizedBox(
                     width: baseW,
                     height: baseH,
                     child: Stack(
+                      clipBehavior: Clip.none,
                       children: [
                         // fond gradient reproduisant le SVG - déjà appliqué via BoxDecoration
                         // Logo premium ENVOL (SVG) en haut à droite, derrière les bulles
@@ -235,6 +262,8 @@ class _EnvolWelcomePageState extends State<EnvolWelcomePage> with TickerProvider
                           ),
                         ),
 
+                        // (Supprimé) Anneaux externes supplémentaires: remplacés par un seul anneau complet (34 éléments) ci‑dessus
+
                         // Anneau interne plus opaque autour de la clé
                         Positioned(
                           left: 125,
@@ -254,7 +283,7 @@ class _EnvolWelcomePageState extends State<EnvolWelcomePage> with TickerProvider
                           ),
                         ),
 
-                        // Demi-anneau EXTERNE fixe + perles H03/M04 en rotation (effet d'optique)
+                        // Demi-anneau/anneau EXTERNE fixe + perles H03/M04 en rotation (effet d'optique)
                         Positioned(
                           left: -42,
                           top: 25 + outerArcYOffset,
@@ -270,71 +299,81 @@ class _EnvolWelcomePageState extends State<EnvolWelcomePage> with TickerProvider
                                     : AnimatedBuilder(
                                         animation: _upperArcController!,
                                         builder: (context, _) {
-                                          // Animation de défilement sur le demi‑cercle (haut)
+                                          // Dimensions fixes du canevas de l'anneau externe
                                           const double w = 466;
                                           const double h = 431;
                                           const double cx = w / 2;
                                           const double cy = h / 2;
                                           const double r = (466 - 4) / 2;
-                                          const double start = -math.pi; // à gauche
-                                          const double end = 0.0; // à droite
-                                          const double span = end - start; // = pi
+                                          final bool isDesktop = (kIsWeb || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux);
 
-                                          // Perles source (boucle)
-                                          final upperItems = [
-                                            {'asset': 'assets/Missionhome/Images/U04.png', 'ring': 95.0, 'icon': 77.0},
-                                            {'asset': 'assets/Missionhome/Images/H04.png', 'ring': 77.0, 'icon': 64.0},
-                                            {'asset': 'assets/Missionhome/Images/H03.png', 'ring': 95.0, 'icon': 77.0},
-                                            {'asset': 'assets/Missionhome/Images/M04.png', 'ring': 77.0, 'icon': 64.0},
+                                          // Rendu unifié (mobile/tablette/desktop): cercle COMPLET avec éléments réduits comme desktop
+                                          final double a = _upperArcController!.value * 6.283185307179586; // 0..2π
+                                          final int n = 8;
+                                          final double delta = 6.283185307179586 / n;
+                                          final baseAssets = <String>[
+                                            'assets/Missionhome/Images/A01.png','assets/Missionhome/Images/A02.png','assets/Missionhome/Images/A03.png','assets/Missionhome/Images/A04.png',
+                                            'assets/Missionhome/Images/F01.png','assets/Missionhome/Images/F02.png','assets/Missionhome/Images/F03.png','assets/Missionhome/Images/F04.png',
+                                            'assets/Missionhome/Images/L01.png','assets/Missionhome/Images/L02.png','assets/Missionhome/Images/L03.png','assets/Missionhome/Images/L04.png',
+                                            'assets/Missionhome/Images/H01.png','assets/Missionhome/Images/H02.png','assets/Missionhome/Images/H03.png','assets/Missionhome/Images/H04.png',
+                                            'assets/Missionhome/Images/U01.png','assets/Missionhome/Images/U02.png','assets/Missionhome/Images/U03.png','assets/Missionhome/Images/U04.png',
+                                            'assets/Missionhome/Images/M01.png','assets/Missionhome/Images/M02.png','assets/Missionhome/Images/M03.png','assets/Missionhome/Images/M04.png',
                                           ];
-                                          final int n = upperItems.length;
-                                          final double t = _upperArcController!.value; // 0..1
-                                          // Décalage angulaire animé (boucle infinie)
-                                          // Inverser le sens: phase décroissante
-                                          final double phase = (span - (t * span)) % span;
-                                          // Pas angulaire égal pour un intervalle constant
-                                          final double delta = span / n;
-
                                           final List<Offset> centers = [];
-                                          final List<_Hole> movingHoles = [];
-                                          // Toujours exactement n perles réparties sans coupure
-                                          for (int i = 0; i < n; i++) {
-                                            final double wrapped = (i * delta + phase) % span; // 0..span
-                                            final double theta = start + wrapped; // dans [start, end)
+                                          final List<_Hole> holes = [];
+                                          // Empêcher la répétition d'icônes entre collier intérieur (items ci-dessus) et anneau extérieur
+                                          final Set<String> innerAssets = {
+                                            'assets/Missionhome/Images/U02.png',
+                                            'assets/Missionhome/Images/A01.png',
+                                            'assets/Missionhome/Images/L01.png',
+                                            'assets/Missionhome/Images/H01.png',
+                                            'assets/Missionhome/Images/A03.png',
+                                          };
+                                          final List<Map<String, dynamic>> items = List.generate(n, (i) {
+                                            final double ringSize = 80.0 + 10.0 * math.sin(i * 0.7);
+                                            final double iconSize = (ringSize * 0.78).clamp(54.0, 74.0);
+                                            // Chercher le premier asset non présent dans l'intérieur
+                                            int idx = i % baseAssets.length;
+                                            String asset = baseAssets[idx];
+                                            int guard = 0;
+                                            while (innerAssets.contains(asset) && guard < baseAssets.length) {
+                                              idx = (idx + 1) % baseAssets.length;
+                                              asset = baseAssets[idx];
+                                              guard++;
+                                            }
+                                            final double theta = a + i * delta;
                                             final double x = cx + r * math.cos(theta);
                                             final double y = cy + r * math.sin(theta);
-                                            centers.add(Offset(x, y));
-                                            final double ringSize = (upperItems[i]['ring'] as double);
-                                            // Trous exactement tangents aux perles (pas de marge visuelle)
-                                            movingHoles.add(_Hole(offset: Offset(x, y), radius: ringSize / 2, inflate: 0.0));
-                                          }
+                                            final offset = Offset(x, y);
+                                            centers.add(offset);
+                                            holes.add(_Hole(offset: offset, radius: ringSize / 2.68, inflate: 0.0));
+                                            return {'ring': ringSize, 'icon': iconSize, 'asset': asset};
+                                          });
 
-                                          final ops = _getUpperArcOpacities(n);
                                           return Stack(
                                             clipBehavior: Clip.none,
                                             children: [
-                                              // arc fixe + perçage dynamique sous les perles visibles
                                               CustomPaint(
                                                 size: const Size(466, 431),
-                                                painter: _HalfRingPainter(
+                                                painter: _RingWithHolesPainter(
                                                   strokeColor: const Color(0xFFFCFCFE),
                                                   strokeWidth: 4,
-                                                  holes: movingHoles,
+                                                  holes: holes,
                                                 ),
                                               ),
-                                              // perles au-dessus dans le même ordre (n éléments)
                                               ...List.generate(n, (i) {
-                                                final ring = (upperItems[i]['ring'] as double);
-                                                final icon = (upperItems[i]['icon'] as double);
-                                                final asset = (upperItems[i]['asset'] as String);
+                                                final double ring = (items[i]['ring'] as double);
+                                                final double icon = (items[i]['icon'] as double);
+                                                final String asset = (items[i]['asset'] as String);
+                                                final Offset c = centers[i];
                                                 return Positioned(
-                                                  left: centers[i].dx - ring / 2,
-                                                  top: centers[i].dy - ring / 2,
+                                                  left: c.dx - ring / 2,
+                                                  top: c.dy - ring / 2,
                                                   child: _DecorIconBare(
                                                     ringSize: ring,
                                                     iconSize: icon,
                                                     assetPath: asset,
-                                                    contentOpacity: ops[i],
+                                                    contentOpacity: 1.0,
                                                   ),
                                                 );
                                               }),
@@ -410,6 +449,66 @@ class _EnvolWelcomePageState extends State<EnvolWelcomePage> with TickerProvider
 
                         // Icônes décoratives autour: gérées dans le groupe tournant ci-dessus
 
+                        // Blur local derrière le titre pour remettre le texte au premier plan
+                        Positioned(
+                          left: 20,
+                          top: 505,
+                          child: SizedBox(
+                            width: 338,
+                            height: 84,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // Couche 1: blur doux et large + gradient très léger
+                                  BackdropFilter(
+                                    filter: ui.ImageFilter.blur(sigmaX: 0.8, sigmaY: 0.8),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [
+                                            const Color(0xFFFFFFFF).withOpacity(0.04),
+                                            const Color(0xFFFFFFFF).withOpacity(0.015),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Couche 2: blur un peu plus fort centré et atténué sur les bords (progressif)
+                                  Center(
+                                    child: SizedBox(
+                                      width: 310,
+                                      height: 72,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: BackdropFilter(
+                                          filter: ui.ImageFilter.blur(sigmaX: 1.6, sigmaY: 1.6),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              gradient: RadialGradient(
+                                                center: Alignment.center,
+                                                radius: 0.95,
+                                                colors: [
+                                                  const Color(0xFFFFFFFF).withOpacity(0.06),
+                                                  const Color(0xFFFFFFFF).withOpacity(0.0),
+                                                ],
+                                                stops: const [0.0, 1.0],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
                         // Titre
                         const Positioned(
                           left: 23,
@@ -425,6 +524,64 @@ class _EnvolWelcomePageState extends State<EnvolWelcomePage> with TickerProvider
                                 fontFamily: 'Fredoka',
                                 fontWeight: FontWeight.w600,
                                 height: 1.29,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Blur local léger derrière le sous‑titre
+                        Positioned(
+                          left: 20,
+                          top: 580,
+                          child: SizedBox(
+                            width: 338,
+                            height: 64,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  BackdropFilter(
+                                    filter: ui.ImageFilter.blur(sigmaX: 0.6, sigmaY: 0.6),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [
+                                            const Color(0xFFFFFFFF).withOpacity(0.035),
+                                            const Color(0xFFFFFFFF).withOpacity(0.015),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Center(
+                                    child: SizedBox(
+                                      width: 300,
+                                      height: 54,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: BackdropFilter(
+                                          filter: ui.ImageFilter.blur(sigmaX: 1.2, sigmaY: 1.2),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              gradient: RadialGradient(
+                                                center: Alignment.center,
+                                                radius: 0.95,
+                                                colors: [
+                                                  const Color(0xFFFFFFFF).withOpacity(0.05),
+                                                  const Color(0xFFFFFFFF).withOpacity(0.0),
+                                                ],
+                                                stops: const [0.0, 1.0],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

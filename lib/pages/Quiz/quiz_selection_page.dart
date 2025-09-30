@@ -120,25 +120,37 @@ class _QuizSelectionPageState extends State<QuizSelectionPage> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          SizedBox(
-                            width: 200,
-                            child: Center(
-                              child: GestureDetector(
-                                onTap: () => setState(() => _showCustomQuizzes = false),
-                                child: _TabLabel(label: 'QUIZ', selected: !_showCustomQuizzes),
+                          if (isDesktop) ...[
+                            SizedBox(
+                              width: 200,
+                              child: Center(
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _showCustomQuizzes = false),
+                                  child: _TabLabel(label: 'QUIZ', selected: !_showCustomQuizzes),
+                                ),
                               ),
                             ),
-                          ),
-                          SizedBox(width: m.dp(24)),
-                          SizedBox(
-                            width: 200,
-                            child: Center(
-                              child: GestureDetector(
-                                onTap: () => Navigator.of(context).pushNamed('/abonnement/information'),
-                                child: _TabLabel(label: 'MES QUIZ', selected: _showCustomQuizzes),
+                            SizedBox(width: m.dp(24)),
+                            SizedBox(
+                              width: 200,
+                              child: Center(
+                                child: GestureDetector(
+                                  onTap: () => Navigator.of(context).pushNamed('/abonnement/information'),
+                                  child: _TabLabel(label: 'MES QUIZ', selected: _showCustomQuizzes),
+                                ),
                               ),
                             ),
-                          ),
+                          ] else ...[
+                            GestureDetector(
+                              onTap: () => setState(() => _showCustomQuizzes = false),
+                              child: _TabLabel(label: 'QUIZ', selected: !_showCustomQuizzes),
+                            ),
+                            SizedBox(width: m.dp(24)),
+                            GestureDetector(
+                              onTap: () => setState(() => _showCustomQuizzes = true),
+                              child: _TabLabel(label: 'MES QUIZ', selected: _showCustomQuizzes),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -570,6 +582,7 @@ class _CustomQuizCard extends StatelessWidget {
     final name = quiz['name'] ?? 'Quiz sans nom';
     final questionsCount = quiz['questionsCount'] ?? 0;
     final radius = Radius.circular(15);
+    final double bottomContentHeight = height - topImageHeight;
     
     return InkWell(
       borderRadius: BorderRadius.circular(radius.x),
@@ -633,17 +646,18 @@ class _CustomQuizCard extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        name,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                      _AutoFitTwoLineText(
+                        text: name,
+                        maxHeight: (bottomContentHeight - 8).clamp(32.0, bottomContentHeight),
+                        minFontSize: 16.0,
+                        maxFontSize: 18.0,
+                        baseStyle: TextStyle(
                           color: const Color(0xFF334355),
-                          fontSize: 16,
                           fontFamily: 'Quicksand',
                           fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                          height: 1.10,
                         ),
+                        maxLines: 3,
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -921,6 +935,7 @@ class _SmallQuizCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = Radius.circular(15);
+    final double bottomContentHeight = height - topImageHeight;
     return InkWell(
       borderRadius: BorderRadius.circular(radius.x),
       onTap: onTap,
@@ -984,23 +999,38 @@ class _SmallQuizCard extends StatelessWidget {
               width: width,
               height: height - topImageHeight,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: EdgeInsets.symmetric(horizontal: desktopMode ? 10 : 8, vertical: desktopMode ? 8 : 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: desktopMode ? MainAxisAlignment.start : MainAxisAlignment.center,
                   children: [
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: const Color(0xFF334355),
-                        fontSize: desktopMode ? 26 : 16,
-                        fontFamily: desktopMode ? 'Fredoka' : 'Quicksand',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    desktopMode
+                        ? Text(
+                            title,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            style: const TextStyle(
+                              color: Color(0xFF334355),
+                              fontSize: 26,
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.w700,
+                              height: 1.15,
+                            ),
+                          )
+                        : _AutoFitTwoLineText(
+                            text: title,
+                            maxHeight: (bottomContentHeight - 8).clamp(32.0, bottomContentHeight),
+                            minFontSize: 16.0,
+                            maxFontSize: 18.0,
+                            baseStyle: const TextStyle(
+                              color: Color(0xFF334355),
+                              fontFamily: 'Quicksand',
+                              fontWeight: FontWeight.w700,
+                              height: 1.10,
+                            ),
+                            maxLines: 3,
+                          ),
                     if (desktopMode && (description?.isNotEmpty ?? false)) ...[
                       const SizedBox(height: 6),
                       Expanded(
@@ -1044,12 +1074,6 @@ class _SmallQuizCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 4),
-                      const Text(
-                        '',
-                        style: TextStyle(fontSize: 12),
                       ),
                     ],
                   ],
@@ -1275,6 +1299,58 @@ class _IntegratedBubblePainterQuiz extends CustomPainter {
         old.arrowWidth != arrowWidth ||
         old.arrowHeight != arrowHeight ||
         old.topInset != topInset;
+  }
+}
+
+class _AutoFitTwoLineText extends StatelessWidget {
+  final String text;
+  final double maxHeight; // hauteur totale dispo pour le texte
+  final double minFontSize;
+  final double maxFontSize;
+  final TextStyle baseStyle;
+  final int maxLines;
+
+  const _AutoFitTwoLineText({
+    required this.text,
+    required this.maxHeight,
+    required this.minFontSize,
+    required this.maxFontSize,
+    required this.baseStyle,
+    this.maxLines = 2,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        double chosen = minFontSize;
+        for (double size = maxFontSize; size >= minFontSize; size -= 0.25) {
+          final style = baseStyle.copyWith(fontSize: size);
+          final tp = TextPainter(
+            text: TextSpan(text: text, style: style),
+            textAlign: TextAlign.center,
+            maxLines: maxLines,
+            textDirection: TextDirection.ltr,
+          );
+          tp.layout(maxWidth: constraints.maxWidth);
+          final bool fitsHeight = tp.height <= maxHeight + 0.01;
+          final bool fitsLines = !tp.didExceedMaxLines;
+          if (fitsHeight && fitsLines) {
+            chosen = size;
+            break;
+          }
+        }
+        final style = baseStyle.copyWith(fontSize: chosen);
+        return Text(
+          text,
+          textAlign: TextAlign.center,
+          maxLines: maxLines,
+          overflow: TextOverflow.visible,
+          softWrap: true,
+          style: style,
+        );
+      },
+    );
   }
 }
 

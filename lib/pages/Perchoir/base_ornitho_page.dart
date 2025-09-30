@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import '../../ui/responsive/responsive.dart';
 import '../../models/bird.dart';
 import '../../services/Mission/communs/commun_gestionnaire_assets.dart';
@@ -660,6 +661,9 @@ class _SimpleBirdTile extends StatelessWidget {
     
     if (!context.mounted) return;
     
+    final Size screen = MediaQuery.of(context).size;
+    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => BirdDetailPage(bird: bird),
@@ -667,6 +671,10 @@ class _SimpleBirdTile extends StatelessWidget {
         reverseTransitionDuration: const Duration(milliseconds: 500),
         opaque: false,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          if (!isDesktopLike) {
+            // Mobile/tablette: éviter toute transition d'opacité (Impeller)
+            return child;
+          }
           return FadeTransition(
             opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
               CurvedAnimation(

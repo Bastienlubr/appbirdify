@@ -189,6 +189,44 @@ class _RecompensesUtilesPageState extends State<RecompensesUtilesPage>
                 }
 
                 final layout = calculateLayout();
+                final Size screen = MediaQuery.of(context).size;
+                final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+
+                if (!isDesktopLike) {
+                  return Stack(
+                    children: [
+                      Center(
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.only(
+                            top: isTablet ? layout.spacing * 0.5 : 0,
+                            left: layout.spacing,
+                            right: layout.spacing,
+                            bottom: layout.spacing,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                _buildHeaderBlock(layout),
+                                SizedBox(height: layout.spacing),
+                                _buildMainBlock(layout),
+                                SizedBox(height: isTablet ? layout.spacing * 0.2 : layout.spacing * 0.4),
+                                _buildMessageBlock(layout),
+                                SizedBox(height: layout.spacing * 0.8),
+                                if (!isTablet) SizedBox(height: layout.spacing * 0.3),
+                                _buildContinueButton(layout),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }
 
                 return Stack(
                   children: [

@@ -1523,11 +1523,11 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                               height: double.infinity,
                               decoration: BoxDecoration(
                                 color: const Color(0xFFD2DBB2),
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(7.2),
-                                  bottomLeft: Radius.circular(7.2),
-                                  topRight: Radius.circular(16),
-                                  bottomRight: Radius.circular(16),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(7.2 * ui),
+                                  bottomLeft: Radius.circular(7.2 * ui),
+                                  topRight: Radius.circular(12 * ui),
+                                  bottomRight: Radius.circular(12 * ui),
                                 ),
                               ),
                               child: LayoutBuilder(

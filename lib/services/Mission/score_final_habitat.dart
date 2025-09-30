@@ -545,7 +545,302 @@ class _QuizEndPageState extends State<QuizEndPage> with TickerProviderStateMixin
             }
 
             final layout = calculateLayout();
+            final Size screen = MediaQuery.of(context).size;
+            final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
 
+            if (!isDesktopLike) {
+              // Ancien rendu mobile/tablette (sans FittedBox global)
+              return Center(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: EdgeInsets.only(
+                    top: isTablet ? layout.spacing * 0.5 : 0,
+                    left: layout.spacing,
+                    right: layout.spacing,
+                    bottom: layout.spacing,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isTablet ? (isWide ? 900.0 : 800.0) : 720.0,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Bloc 1: Header "C'est terminé"
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.fromLTRB(layout.spacing, layout.spacing * 0.1, layout.spacing, layout.spacing),
+                          decoration: BoxDecoration(
+                            border: _showBlockBorders ? Border.all(color: Colors.red, width: 2) : null,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              DefaultTextStyle(
+                                style: const TextStyle(
+                                  fontFamily: 'Fredoka',
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                child: Text(
+                                  "C'est terminé !",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: (32 * layout.scale).clamp(26.0, 40.0).toDouble(),
+                                    color: const Color(0xFF334355),
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: layout.spacing / 2),
+                              Text(
+                                "Petit bilan de ta session ornitho",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Quicksand',
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: (18 * layout.scale).clamp(16.0, 24.0).toDouble(),
+                                  color: const Color(0xFF6A7280),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        SizedBox(height: layout.spacing),
+
+                        // Bloc 2: Score + Anneau + Bouton récap
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(layout.spacing),
+                          decoration: BoxDecoration(
+                            border: _showBlockBorders ? Border.all(color: Colors.red, width: 2) : null,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (_useTestScore)
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: layout.spacing * 0.5, vertical: layout.spacing * 0.3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3), width: 1),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.science, color: Colors.orange, size: 16),
+                                      SizedBox(width: layout.spacing * 0.3),
+                                      Text(
+                                        'Mode test: Score $_testScore/10',
+                                        style: const TextStyle(
+                                          color: Colors.orange,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          fontFamily: 'Quicksand',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              SizedBox(height: _useTestScore ? layout.spacing * 0.5 : 0),
+                              SizedBox(
+                                width: layout.ringSize,
+                                height: layout.ringStackHeight,
+                                child: Stack(
+                                  alignment: Alignment.topCenter,
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    SizedBox(
+                                      width: layout.ringSize,
+                                      height: layout.ringStackHeight,
+                                      child: Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          // Anneau et contenu centré en haut
+                                          Positioned(
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            child: SizedBox(
+                                              width: layout.ringSize,
+                                              height: layout.ringSize,
+                                              child: Stack(
+                                                alignment: Alignment.center,
+                                                clipBehavior: Clip.none,
+                                                children: [
+                                                  Positioned(
+                                                    top: layout.ringSize * 0.13,
+                                                    child: (_ringAnimation == null)
+                                                        ? CustomPaint(
+                                                            key: ValueKey('ring-static-$_ringKey'),
+                                                            size: Size(layout.ringSize, layout.ringSize),
+                                                            painter: _TwoSemiCircleRingPainter(
+                                                              color: const Color(0xFFABC270),
+                                                              backgroundColor: const Color(0xFFE3E9EE),
+                                                              strokeWidth: layout.stroke,
+                                                              progress: 0.0,
+                                                              deadZoneAngleRad: 0.97,
+                                                              deadZoneTopAngleRad: 0.40,
+                                                            ),
+                                                          )
+                                                        : AnimatedBuilder(
+                                                            animation: _ringAnimation!,
+                                                            builder: (context, _) {
+                                                              return CustomPaint(
+                                                                key: ValueKey('ring-animated-$_ringKey'),
+                                                                size: Size(layout.ringSize, layout.ringSize),
+                                                                painter: _TwoSemiCircleRingPainter(
+                                                                  color: const Color(0xFFABC270),
+                                                                  backgroundColor: const Color(0xFFE3E9EE),
+                                                                  strokeWidth: layout.stroke,
+                                                                  progress: _ringAnimation!.value,
+                                                                  deadZoneAngleRad: 0.97,
+                                                                  deadZoneTopAngleRad: 0.40,
+                                                                ),
+                                                              );
+                                                            },
+                                                          ),
+                                                  ),
+                                                  Positioned(
+                                                    top: layout.scoreTop,
+                                                    child: SizedBox(
+                                                      width: layout.ringSize * 0.90,
+                                                      child: FittedBox(
+                                                        fit: BoxFit.scaleDown,
+                                                        child: DefaultTextStyle(
+                                                          style: const TextStyle(
+                                                            fontFamily: 'Fredoka',
+                                                            fontWeight: FontWeight.w700,
+                                                          ),
+                                                          child: Text(
+                                                            '${_useTestScore ? _testScore : widget.score} sur ${widget.totalQuestions}',
+                                                            textAlign: TextAlign.center,
+                                                            style: TextStyle(
+                                                              color: const Color(0xFF334355),
+                                                              fontSize: (layout.ringSize * 0.21).clamp(18.0, 64.0).toDouble(),
+                                                              height: 1.1,
+                                                              letterSpacing: 0.5,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  // Animation check (Lottie)
+                                                  Positioned(
+                                                    top: layout.checkTop,
+                                                    child: SizedBox(
+                                                      width: layout.ringSize * layout.checkSizeFactor,
+                                                      height: layout.ringSize * layout.checkSizeFactor,
+                                                      child: FutureBuilder<String>(
+                                                        future: _lottiePathFuture,
+                                                        builder: (context, snap) {
+                                                          final path = snap.data ?? _lottiePath;
+                                                          return Lottie.asset(
+                                                            path,
+                                                            key: ValueKey('lottie-$_lottieVersion'),
+                                                            controller: _checkController,
+                                                            animate: false,
+                                                            onLoaded: (c) {
+                                                              _initCheckAnimationIfNeeded();
+                                                            },
+                                                          );
+                                                        },
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          // Bouton ancré au bord inférieur de l'anneau
+                                          Positioned(
+                                            top: layout.buttonTop,
+                                            left: (layout.ringSize - layout.buttonWidth) / 2,
+                                            child: ConstrainedBox(
+                                              constraints: BoxConstraints.tightFor(
+                                                width: layout.buttonWidth,
+                                                height: layout.buttonHeight,
+                                              ),
+                                              child: SizedBox(
+                                                width: layout.buttonWidth,
+                                                height: layout.buttonHeight,
+                                                child: RecapButton(
+                                                  text: 'Récapitulatif',
+                                                  size: RecapButtonSize.small,
+                                                  fontSize: 30,
+                                                  onPressed: () => _openRecapSheet(context),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        SizedBox(height: _getDynamicSpacing(widget.score, widget.totalQuestions, layout.spacing, isTablet, isWide)),
+
+                        // Bloc 3: Messages
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(layout.spacing * 0.8),
+                          decoration: BoxDecoration(
+                            border: _showBlockBorders ? Border.all(color: Colors.red, width: 2) : null,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              DefaultTextStyle(
+                                style: const TextStyle(
+                                  fontFamily: 'Fredoka',
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                child: Text(
+                                  _chosenTitleMessage ?? _getTitleMessage(widget.score, widget.totalQuestions),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: (28 * layout.scale).clamp(22.0, 38.0).toDouble(),
+                                    color: const Color(0xFF334355),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: layout.spacing * 0.5),
+                              Text(
+                                _chosenSubtitleMessage ?? _getSubtitleMessage(widget.score, widget.totalQuestions),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: (18 * layout.scale).clamp(16.0, 28.0).toDouble(),
+                                  color: const Color(0xFF6A7280),
+                                  fontFamily: 'Quicksand',
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            // Rendu desktop (actuel avec FittedBox)
             return Center(
               child: FittedBox(
                 fit: BoxFit.contain,

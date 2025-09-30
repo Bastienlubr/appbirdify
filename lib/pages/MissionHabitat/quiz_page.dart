@@ -350,7 +350,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
             ],
             // (rien à mapper ici; les boutons de test au-dessus sont déjà conditionnés par DevVisibilityService)
             // Effet d'auréole animé: se révèle du bas vers le haut
-            if (_showFeedback)
+            if (isDesktop && _showFeedback)
               Positioned.fill(
                 child: AnimatedBuilder(
                   animation: _glowController!,
@@ -490,7 +490,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                     ),
                     SizedBox(width: 12 * ui),
                     Transform.translate(
-                      offset: Offset(100 * ui, 0),
+                      offset: Offset(isDesktop ? 100 * ui : 40 * ui, 0),
                       child: _LivesDisplayWidget(
                         lives: _visibleLives,
                         isSyncing: _isLivesSyncing,
@@ -563,7 +563,7 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                                               right: 4,
                                               top: 2.0 * ui,
                                               child: Container(
-                                                height: 3.5 * ui,
+                                                height: 5.0 * ui,
                                                 decoration: BoxDecoration(
                                                   color: const Color(0xFFC2D78D),
                                                   borderRadius: BorderRadius.circular(4),
@@ -829,7 +829,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                                                 : null,
                                           ),
                                           child: !isCorrect
-                                              ? ClipRRect(
+                                              ? (isDesktop
+                                                  ? ClipRRect(
                                             borderRadius: BorderRadius.circular(imageRadius),
                                             child: Stack(
                                               children: [
@@ -905,10 +906,11 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                                               ],
                                             ),
                                                 )
+                                                  : null)
                                               : null,
                                         ),
                                       ),
-                                      if (isCorrect)
+                                      if (isDesktop && isCorrect)
                                         Positioned.fill(
                                           child: ClipRRect(
                                             borderRadius: BorderRadius.circular(imageRadius),

@@ -94,7 +94,14 @@ class _ParametresPageState extends State<ParametresPage> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF334355),
+                textStyle: const TextStyle(fontFamily: 'Quicksand', fontWeight: FontWeight.w700),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler'),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE1E7EE),
@@ -174,7 +181,14 @@ class _ParametresPageState extends State<ParametresPage> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF334355),
+                textStyle: const TextStyle(fontFamily: 'Quicksand', fontWeight: FontWeight.w700),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler'),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE1E7EE),
@@ -302,7 +316,14 @@ class _ParametresPageState extends State<ParametresPage> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF334355),
+              textStyle: const TextStyle(fontFamily: 'Quicksand', fontWeight: FontWeight.w700),
+            ),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE1E7EE),
@@ -394,7 +415,14 @@ class _ParametresPageState extends State<ParametresPage> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF334355),
+              textStyle: const TextStyle(fontFamily: 'Quicksand', fontWeight: FontWeight.w700),
+            ),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE1E7EE),

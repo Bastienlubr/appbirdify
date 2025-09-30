@@ -754,48 +754,7 @@ class _ProfilPageState extends State<ProfilPage> {
                   );
                 },
               ),
-              // Fade gauche
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: IgnorePointer(
-                  child: Container(
-                    width: m.dp(10),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          const Color(0xFFF2F5F8),
-                          const Color(0xFFF2F5F8).withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // Fade droit
-              Positioned(
-                right: 0,
-                top: 0,
-                bottom: 0,
-                child: IgnorePointer(
-                  child: Container(
-                    width: m.dp(10),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.centerRight,
-                        end: Alignment.centerLeft,
-                        colors: [
-                          const Color(0xFFF2F5F8),
-                          const Color(0xFFF2F5F8).withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              // Fades latéraux supprimés
             ],
           ),
         ),
