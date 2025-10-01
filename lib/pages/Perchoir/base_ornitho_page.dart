@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import '../../ui/responsive/responsive.dart';
 import '../../models/bird.dart';
@@ -717,6 +718,7 @@ class _SimpleBirdTile extends StatelessWidget {
                             bird.genus,
                             bird.species,
                           ),
+                          imageRenderMethodForWeb: ImageRenderMethodForWeb.HtmlImage,
                           fadeInDuration: const Duration(milliseconds: 400),
                           filterQuality: FilterQuality.high,
                       placeholder: (context, url) => Container(

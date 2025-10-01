@@ -21,6 +21,8 @@ import 'package:flutter_svg/flutter_svg.dart';
  
 import '../../services/Users/user_orchestra_service.dart';
 // import '../../widgets/common/locked_overlay.dart'; // unused after global overlay refactor
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 
 /// Page Profil (squelette UI basé sur Figma) — fonctionnalités à brancher ensuite.
 class ProfilPage extends StatefulWidget {
@@ -251,10 +253,11 @@ class _ProfilPageState extends State<ProfilPage> {
                         final sep = url.contains('?') ? '&' : '?';
                         final bustedUrl = '$url${sep}v=$bust';
                         return ClipOval(
-                          child: Image.network(
-                            bustedUrl,
+                          child: CachedNetworkImage(
+                            imageUrl: kIsWeb ? bustedUrl.replaceAll("'", '%27') : bustedUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 64, color: Color(0xFF9AA2A9)),
+                            imageRenderMethodForWeb: ImageRenderMethodForWeb.HtmlImage,
+                            errorWidget: (_, __, ___) => const Icon(Icons.person, size: 64, color: Color(0xFF9AA2A9)),
                           ),
                         );
                       }
@@ -1005,7 +1008,9 @@ class TableauDeBord extends StatelessWidget {
         const double columnGap = 4;
         const double innerGap = 10;
 
-        return Column(
+        final bool isDesktopLike = (kIsWeb && MediaQuery.of(context).size.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+
+        final Widget inner = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Padding(
@@ -1072,6 +1077,15 @@ class TableauDeBord extends StatelessWidget {
               ],
             ),
           ],
+        );
+
+        if (!isDesktopLike) return inner;
+        return Align(
+          alignment: Alignment.center,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 980),
+            child: inner,
+          ),
         );
       },
     );

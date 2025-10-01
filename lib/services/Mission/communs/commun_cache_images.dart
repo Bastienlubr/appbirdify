@@ -24,32 +24,33 @@ class ImageCacheService {
 
   /// Précharge une image et la stocke en cache
   Future<void> preloadImage(String imageUrl, BuildContext context) async {
-    if (_imageCache.containsKey(imageUrl)) {
-      if (kDebugMode) debugPrint('✅ Image déjà en cache: $imageUrl');
+    final String url = _sanitizeUrlForWeb(imageUrl);
+    if (_imageCache.containsKey(url)) {
+      if (kDebugMode) debugPrint('✅ Image déjà en cache: $url');
       return;
     }
 
-    if (_loadingStatus[imageUrl] == true) {
-      if (kDebugMode) debugPrint('⏳ Image en cours de chargement: $imageUrl');
+    if (_loadingStatus[url] == true) {
+      if (kDebugMode) debugPrint('⏳ Image en cours de chargement: $url');
       return;
     }
 
     try {
-      _loadingStatus[imageUrl] = true;
+      _loadingStatus[url] = true;
       
-      if (kDebugMode) debugPrint('🔄 Préchargement image: $imageUrl');
+      if (kDebugMode) debugPrint('🔄 Préchargement image: $url');
       
-      final imageProvider = NetworkImage(imageUrl);
+      final imageProvider = NetworkImage(url);
       await precacheImage(imageProvider, context);
       
-      _imageCache[imageUrl] = imageProvider;
-      _loadingStatus[imageUrl] = false;
+      _imageCache[url] = imageProvider;
+      _loadingStatus[url] = false;
       
-      if (kDebugMode) debugPrint('✅ Image préchargée et mise en cache: $imageUrl');
+      if (kDebugMode) debugPrint('✅ Image préchargée et mise en cache: $url');
       
     } catch (e) {
-      _loadingStatus[imageUrl] = false;
-      if (kDebugMode) debugPrint('❌ Erreur préchargement image $imageUrl: $e');
+      _loadingStatus[url] = false;
+      if (kDebugMode) debugPrint('❌ Erreur préchargement image $url: $e');
       rethrow;
     }
   }
@@ -195,8 +196,17 @@ class ImageCacheService {
       return AssetImage(localPath);
     }
     if (networkUrl != null && networkUrl.isNotEmpty) {
-      return NetworkImage(networkUrl);
+      return NetworkImage(_sanitizeUrlForWeb(networkUrl));
     }
     return AssetImage(placeholder);
+  }
+
+  /// Encode minimal pour éviter les erreurs navigateur (apostrophe, espace)
+  String _sanitizeUrlForWeb(String raw) {
+    if (!kIsWeb) return raw;
+    String url = raw;
+    if (url.contains("'")) url = url.replaceAll("'", '%27');
+    if (url.contains(' ')) url = url.replaceAll(' ', '%20');
+    return url;
   }
 } 

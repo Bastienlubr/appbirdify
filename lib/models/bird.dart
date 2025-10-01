@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class Bird {
   final String id;
   final String genus;
@@ -93,13 +95,25 @@ class Bird {
       }
     }
 
+    // Sanitize URLs for web (encode apostrophes that break browser fetch/image)
+    String sanitizedImageUrl = csvRow['photo'] ?? '';
+    String sanitizedAudioUrl = csvRow['LienURL'] ?? '';
+    if (kIsWeb) {
+      if (sanitizedImageUrl.isNotEmpty) {
+        sanitizedImageUrl = sanitizedImageUrl.replaceAll("'", '%27');
+      }
+      if (sanitizedAudioUrl.isNotEmpty) {
+        sanitizedAudioUrl = sanitizedAudioUrl.replaceAll("'", '%27');
+      }
+    }
+
     return Bird(
       id: id,
       genus: genus,
       species: species,
       nomFr: csvRow['Nom_français'] ?? '',
-      urlMp3: csvRow['LienURL'] ?? '',
-      urlImage: csvRow['photo'] ?? '',
+      urlMp3: sanitizedAudioUrl,
+      urlImage: sanitizedImageUrl,
       milieux: milieux,
     );
   }

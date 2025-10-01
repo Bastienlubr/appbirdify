@@ -46,7 +46,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '788742862967',
     projectId: 'birdify-df029',
     authDomain: 'birdify-df029.firebaseapp.com',
-    storageBucket: 'birdify-df029.firebasestorage.app',
+    storageBucket: 'birdify-df029.appspot.com', // ✅ FIX
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -54,7 +54,7 @@ class DefaultFirebaseOptions {
     appId: '1:788742862967:android:e696a8bdc40772aceb2e72',
     messagingSenderId: '788742862967',
     projectId: 'birdify-df029',
-    storageBucket: 'birdify-df029.firebasestorage.app',
+    storageBucket: 'birdify-df029.appspot.com', // ✅ FIX
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -62,7 +62,7 @@ class DefaultFirebaseOptions {
     appId: '1:788742862967:ios:your-ios-app-id',
     messagingSenderId: '788742862967',
     projectId: 'birdify-df029',
-    storageBucket: 'birdify-df029.firebasestorage.app',
+    storageBucket: 'birdify-df029.appspot.com', // ✅ FIX
     iosClientId: 'your-ios-client-id-here',
     iosBundleId: 'com.example.appbirdify',
   );
@@ -72,7 +72,7 @@ class DefaultFirebaseOptions {
     appId: '1:788742862967:macos:your-macos-app-id',
     messagingSenderId: '788742862967',
     projectId: 'birdify-df029',
-    storageBucket: 'birdify-df029.firebasestorage.app',
+    storageBucket: 'birdify-df029.appspot.com', // ✅ FIX
     iosClientId: 'your-ios-client-id-here',
     iosBundleId: 'com.example.appbirdify',
   );
@@ -82,6 +82,6 @@ class DefaultFirebaseOptions {
     appId: '1:788742862967:windows:your-windows-app-id',
     messagingSenderId: '788742862967',
     projectId: 'birdify-df029',
-    storageBucket: 'birdify-df029.firebasestorage.app',
+    storageBucket: 'birdify-df029.appspot.com', // ✅ FIX
   );
-} 
+}

@@ -20,6 +20,8 @@ import 'mission_unloading_screen.dart';
 import '../../services/Users/life_service.dart';
 import '../../services/ads/ad_service.dart';
 import '../../widgets/boutons/bouton_universel.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 
 class QuizPage extends StatefulWidget {
   final String missionId;
@@ -1540,30 +1542,21 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
         },
       );
     }
-    return Image.network(
-      url,
+    final String sanitized = kIsWeb ? url.replaceAll("'", '%27') : url;
+    return CachedNetworkImage(
+      imageUrl: sanitized,
       fit: fit,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Container(
-          color: Colors.grey[200],
-          child: const Center(
-            child: SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(strokeWidth: 2.6),
-            ),
-          ),
-        );
-      },
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          color: Colors.grey[200],
-          child: const Center(
-            child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
-          ),
-        );
-      },
+      imageRenderMethodForWeb: ImageRenderMethodForWeb.HtmlImage,
+      placeholder: (c, u) => Container(
+        color: Colors.grey[200],
+        child: const Center(
+          child: SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2.6)),
+        ),
+      ),
+      errorWidget: (c, u, e) => Container(
+        color: Colors.grey[200],
+        child: const Center(child: Icon(Icons.broken_image, color: Colors.grey, size: 40)),
+      ),
     );
   }
 

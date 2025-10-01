@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import '../models/bird.dart';
 import '../ui/responsive/responsive.dart';
 import '../data/bird_image_alignments.dart';
@@ -138,6 +139,7 @@ class _AlignmentCalibrationDialogState extends State<AlignmentCalibrationDialog>
                             imageUrl: widget.bird.urlImage,
                             fit: BoxFit.cover,
                             alignment: _previewAlignment,
+                            imageRenderMethodForWeb: ImageRenderMethodForWeb.HtmlImage,
                             fadeInDuration: Duration.zero,
                             fadeOutDuration: Duration.zero,
                             placeholder: (context, url) => Container(

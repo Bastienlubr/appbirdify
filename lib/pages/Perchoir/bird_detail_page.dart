@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:just_audio/just_audio.dart';
 // import 'package:flutter/foundation.dart'; // import non nécessaire (Material suffit)
 import '../../services/dev_tools_service.dart';
@@ -345,12 +346,12 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       
-      _panelController.value = 0.0; // Panel fermé initialement
+      _panelController.value = 0.0; // Comportement d'origine: panel fermé initialement
       
       // Séquence d'initialisation optimisée - timing équilibré
-      Future.delayed(const Duration(milliseconds: 280), _initializeTabCentering);
-      Future.delayed(const Duration(milliseconds: 480), _showBackgroundUI);
-      Future.delayed(const Duration(milliseconds: 580), _animateInitialPanel);
+      Future.delayed(const Duration(milliseconds: 200), _initializeTabCentering);
+      Future.delayed(const Duration(milliseconds: 220), _showBackgroundUI); // afficher le voile + back
+      Future.delayed(const Duration(milliseconds: 240), _animateInitialPanel); // démarrer le panel quasi en même temps
     });
   }
 
@@ -1227,6 +1228,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
               imageUrl: widget.bird.urlImage,
               fit: BoxFit.cover,
               alignment: alignmentToUse,
+              imageRenderMethodForWeb: ImageRenderMethodForWeb.HtmlImage,
               fadeInDuration: Duration.zero,
               fadeOutDuration: Duration.zero,
               filterQuality: FilterQuality.high,
@@ -1259,30 +1261,92 @@ class _BirdDetailPageState extends State<BirdDetailPage>
             ),
     );
 
-    if (!widget.useHero) {
-      return imageWidget;
-    }
+    final Widget baseImage = (!widget.useHero)
+        ? imageWidget
+        : Hero(
+            tag: 'bird-hero-${widget.bird.id}',
+            transitionOnUserGestures: true,
+            flightShuttleBuilder: (context, animation, direction, fromContext, toContext) {
+              final radiusValue = direction == HeroFlightDirection.push 
+                  ? 12.0 * (1.0 - animation.value)
+                  : 12.0 * animation.value;
+              // Éviter les couches animées avec opacité imbriquée sous Impeller
+              return Directionality(
+                textDirection: Directionality.of(context),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(radiusValue),
+                  child: imageWidget,
+                ),
+              );
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(0.0),
+              child: imageWidget,
+            ),
+          );
 
-    return Hero(
-      tag: 'bird-hero-${widget.bird.id}',
-      transitionOnUserGestures: true,
-      flightShuttleBuilder: (context, animation, direction, fromContext, toContext) {
-        final radiusValue = direction == HeroFlightDirection.push 
-            ? 12.0 * (1.0 - animation.value)
-            : 12.0 * animation.value;
-        // Éviter les couches animées avec opacité imbriquée sous Impeller
-        return Directionality(
-          textDirection: Directionality.of(context),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(radiusValue),
-            child: imageWidget,
+    // Adapter dynamiquement la zone visible de l'image pour compléter la place disponible
+    final Size screen = MediaQuery.of(context).size;
+    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+
+    return AnimatedBuilder(
+      animation: _panelAnimation,
+      builder: (context, _) {
+        EdgeInsets padding = EdgeInsets.zero;
+        const double overlap = 60.0; // léger chevauchement pour éviter tout interstice aux arrondis
+        // L'image "retarde" très légèrement sa réservation d'espace puis rattrape vite
+        final double t = _panelAnimation.value; // 0..1
+        final double u = (t / 0.35).clamp(0.0, 1.0); // rattrapage plus tôt
+        final double catchUp = (1.0 - u) * (1.0 - u); // ease-out plus agressif
+        final double lagPx = catchUp * (isDesktopLike ? 6.0 : 4.0);
+        if (isDesktopLike) {
+          // Largeur du panel (mêmes bornes que le panel). On réserve la place palier et on chevauche très légèrement.
+          final double initialPanelWidth = (screen.width * 0.66).clamp(420.0, 840.0);
+          final double maxPanelWidth = (screen.width * 0.95).clamp(420.0, screen.width);
+          double currentPanelWidth;
+          if (_panelAnimation.value <= 0.5) {
+            currentPanelWidth = initialPanelWidth;
+          } else {
+            final double progress = ((_panelAnimation.value - 0.5) / 0.5).clamp(0.0, 1.0);
+            currentPanelWidth = initialPanelWidth + (progress * (maxPanelWidth - initialPanelWidth));
+          }
+          padding = EdgeInsets.only(right: (currentPanelWidth - overlap + lagPx).clamp(0.0, double.infinity));
+        } else {
+          // Hauteur du panel (mêmes bornes que le panel). On réserve la place palier et on chevauche très légèrement.
+          final double initialPanelHeight = screenHeight * 0.33; // 1/3 visible
+          final double maxPanelHeight = screenHeight * 0.95; // étendu
+          double currentPanelHeight;
+          if (_panelAnimation.value <= 0.5) {
+            currentPanelHeight = initialPanelHeight;
+          } else {
+            final double progress = ((_panelAnimation.value - 0.5) / 0.5).clamp(0.0, 1.0);
+            currentPanelHeight = initialPanelHeight + (progress * (maxPanelHeight - initialPanelHeight));
+          }
+          padding = EdgeInsets.only(bottom: (currentPanelHeight - overlap + lagPx).clamp(0.0, double.infinity));
+        }
+
+        // Arrondis complémentaires côté panel pour une jonction parfaite, sans déformation de l'image
+        final BorderRadius clipRadius = isDesktopLike
+            ? const BorderRadius.only(topRight: Radius.circular(65), bottomRight: Radius.circular(65))
+            : const BorderRadius.only(bottomLeft: Radius.circular(65), bottomRight: Radius.circular(65));
+
+        final double scale = isDesktopLike ? 1.012 : 1.004; // agrandissement très léger
+        final double dx = isDesktopLike ? 8.0 : 0.0; // petit décalage à droite (desktop)
+        return ClipRRect(
+          borderRadius: (_panelAnimation.value > 0.0) ? clipRadius : BorderRadius.zero,
+          child: Padding(
+            padding: padding,
+            child: Transform.translate(
+              offset: Offset(dx, 0),
+              child: Transform.scale(
+                scale: scale,
+                alignment: alignmentToUse,
+                child: baseImage,
+              ),
+            ),
           ),
         );
       },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(0.0),
-        child: imageWidget,
-      ),
     );
   }
 
@@ -1538,21 +1602,34 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
     return IgnorePointer(
       ignoring: true,
-      child: Container(
-        width: double.infinity,
-        height: screenHeight,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: isDesktopLike ? Alignment.centerRight : Alignment.bottomCenter,
-            end: isDesktopLike ? Alignment.centerLeft : Alignment.topCenter,
-            colors: const [
-              Color(0x80F3F5F9),
-              Color(0x40F3F5F9),
-              Color(0x00F3F5F9),
-            ],
-            stops: const [0.0, 0.2, 0.5],
-          ),
-        ),
+      child: AnimatedBuilder(
+        animation: _panelAnimation,
+        builder: (context, _) {
+          final double t = _panelAnimation.value; // 0..1
+          // Opacité du voile corrélée au panel: disparaît encore plus tôt pour coller au panel
+          final double alpha = (t <= 0.35)
+              ? (1.0 - (t / 0.35)) // 1 -> 0 entre 0 et 0.35
+              : 0.0;
+          return Opacity(
+            opacity: alpha.clamp(0.0, 1.0),
+            child: Container(
+              width: double.infinity,
+              height: screenHeight,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: isDesktopLike ? Alignment.centerRight : Alignment.bottomCenter,
+                  end: isDesktopLike ? Alignment.centerLeft : Alignment.topCenter,
+                  colors: const [
+                    Color(0x80F3F5F9),
+                    Color(0x40F3F5F9),
+                    Color(0x00F3F5F9),
+                  ],
+                  stops: const [0.0, 0.2, 0.5],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

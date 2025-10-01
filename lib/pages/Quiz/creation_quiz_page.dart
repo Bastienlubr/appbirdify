@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import '../../widgets/recap_button.dart';
 import '../../ui/responsive/responsive.dart';
@@ -415,6 +416,7 @@ class _SelectableBirdTile extends StatelessWidget {
                 ? CachedNetworkImage(
                     imageUrl: bird.urlImage,
                     fit: BoxFit.cover,
+                    imageRenderMethodForWeb: ImageRenderMethodForWeb.HtmlImage,
                     placeholder: (c, u) => Container(color: const Color(0xFFD2DBB2)),
                     errorWidget: (c, u, e) => Container(color: const Color(0xFFD2DBB2)),
                   )

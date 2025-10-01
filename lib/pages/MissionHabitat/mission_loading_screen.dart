@@ -191,13 +191,20 @@ class _MissionLoadingScreenState extends State<MissionLoadingScreen>
               final m = entry as Map<String, dynamic>;
               final nom = (m['nomFrancais'] ?? '').toString();
               if (nom.isEmpty) continue;
+              // Sanitize URLs pour le web (apostrophes non encodées)
+              String urlImg = (m['urlImage'] ?? '').toString();
+              String urlAud = (m['urlAudio'] ?? '').toString();
+              if (kIsWeb) {
+                if (urlImg.isNotEmpty) urlImg = urlImg.replaceAll("'", '%27');
+                if (urlAud.isNotEmpty) urlAud = urlAud.replaceAll("'", '%27');
+              }
               final bird = Bird(
                 id: (m['id'] ?? nom).toString(),
                 genus: '',
                 species: '',
                 nomFr: nom,
-                urlMp3: (m['urlAudio'] ?? '').toString(),
-                urlImage: (m['urlImage'] ?? '').toString(),
+                urlMp3: urlAud,
+                urlImage: urlImg,
                 milieux: <String>{},
               );
               _birdCache[nom] = bird;

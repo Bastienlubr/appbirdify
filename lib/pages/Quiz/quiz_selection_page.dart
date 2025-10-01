@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../ui/responsive/responsive.dart';
@@ -6,6 +8,7 @@ import '../MissionHabitat/quiz_page.dart';
 import 'creation_quiz_page.dart';
 import '../../services/Quiz/custom_quiz_service.dart';
 import '../../services/Users/user_orchestra_service.dart';
+import '../../widgets/boutons/bouton_universel.dart';
 
 class QuizSelectionPage extends StatefulWidget {
   const QuizSelectionPage({super.key});
@@ -91,10 +94,12 @@ class _QuizSelectionPageState extends State<QuizSelectionPage> {
                   }
                 }
 
-                // Filtrer: retirer la tuile "voix les plus rares" pour éviter les trous visuels
+                // Filtrer: retirer certaines tuiles non souhaitées (ex: "voix les plus rares", "les oiseaux colorés")
                 final visibleDocs = docs.where((d) {
                   final name = (d.data()['name'] ?? '').toString().toLowerCase();
-                  return !name.contains('voix les plus rares');
+                  if (name.contains('voix les plus rares')) return false;
+                  if (name.contains('oiseaux color') || name.contains('oiseaux colorés') || name.contains('oiseaux colores')) return false;
+                  return true;
                 }).toList();
 
                 // Construire listes dynamiques basées sur la liste filtrée
@@ -584,9 +589,14 @@ class _CustomQuizCard extends StatelessWidget {
     final radius = Radius.circular(15);
     final double bottomContentHeight = height - topImageHeight;
     
+    final double screenW = MediaQuery.of(context).size.width;
+    final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+
     return InkWell(
       borderRadius: BorderRadius.circular(radius.x),
       onTap: onTap,
+      overlayColor: isDesktop ? MaterialStatePropertyAll(Colors.transparent) : null,
+      splashFactory: isDesktop ? NoSplash.splashFactory : null,
       child: Container(
         width: width,
         height: height,
@@ -605,10 +615,17 @@ class _CustomQuizCard extends StatelessWidget {
                 decoration: ShapeDecoration(
                   color: Colors.white,
                   shape: RoundedRectangleBorder(
-                    side: BorderSide(
-                      color: selected ? const Color(0xFF473C33) : Colors.transparent,
-                      width: selected ? 3 : 0,
-                    ),
+                    side: () {
+                      final double screenW = MediaQuery.of(context).size.width;
+                      final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+                      if (isDesktop) {
+                        return const BorderSide(color: Colors.transparent, width: 0);
+                      }
+                      return BorderSide(
+                        color: selected ? const Color(0xFF473C33) : Colors.transparent,
+                        width: selected ? 3 : 0,
+                      );
+                    }(),
                     borderRadius: BorderRadius.circular(radius.x),
                   ),
                 ),
@@ -689,6 +706,12 @@ class _ActionCreateQuizCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(15),
+      overlayColor: (kIsWeb || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux)
+          ? const MaterialStatePropertyAll(Colors.transparent)
+          : null,
+      splashFactory: (kIsWeb || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux)
+          ? NoSplash.splashFactory
+          : null,
       child: Container(
         height: 90,
         decoration: BoxDecoration(
@@ -740,6 +763,12 @@ class _ActionCreateQuizCardDisabled extends StatelessWidget {
     return InkWell(
       onTap: onTapPaywall,
       borderRadius: BorderRadius.circular(15),
+      overlayColor: (kIsWeb || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux)
+          ? const MaterialStatePropertyAll(Colors.transparent)
+          : null,
+      splashFactory: (kIsWeb || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux)
+          ? NoSplash.splashFactory
+          : null,
       child: Container(
         height: 90,
         decoration: BoxDecoration(
@@ -957,10 +986,17 @@ class _SmallQuizCard extends StatelessWidget {
                 decoration: ShapeDecoration(
                   color: Colors.white,
                   shape: RoundedRectangleBorder(
-                    side: BorderSide(
-                      color: selected ? const Color(0xFF473C33) : Colors.transparent,
-                      width: selected ? 3 : 0,
-                    ),
+                    side: () {
+                      final double screenW = MediaQuery.of(context).size.width;
+                      final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+                      if (isDesktop) {
+                        return const BorderSide(color: Colors.transparent, width: 0);
+                      }
+                      return BorderSide(
+                        color: selected ? const Color(0xFF473C33) : Colors.transparent,
+                        width: selected ? 3 : 0,
+                      );
+                    }(),
                     borderRadius: BorderRadius.circular(radius.x),
                   ),
                 ),
@@ -987,9 +1023,17 @@ class _SmallQuizCard extends StatelessWidget {
               height: topImageHeight,
               child: ClipRRect(
                 borderRadius: BorderRadius.only(topLeft: radius, topRight: radius),
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
+                child: Builder(
+                  builder: (context) {
+                    final String sanitized = kIsWeb ? imageUrl.replaceAll("'", '%27') : imageUrl;
+                    return CachedNetworkImage(
+                      imageUrl: sanitized,
+                      fit: BoxFit.cover,
+                      imageRenderMethodForWeb: ImageRenderMethodForWeb.HtmlImage,
+                      placeholder: (c, u) => Container(color: const Color(0xFFD0D5DD)),
+                      errorWidget: (c, u, e) => Container(color: const Color(0xFFD0D5DD)),
+                    );
+                  },
                 ),
               ),
             ),
@@ -1054,27 +1098,48 @@ class _SmallQuizCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      SizedBox(
-                        height: desktopMode ? 36 : 30,
-                        child: ElevatedButton(
-                          onPressed: onContinue,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6A994E),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: EdgeInsets.symmetric(horizontal: desktopMode ? 14 : 12, vertical: 0),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      if (desktopMode)
+                        Transform.translate(
+                          offset: const Offset(0, -6),
+                          child: SizedBox(
+                            height: 52,
+                            child: Center(
+                              child: BoutonUniversel.texte(
+                                label: 'Continuer',
+                                onPressed: onContinue,
+                                size: BoutonUniverselTaille.large,
+                                backgroundColor: const Color(0xFF6A994E),
+                                textColor: Colors.white,
+                                borderRadius: 12,
+                                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+                                fontFamily: 'Quicksand',
+                                fontSize: 18,
+                              ),
+                            ),
                           ),
-                          child: Text(
-                            'Continuer',
-                            style: TextStyle(
-                              fontFamily: 'Quicksand',
-                              fontSize: desktopMode ? 14.5 : 13,
-                              fontWeight: FontWeight.w700,
+                        )
+                      else
+                        SizedBox(
+                          height: 30,
+                          child: ElevatedButton(
+                            onPressed: onContinue,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF6A994E),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Text(
+                              'Continuer',
+                              style: TextStyle(
+                                fontFamily: 'Quicksand',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   ],
                 ),
