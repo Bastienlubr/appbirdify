@@ -761,7 +761,8 @@ class _HomeContentState extends State<HomeContent> {
           rows = 3;
           tileExtentRaw = (c.maxHeight - gridGap * (rows - 1)) / rows;
         }
-        final double tileExtent = (tileExtentRaw - 1).clamp(0.0, double.infinity);
+        // Utiliser un arrondi inférieur pour éviter tout overflow d'1 px sur la première rangée
+        final double tileExtent = math.max(0.0, tileExtentRaw.floorToDouble() - 1.0);
         // Échelle desktop renforcée (plus grande) basée sur la hauteur et la largeur dispo
         final double heightFactor = (tileExtent / 90.0);
         final double widthFactor = (c.maxWidth / 1100.0).clamp(1.0, 1.4);
@@ -1315,7 +1316,8 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
     final double ui = widget.uiScale;
     final bool inGrid = widget.inGrid;
     final double cardHeight = (inGrid ? double.infinity : 88.0 * ui);
-    final double bottomMargin = (inGrid ? 4.0 : 12.0) * ui;
+    // En grille, pas de marge externe: l'espacement est géré par GridView.mainAxisSpacing
+    final double bottomMargin = inGrid ? 0.0 : (12.0 * ui);
     final double cardPadding = (inGrid ? 6.0 : 8.0) * ui;
     final double missionImageSize = (inGrid ? 84.0 : 64.0) * ui;
     final double titleFont = (inGrid ? 20.0 : 16.0) * ui;
@@ -1347,13 +1349,15 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                 final int dynLines = inGrid ? (h >= 160 ? 5 : 4) : 4;
 
                 // Largeur disponible pour la colonne de texte
-                final double textColumnWidth = cons.maxWidth
+                // Sécurisé pour éviter les valeurs négatives en mode desktop fenêtré
+                final double rawTextColumnWidth = cons.maxWidth
                     - (cardPadding * 2)
                     - (4 * ui) // left spacer
                     - dynImage
                     - (16 * ui) // gap image/texte
                     - (12 * ui) // gap texte/rail
                     - dynRailW;
+                final double textColumnWidth = math.max(24.0 * ui, rawTextColumnWidth);
 
                 double fitFontSize(String text, double baseSize, int maxLines) {
                   double size = baseSize;
@@ -1499,18 +1503,21 @@ class _AnimatedMissionCardState extends State<_AnimatedMissionCard>
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 SizedBox(height: 2 * ui),
-                                Text(
-                                  widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
-                                  style: TextStyle(
-                                    fontFamily: 'Quicksand',
-                                    fontSize: fittedSubtitle,
-                                    fontWeight: FontWeight.w500,
-                                    color: widget.isUnlocked 
-                                        ? const Color(0xFF344356).withAlpha(179)
-                                        : Colors.grey,
+                                Flexible(
+                                  child: Text(
+                                    widget.mission.sousTitre ?? 'Mission ${widget.mission.index} - ${widget.mission.milieu}',
+                                    style: TextStyle(
+                                      fontFamily: 'Quicksand',
+                                      fontSize: fittedSubtitle,
+                                      fontWeight: FontWeight.w500,
+                                      color: widget.isUnlocked 
+                                          ? const Color(0xFF344356).withAlpha(179)
+                                          : Colors.grey,
+                                    ),
+                                    maxLines: dynLines,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
                                   ),
-                                  maxLines: dynLines,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),

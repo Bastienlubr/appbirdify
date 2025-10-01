@@ -751,7 +751,8 @@ class _QuizPageState extends State<QuizPage> with TickerProviderStateMixin {
                                   fontWeight: FontWeight.w600,
                                   color: textColor,
                                 ),
-                                minFontSize: 11.0,
+                                // Abaisser la taille minimale pour éviter tout overflow, et tronquer proprement
+                                minFontSize: 9.0,
                                 maxLines: 2,
                                 textAlign: TextAlign.center,
                                 lineHeight: 0.98,

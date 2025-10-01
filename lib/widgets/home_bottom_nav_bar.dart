@@ -23,7 +23,8 @@ class HomeBottomNavBar extends StatelessWidget {
         final double horizontalPadding = m.dp(20);
         final double verticalPadding = m.dp(10, tabletFactor: 1.25);
         final double radius = m.dp(20, tabletFactor: 1.1);
-        final double bottomLift = m.dp(-1, tabletFactor: 1.0);
+        // Supprimer toute marge négative en bas qui peut provoquer des overflows sur certains devices
+        final double bottomLift = 0.0;
 
         return Container( 
           margin: EdgeInsets.only(bottom: bottomLift),
@@ -45,10 +46,13 @@ class HomeBottomNavBar extends StatelessWidget {
             top: false,
             left: false,
             right: false,
+            // Ajouter un padding inférieur minimal pour éviter tout chevauchement avec l'inset système
+            minimum: const EdgeInsets.only(bottom: 2),
             child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: horizontalPadding,
-                vertical: verticalPadding,
+                // Légère réduction sur petits écrans pour éviter l'overflow vertical
+                vertical: m.isTablet ? verticalPadding : (verticalPadding - 1).clamp(6.0, 16.0),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -132,7 +136,7 @@ class _NavItem extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () => onTap(index),
-      child: SizedBox(
+          child: SizedBox(
         width: double.infinity,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
@@ -154,7 +158,10 @@ class _NavItem extends StatelessWidget {
                   fontSize: isSelected ? (labelSize + 2) : labelSize,
                   fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
                   color: isSelected ? selectedColor : Colors.white,
+                  height: 1.0,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                maxLines: 1,
               ),
             ],
           ),

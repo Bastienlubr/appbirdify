@@ -318,6 +318,17 @@ class _QuizSelectionPageState extends State<QuizSelectionPage> {
                                       title: titles[i],
                                       imageUrl: images[i].isNotEmpty ? images[i] : 'https://placehold.co/140x80',
                                       description: descriptions[i],
+                                      desktopMode: centerInExpanded,
+                                      onContinue: centerInExpanded
+                                          ? () {
+                                              final missionId = visibleDocs[i].id;
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => QuizPage(missionId: missionId),
+                                                ),
+                                              );
+                                            }
+                                          : null,
                                       selected: _selectedIndex == i,
                                       onTap: () => setState(() { _selectedIndex = (_selectedIndex == i) ? null : i; }),
                                     ),
@@ -965,6 +976,19 @@ class _SmallQuizCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final radius = Radius.circular(15);
     final double bottomContentHeight = height - topImageHeight;
+    // Echelles adaptatives à la largeur de la carte
+    final double scaleW = (width / 360.0).clamp(0.72, 1.0);
+    final double titleSizeDesktop = (26.0 * scaleW).clamp(18.0, 28.0);
+    final double descSizeDesktop = (16.0 * scaleW).clamp(12.0, 18.0);
+    final double btnHeightDesktop = (52.0 * scaleW).clamp(38.0, 52.0);
+    final double btnFontDesktop = (18.0 * scaleW).clamp(14.0, 18.0);
+    final EdgeInsets btnPadDesktop = EdgeInsets.symmetric(
+      horizontal: (22.0 * scaleW).clamp(14.0, 22.0),
+      vertical: (10.0 * scaleW).clamp(8.0, 10.0),
+    );
+    final double btnHeightMobile = (30.0 * scaleW).clamp(24.0, 30.0);
+    final double btnFontMobile = (13.0 * scaleW).clamp(11.0, 13.0);
+    final double btnPadHMobile = (12.0 * scaleW).clamp(8.0, 12.0);
     return InkWell(
       borderRadius: BorderRadius.circular(radius.x),
       onTap: onTap,
@@ -1050,17 +1074,34 @@ class _SmallQuizCard extends StatelessWidget {
                   mainAxisAlignment: desktopMode ? MainAxisAlignment.start : MainAxisAlignment.center,
                   children: [
                     desktopMode
-                        ? Text(
-                            title,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            style: const TextStyle(
-                              color: Color(0xFF334355),
-                              fontSize: 26,
-                              fontFamily: 'Fredoka',
-                              fontWeight: FontWeight.w700,
-                              height: 1.15,
-                            ),
+                        ? LayoutBuilder(
+                            builder: (context, titleConstraints) {
+                              double computedSize = titleSizeDesktop;
+                              final TextStyle base = const TextStyle(
+                                color: Color(0xFF334355),
+                                fontFamily: 'Fredoka',
+                                fontWeight: FontWeight.w700,
+                                height: 1.15,
+                              );
+                              final TextPainter singleLine = TextPainter(
+                                text: TextSpan(text: title, style: base.copyWith(fontSize: computedSize)),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                textDirection: TextDirection.ltr,
+                              );
+                              singleLine.layout(maxWidth: titleConstraints.maxWidth);
+                              final bool exceedsOneLine = singleLine.didExceedMaxLines || singleLine.width > titleConstraints.maxWidth + 0.01;
+                              if (exceedsOneLine) {
+                                computedSize = (titleSizeDesktop * 0.92).clamp(16.0, 28.0);
+                              }
+                              return Text(
+                                title,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                style: base.copyWith(fontSize: computedSize),
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
                           )
                         : _AutoFitTwoLineText(
                             text: title,
@@ -1089,7 +1130,7 @@ class _SmallQuizCard extends StatelessWidget {
                               softWrap: true,
                               style: TextStyle(
                                 color: const Color(0xFF6B7280),
-                                fontSize: 16,
+                                fontSize: descSizeDesktop,
                                 fontFamily: 'Fredoka',
                                 height: 1.42,
                               ),
@@ -1102,7 +1143,7 @@ class _SmallQuizCard extends StatelessWidget {
                         Transform.translate(
                           offset: const Offset(0, -6),
                           child: SizedBox(
-                            height: 52,
+                            height: btnHeightDesktop,
                             child: Center(
                               child: BoutonUniversel.texte(
                                 label: 'Continuer',
@@ -1111,30 +1152,30 @@ class _SmallQuizCard extends StatelessWidget {
                                 backgroundColor: const Color(0xFF6A994E),
                                 textColor: Colors.white,
                                 borderRadius: 12,
-                                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+                                padding: btnPadDesktop,
                                 fontFamily: 'Quicksand',
-                                fontSize: 18,
+                                fontSize: btnFontDesktop,
                               ),
                             ),
                           ),
                         )
                       else
                         SizedBox(
-                          height: 30,
+                          height: btnHeightMobile,
                           child: ElevatedButton(
                             onPressed: onContinue,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF6A994E),
                               foregroundColor: Colors.white,
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                              padding: EdgeInsets.symmetric(horizontal: btnPadHMobile, vertical: 0),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Continuer',
                               style: TextStyle(
                                 fontFamily: 'Quicksand',
-                                fontSize: 13,
+                                fontSize: btnFontMobile,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -1180,6 +1221,13 @@ class _WideDescriptionPanel extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double width = constraints.maxWidth;
+        // Echelles adaptatives par largeur disponible
+        final double scaleW = (width / 360.0).clamp(0.72, 1.0);
+        final double titleSize = (18.0 * scaleW).clamp(14.0, 20.0);
+        final double descSize = (16.0 * scaleW).clamp(12.0, 18.0);
+        final double btnWidth = (140.0 * scaleW).clamp(110.0, 160.0);
+        final double btnHeight = (32.0 * scaleW).clamp(26.0, 36.0);
+        final double btnFont = (15.0 * scaleW).clamp(12.0, 16.0);
         // Convertit l’alignement (-1..1) en position X en pixels, avec marges de sécurité
         final double rawCenter = (pointerXAlign + 1) * 0.5 * width;
         final double arrowCenterX = rawCenter.clamp(24.0, width - 24.0);
@@ -1207,9 +1255,9 @@ class _WideDescriptionPanel extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 10, top: 10),
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Color(0xFF334355),
-                      fontSize: 18,
+                      fontSize: titleSize,
                       fontFamily: 'Quicksand',
                       fontWeight: FontWeight.w700,
                     ),
@@ -1218,9 +1266,9 @@ class _WideDescriptionPanel extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   description,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Color(0xFF334355),
-                    fontSize: 16,
+                    fontSize: descSize,
                     fontFamily: 'Quicksand',
                     fontWeight: FontWeight.w400,
                   ),
@@ -1231,8 +1279,8 @@ class _WideDescriptionPanel extends StatelessWidget {
                   child: GestureDetector(
                     onTap: onContinuer,
                     child: Container(
-                      width: 140,
-                      height: 32,
+                      width: btnWidth,
+                      height: btnHeight,
                       decoration: ShapeDecoration(
                         color: green,
                         shape: RoundedRectangleBorder(
@@ -1247,13 +1295,13 @@ class _WideDescriptionPanel extends StatelessWidget {
                           )
                         ],
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
                           ' Continuer',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 15,
+                            fontSize: btnFont,
                             fontFamily: 'Quicksand',
                             fontWeight: FontWeight.w700,
                             height: 1.0,
@@ -1410,7 +1458,7 @@ class _AutoFitTwoLineText extends StatelessWidget {
           text,
           textAlign: TextAlign.center,
           maxLines: maxLines,
-          overflow: TextOverflow.visible,
+          overflow: TextOverflow.ellipsis,
           softWrap: true,
           style: style,
         );
