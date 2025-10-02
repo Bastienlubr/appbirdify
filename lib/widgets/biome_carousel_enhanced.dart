@@ -235,7 +235,32 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced>
                                     scale: scale,
                                     child: Opacity(
                                       opacity: opacity,
-                                      child: SizedBox(
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () {
+                                          final double currentPageDouble = _pageController.hasClients
+                                              ? (_pageController.page ?? _initialPage.toDouble())
+                                              : _initialPage.toDouble();
+                                          final int currentAbs = currentPageDouble.round();
+                                          final int currentMapped = widget.loopInfinite ? (currentAbs % biomes.length) : currentAbs;
+
+                                          if (mapped != currentMapped) {
+                                            final int delta = mapped - currentMapped;
+                                            final int targetAbs = widget.loopInfinite ? (currentAbs + delta) : mapped;
+                                            if (widget.disableTapCenterAnimation) {
+                                              _pageController.jumpToPage(targetAbs);
+                                            } else {
+                                              _pageController.animateToPage(
+                                                targetAbs,
+                                                duration: const Duration(milliseconds: 200),
+                                                curve: Curves.easeOutCubic,
+                                              );
+                                            }
+                                            return;
+                                          }
+                                          widget.onBiomeTapped?.call(biome);
+                                        },
+                                        child: SizedBox(
                                         width: itemSize,
                                         height: itemSize,
                                         child: Column(
@@ -290,6 +315,7 @@ class _BiomeCarouselEnhancedState extends State<BiomeCarouselEnhanced>
                                               ],
                                             ),
                                           ],
+                                        ),
                                         ),
                                       ),
                                     ),

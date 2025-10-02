@@ -1,11 +1,11 @@
 {
-    "name": "appbirdify",
-    "short_name": "appbirdify",
+    "name": "mindBird",
+    "short_name": "mindBird",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "mindBird – Apprendre et reconnaître les oiseaux, simplement.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
