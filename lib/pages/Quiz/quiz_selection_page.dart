@@ -22,8 +22,32 @@ class _QuizSelectionPageState extends State<QuizSelectionPage> {
   List<QueryDocumentSnapshot<Map<String, dynamic>>>? _cachedDocs;
   bool _showCustomQuizzes = false;
 
+  String _sanitizeStorageUrl(String raw) {
+    String url = raw.trim();
+    if (url.isEmpty) return url;
+    // Conserver le domaine du bucket tel que fourni
+    // Encodage minimal
+    url = url.replaceAll("'", '%27').replaceAll(' ', '%20');
+    // Forcer alt=media si absent et conserver token si présent
+    try {
+      if (url.startsWith('https://firebasestorage.googleapis.com/')) {
+        final uri = Uri.parse(url);
+        final qp = Map<String, String>.from(uri.queryParameters);
+        qp.putIfAbsent('alt', () => 'media');
+        final normalized = Uri(
+          scheme: uri.scheme,
+          host: uri.host,
+          path: uri.path,
+          queryParameters: qp.isEmpty ? null : qp,
+        );
+        url = normalized.toString();
+      }
+    } catch (_) {}
+    return url;
+  }
+
   void _prefetchListImages(List<String> urls, BuildContext context) {
-    final toPrefetch = urls.where((u) => u.isNotEmpty).take(6);
+    final toPrefetch = urls.map(_sanitizeStorageUrl).where((u) => u.isNotEmpty).take(6);
     for (final url in toPrefetch) {
       // Ignorer erreurs réseau; précharger silencieusement
       precacheImage(NetworkImage(url), context).catchError((_) {});
@@ -104,7 +128,10 @@ class _QuizSelectionPageState extends State<QuizSelectionPage> {
 
                 // Construire listes dynamiques basées sur la liste filtrée
                 final titles = visibleDocs.map((d) => (d.data()['name'] ?? '').toString()).toList();
-                final images = visibleDocs.map((d) => (d.data()['imageUrl'] ?? '').toString()).toList();
+                final images = visibleDocs
+                    .map((d) => (d.data()['imageUrl'] ?? '').toString())
+                    .map(_sanitizeStorageUrl)
+                    .toList();
                 final descriptions = visibleDocs.map((d) => (d.data()['description'] ?? '').toString()).toList();
 
                 final double screenW = MediaQuery.of(context).size.width;

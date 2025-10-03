@@ -205,6 +205,35 @@ class ImageCacheService {
   String _sanitizeUrlForWeb(String raw) {
     if (!kIsWeb) return raw;
     String url = raw;
+    // Respecter le domaine du bucket tel que stocké (ex: .firebasestorage.app)
+    // Normaliser les URLs Firebase Storage: conserver les tokens (éviter 401) et forcer alt=media s'il manque
+    try {
+      if (url.startsWith('https://firebasestorage.googleapis.com/')) {
+        final uri = Uri.parse(url);
+        final qp = Map<String, String>.from(uri.queryParameters);
+        // NE PAS retirer le token: requis quand l'objet n'est pas public ou App Check est actif
+        // Forcer alt=media pour servir le fichier brut si absent
+        if (!qp.containsKey('alt')) {
+          qp['alt'] = 'media';
+        }
+        // Remap du nom de bucket si ancien format appspot.com (évite 404)
+        final List<String> seg = List<String>.from(uri.pathSegments);
+        final int bIdx = seg.indexOf('b');
+        if (bIdx >= 0 && bIdx + 1 < seg.length) {
+          final String bucket = seg[bIdx + 1];
+          if (bucket.endsWith('.appspot.com')) {
+            seg[bIdx + 1] = bucket.replaceAll('.appspot.com', '.firebasestorage.app');
+          }
+        }
+        final normalized = Uri(
+          scheme: uri.scheme,
+          host: uri.host,
+          pathSegments: seg,
+          queryParameters: qp.isEmpty ? null : qp,
+        );
+        url = normalized.toString();
+      }
+    } catch (_) {}
     if (url.contains("'")) url = url.replaceAll("'", '%27');
     if (url.contains(' ')) url = url.replaceAll(' ', '%20');
     return url;

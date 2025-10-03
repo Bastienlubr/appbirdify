@@ -98,12 +98,43 @@ class Bird {
     // Sanitize URLs for web (encode apostrophes that break browser fetch/image)
     String sanitizedImageUrl = csvRow['photo'] ?? '';
     String sanitizedAudioUrl = csvRow['LienURL'] ?? '';
+    // Conserver le domaine du bucket tel que fourni (ex: .firebasestorage.app)
     if (kIsWeb) {
+      String normalizeGsUrl(String input) {
+        try {
+          if (!input.startsWith('https://firebasestorage.googleapis.com/')) return input;
+          final uri = Uri.parse(input);
+          final qp = Map<String, String>.from(uri.queryParameters);
+          // Conserver le token: requis en cas d'objet privé/App Check
+          if (!qp.containsKey('alt')) {
+            qp['alt'] = 'media';
+          }
+          // Remap bucket si ancien appspot.com
+          final List<String> seg = List<String>.from(uri.pathSegments);
+          final int bIdx = seg.indexOf('b');
+          if (bIdx >= 0 && bIdx + 1 < seg.length) {
+            final String bucket = seg[bIdx + 1];
+            if (bucket.endsWith('.appspot.com')) {
+              seg[bIdx + 1] = bucket.replaceAll('.appspot.com', '.firebasestorage.app');
+            }
+          }
+          final normalized = Uri(
+            scheme: uri.scheme,
+            host: uri.host,
+            pathSegments: seg,
+            queryParameters: qp.isEmpty ? null : qp,
+          );
+          return normalized.toString().replaceAll("'", '%27');
+        } catch (_) {
+          return input.replaceAll("'", '%27');
+        }
+      }
+
       if (sanitizedImageUrl.isNotEmpty) {
-        sanitizedImageUrl = sanitizedImageUrl.replaceAll("'", '%27');
+        sanitizedImageUrl = normalizeGsUrl(sanitizedImageUrl);
       }
       if (sanitizedAudioUrl.isNotEmpty) {
-        sanitizedAudioUrl = sanitizedAudioUrl.replaceAll("'", '%27');
+        sanitizedAudioUrl = normalizeGsUrl(sanitizedAudioUrl);
       }
     }
 

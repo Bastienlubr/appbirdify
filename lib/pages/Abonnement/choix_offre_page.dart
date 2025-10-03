@@ -7,6 +7,8 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 enum OffreType { mois1, mois6, mois12 }
 
@@ -208,6 +210,39 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
 
   Future<void> _onContinue() async {
     try {
+      final bool forceStripe = Uri.base.queryParameters['forceStripe'] == '1';
+      if (kIsWeb || forceStripe) {
+        // Web: lance le checkout Stripe via Cloud Functions
+        final String plan;
+        switch (_selection) {
+          case OffreType.mois12:
+            plan = '12m';
+            break;
+          case OffreType.mois6:
+            plan = '6m';
+            break;
+          case OffreType.mois1:
+          default:
+            plan = '1m';
+            break;
+        }
+        final callable = FirebaseFunctions.instanceFor(region: 'europe-west1').httpsCallable('stripeCreateCheckout');
+        final resp = await callable.call(<String, dynamic>{'plan': plan});
+        final dynamic data = resp.data;
+        final String? url = (data is Map) ? (data['url'] as String?) : (data?.toString());
+        if (url == null || url.isEmpty) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erreur: URL de paiement indisponible.')),
+          );
+          return;
+        }
+        // Redirection même onglet
+        await launchUrl(Uri.parse(url), webOnlyWindowName: '_self');
+        return;
+      }
+
+      // Mobile/desktop natif: flux IAP existant
       final sel = _selection;
       ProductDetails? product;
       if (sel == OffreType.mois1) {
@@ -218,6 +253,18 @@ class _ChoixOffrePageState extends State<ChoixOffrePage> {
         product = IapService.instance.pickVariantFirstNotOwned(IapService.sku12M);
       }
       if (product == null) {
+        // Fallback: si Stripe forcé via URL, tenter le checkout Stripe
+        if (forceStripe) {
+          final callable = FirebaseFunctions.instanceFor(region: 'europe-west1').httpsCallable('stripeCreateCheckout');
+          final resp = await callable.call(<String, dynamic>{'plan':
+            _selection == OffreType.mois12 ? '12m' : _selection == OffreType.mois6 ? '6m' : '1m'});
+          final dynamic data = resp.data;
+          final String? url = (data is Map) ? (data['url'] as String?) : (data?.toString());
+          if (url != null && url.isNotEmpty) {
+            await launchUrl(Uri.parse(url), webOnlyWindowName: '_self');
+            return;
+          }
+        }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Offre indisponible sur ce device/compte.')),

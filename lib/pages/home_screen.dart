@@ -649,7 +649,7 @@ class _HomeContentState extends State<HomeContent> {
                                   height: (() {
                                     final double screenW = MediaQuery.of(context).size.width;
                                     final bool isDesktop = (kIsWeb && screenW >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
-                                    return isDesktop ? spacing * 0.06 : spacing * 0.2;
+                                    return isDesktop ? spacing * 0.2 : spacing * 0.2;
                                   })(),
                                 ),
                                 Expanded(

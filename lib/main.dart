@@ -38,13 +38,16 @@ void main() async {
   } catch (e) {
     debugPrint('❌ Erreur lors de l\'initialisation Firebase: $e');
   }
-  // App Check (Debug pour tests locaux; passe à PlayIntegrity/DeviceCheck en prod)
+  // App Check (Debug pour tests locaux; PlayIntegrity/DeviceCheck en prod; reCAPTCHA v3 sur Web)
   try {
     final androidProv = kReleaseMode ? AndroidProvider.playIntegrity : AndroidProvider.debug;
     final appleProv = kReleaseMode ? AppleProvider.deviceCheck : AppleProvider.debug;
+    // Clé reCAPTCHA v3 fournie au build via --dart-define=APP_CHECK_WEB_RECAPTCHA_KEY=... (Web uniquement)
+    const String webRecaptchaKey = String.fromEnvironment('APP_CHECK_WEB_RECAPTCHA_KEY', defaultValue: '');
     await FirebaseAppCheck.instance.activate(
       androidProvider: androidProv,
       appleProvider: appleProv,
+      webProvider: webRecaptchaKey.isNotEmpty ? ReCaptchaV3Provider(webRecaptchaKey) : null,
     );
     try {
       await FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
