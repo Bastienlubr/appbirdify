@@ -1,13 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:just_audio/just_audio.dart';
 // import 'package:flutter/foundation.dart'; // import non nécessaire (Material suffit)
 import '../../services/dev_tools_service.dart';
@@ -244,9 +240,6 @@ class _BirdDetailPageState extends State<BirdDetailPage>
       _scheduleInitialAnimations();
       _precacheMainImage();
     }
-
-    // Desktop: synchroniser le rail d'onglets avec le scroll du contenu
-    _desktopScrollController.addListener(_handleDesktopScroll);
   }
 
   /// Initialise tous les controllers d'animation et de page
@@ -346,12 +339,14 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       
-      _panelController.value = 0.0; // Comportement d'origine: panel fermé initialement
+      _panelController.value = 0.0; // Panel fermé initialement
       
-      // Séquence d'initialisation optimisée - timing équilibré
-      Future.delayed(const Duration(milliseconds: 200), _initializeTabCentering);
-      Future.delayed(const Duration(milliseconds: 220), _showBackgroundUI); // afficher le voile + back
-      Future.delayed(const Duration(milliseconds: 240), _animateInitialPanel); // démarrer le panel quasi en même temps
+      // Afficher immédiatement le background pour éviter les sauts
+      _showBackground = true;
+      
+      // Séquence d'initialisation synchronisée
+      Future.delayed(const Duration(milliseconds: 280), _initializeTabCentering);
+      Future.delayed(const Duration(milliseconds: 200), _animateInitialPanel); // Panel arrive plus tôt, pendant le Hero
     });
   }
 
@@ -373,11 +368,9 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   /// Anime le panel vers sa position initiale
   void _animateInitialPanel() {
     if (mounted) {
-      final Size screen = MediaQuery.of(context).size;
-      final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
       _panelController.animateTo(
-        isDesktopLike ? 0.5 : 0.5, // desktop: largeur fixe (~58%); mobile: revient au palier 1/3 (inchangé)
-        duration: const Duration(milliseconds: 700),
+        0.5,
+        duration: const Duration(milliseconds: 500),
         curve: Curves.easeOutCubic,
       );
     }
@@ -617,7 +610,6 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     _contentController.dispose();
     _tabController.removeListener(_onTabControllerTick);
     _tabController.dispose();
-    try { _desktopScrollController.dispose(); } catch (_) {}
   }
 
   /// Nettoie tous les streams actifs
@@ -695,7 +687,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   // Garantit que, en mode basique, la page visible correspond EXACTEMENT à l'index sélectionné
   void _ensureCenterIfBasic() {
     if (!_tabController.hasClients) return;
-    if (!_isAtBasicSnap) return; // N'opère qu'au snap basique (2/3)
+    if (!_isAtBasicSnap) return; // N'opère qu'au snap basique (1/3)
     // Calculer la page cible attendue pour l'index sélectionné d'après la position actuelle
     final expected = _nearestPageForIndex(_tabController, _selectedTabIndex);
     final current = _tabController.page ?? _lastKnownTabPage;
@@ -880,7 +872,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
 
   // Quand on **fait défiler** les onglets - SIMPLE ET DIRECT
   void _onTabCarouselChanged(int pageIndex) {
-    if (_programmaticAnimating || _isAtBasicSnap || _isCenteringFrozen) return; // éviter tout changement en mode basique fixe
+    if (_programmaticAnimating || _isAtBasicSnap || _isCenteringFrozen) return; // éviter tout changement en mode basique ou pendant gel
 
     final actualIndex = pageIndex % _nTabs;
     final currentIndex = _selectedTabIndex;
@@ -918,10 +910,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
 
   // Quand on **tape** un onglet - ANIMATION FLUIDE UNIQUE
   void _onTabSelected(int index) {
-    final Size screen = MediaQuery.of(context).size;
-    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
-    if (_programmaticAnimating) return;
-    if (!isDesktopLike && _isAtBasicSnap) return; // mobile: pas de sélection en mode basique
+    if (_programmaticAnimating || _isAtBasicSnap) return; // pas de sélection en mode basique pour éviter l'état transitoire
 
     final currentIndex = _selectedTabIndex;
     final diff = (index - currentIndex + _nTabs) % _nTabs;
@@ -992,39 +981,16 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         await _animateReturn();
       },
       child: Scaffold(
-        backgroundColor: (_showBackground && !_isReturning)
-            ? const Color(0xFFF2F5F8) 
-            : Colors.transparent, // Transparent au début/retour puis arrière-plan progressif
+        backgroundColor: Colors.transparent, // Toujours transparent pour voir la base ornithologique en fond
         body: LayoutBuilder(
       builder: (context, constraints) {
         final m = buildResponsiveMetrics(context, constraints);
           final screenHeight = constraints.maxHeight;
-          final screenWidth = constraints.maxWidth;
-          final bool isDesktopLike = (kIsWeb && screenWidth >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
 
-                      return Listener(
-                        onPointerSignal: (signal) {
-                          if (!isDesktopLike) return;
-                          if (signal is PointerScrollEvent) {
-                            if (_desktopScrollController.hasClients) {
-                              final double delta = signal.scrollDelta.dy;
-                              final position = _desktopScrollController.position;
-                              final double target = (position.pixels + delta)
-                                  .clamp(position.minScrollExtent, position.maxScrollExtent);
-                              _desktopScrollController.jumpTo(target);
-                              // Force la mise à jour de la sélection du rail immédiatement
-                              _handleDesktopScroll();
-                            }
-                          }
-                        },
-                        child: Stack(
-                          children: [
+                      return Stack(
+                     children: [
                // Image full screen (toujours visible pour l'Hero animation)
                _buildBackgroundImage(screenHeight),
-
-               // Fade d'harmonisation image/panel (réactivé pour la fluidité Perchoir)
-               if (_showBackground && !_isReturning && widget.useHero && !widget.staticEntrance)
-                 _buildImagePanelFade(m, screenHeight),
 
               // Bouton retour (masqué pendant le retour)
              if (_showBackground && !_isReturning) _buildBackButton(m),
@@ -1032,151 +998,74 @@ class _BirdDetailPageState extends State<BirdDetailPage>
               
               // Interface de calibration retirée (désactivée en production)
 
-              // Bouton audio (donut) en background
-              if (_showBackground && !_isReturning)
-                (isDesktopLike
-                    ? AnimatedBuilder(
-                        animation: _panelAnimation,
-                        builder: (context, _) {
-                          // Calcule la gauche du panel pour positionner le bouton juste à gauche
-                          final double minPanelWidth = 0.0;
-                          final double initialPanelWidth = (screenWidth * 0.66).clamp(420.0, 840.0);
-                          final double maxPanelWidth = (screenWidth * 0.95).clamp(420.0, screenWidth);
-                          double currentPanelWidth;
-                          if (_panelAnimation.value <= 0.5) {
-                            final progress = (_panelAnimation.value / 0.5).clamp(0.0, 1.0);
-                            currentPanelWidth = minPanelWidth + (progress * initialPanelWidth);
-                          } else {
-                            final progress = ((_panelAnimation.value - 0.5) / 0.5).clamp(0.0, 1.0);
-                            currentPanelWidth = initialPanelWidth + (progress * (maxPanelWidth - initialPanelWidth));
-                          }
-
-                          final double buttonSize = m.dp(74, tabletFactor: 1.1);
-                          final double margin = m.dp(30, tabletFactor: 1.0);
-                          final double panelLeft = screenWidth - currentPanelWidth;
-                          final double desiredLeft = (panelLeft - buttonSize - margin).clamp(m.dp(8, tabletFactor: 1.0), screenWidth - buttonSize - m.dp(8, tabletFactor: 1.0));
-                          final double top = MediaQuery.of(context).padding.top + m.dp(24, tabletFactor: 1.0);
-
-                          return Positioned(
-                            left: desiredLeft,
-                            top: top,
-                            width: buttonSize,
-                            height: buttonSize,
-                            child: _audioDonut(m),
-                          );
-                        },
-                      )
-                    : _buildAudioButton(m)),
+              // Bouton audio (donut) en background (derrière le panel)
+              if (_showBackground && !_isReturning) _buildAudioButton(m),
 
               // Panel
               AnimatedBuilder(
                 animation: _panelAnimation,
                 builder: (context, _) {
-                  // Animation simple :
-                  // - Desktop: 0.0 = caché, 0.5 = largeur fixe (~58%), 1.0 = étendu (non utilisé car interactions fixées)
-                  // - Mobile:  0.0 = caché, 0.5 = hauteur 1/3 (palier basique), 1.0 = étendu (comportement original)
-                  // Mobile/tablette: hauteur animée depuis le bas
-                  // Desktop: largeur animée depuis la droite
-                  final minPanelHeight = 0.0; // Complètement caché (mobile)
-                  final initialPanelHeight = screenHeight * 0.33; // 1/3 visible (mobile)
-                  final maxPanelHeight = screenHeight * 0.95; // Mode étendu (mobile)
-
-                  double currentPanelHeight = 0.0;
-                  double currentPanelWidth = 0.0;
-                  if (isDesktopLike) {
-                    // Desktop: calculer les largeurs ICI pour éviter toute évaluation sur mobile
-                    final double minPanelWidth = 0.0; // caché
-                    final double initialPanelWidth = (screenWidth * 0.66).clamp(420.0, 840.0); // ~66% visible (cap 420-840)
-                    final double maxPanelWidth = (screenWidth * 0.95).clamp(420.0, screenWidth); // étendu
-                    if (_panelAnimation.value <= 0.5) {
-                      final progress = (_panelAnimation.value / 0.5).clamp(0.0, 1.0);
-                      currentPanelWidth = minPanelWidth + (progress * initialPanelWidth);
-                    } else {
-                      final progress = ((_panelAnimation.value - 0.5) / 0.5).clamp(0.0, 1.0);
-                      currentPanelWidth = initialPanelWidth + (progress * (maxPanelWidth - initialPanelWidth));
-                    }
-                    currentPanelHeight = screenHeight;
+                  // Animation simple : 0.0 = caché, 0.5 = complémente l'image (~30%), 1.0 = étendu
+                  final minPanelHeight = 0.0; // Complètement caché
+                  final initialPanelHeight = screenHeight * 0.30; // Complémente l'image (75% + 30% avec chevauchement)
+                  final maxPanelHeight = screenHeight * 0.95; // Mode étendu
+                  
+                  double currentPanelHeight;
+                  if (_panelAnimation.value <= 0.5) {
+                    // De caché (0.0) à 1/3 visible (0.5)
+                    final progress = (_panelAnimation.value / 0.5).clamp(0.0, 1.0);
+                    currentPanelHeight = minPanelHeight + (progress * initialPanelHeight);
                   } else {
-                    if (_panelAnimation.value <= 0.5) {
-                      // De caché (0.0) à 2/3 visible (0.5)
-                      final progress = (_panelAnimation.value / 0.5).clamp(0.0, 1.0);
-                      currentPanelHeight = minPanelHeight + (progress * initialPanelHeight);
-                    } else {
-                      // De 2/3 visible (0.5) à étendu (1.0)
-                      final progress = ((_panelAnimation.value - 0.5) / 0.5).clamp(0.0, 1.0);
-                      currentPanelHeight = initialPanelHeight + (progress * (maxPanelHeight - initialPanelHeight));
-                    }
-                    currentPanelWidth = double.infinity;
+                    // De 1/3 visible (0.5) à étendu (1.0)
+                    final progress = ((_panelAnimation.value - 0.5) / 0.5).clamp(0.0, 1.0);
+                    currentPanelHeight = initialPanelHeight + (progress * (maxPanelHeight - initialPanelHeight));
                   }
 
                   return Align(
-                    alignment: isDesktopLike ? Alignment.centerRight : Alignment.bottomCenter,
+                    alignment: Alignment.bottomCenter,
                     child: GestureDetector(
-                      onTap: isDesktopLike ? null : _togglePanel,
-                      onPanUpdate: isDesktopLike
-                          ? null
-                          : (details) {
-                              // Mobile/tablette: drag vertical (comportement original)
-                              final delta = -details.delta.dy / screenHeight;
-                              double newValue = (_panelController.value + delta * 2).clamp(0.0, 1.0);
-                              const double basicFloor = 0.38; // palier basique = 1/3
-                              if (newValue < basicFloor) newValue = basicFloor;
-                              _panelController.value = newValue;
-                            },
-                      onPanEnd: isDesktopLike ? null : _onPanelPanEnd,
-                    child: Container(
-                        width: isDesktopLike ? currentPanelWidth : double.infinity,
-                        height: isDesktopLike ? screenHeight : currentPanelHeight,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F5F9),
-                          borderRadius: isDesktopLike
-                              ? const BorderRadius.only(
-                                  topLeft: Radius.circular(65),
-                                  bottomLeft: Radius.circular(65),
-                                )
-                              : const BorderRadius.only(
-                                  topLeft: Radius.circular(65),
-                                  topRight: Radius.circular(65),
-                                ),
+                      onTap: _togglePanel,
+                      onPanUpdate: (details) {
+                        final delta = -details.delta.dy / screenHeight;
+                        double newValue = (_panelController.value + delta * 2)
+                            .clamp(0.0, 1.0);
+                        // Autorise une très légère descente sous le palier basique (jusqu'à ~0.48)
+                        const double basicFloor = 0.38;
+                        if (newValue < basicFloor) {
+                          newValue = basicFloor;
+                        }
+                        _panelController.value = newValue;
+                      },
+                      onPanEnd: _onPanelPanEnd,
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(65),
+                        topRight: Radius.circular(65),
+                      ),
+                      child: Container(
+                        width: double.infinity,
+                        height: currentPanelHeight,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF3F5F9),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0x1A000000),
+                              color: Color(0x1A000000),
                               blurRadius: 10,
-                              offset: isDesktopLike ? const Offset(-5, 0) : const Offset(0, -5),
+                              offset: Offset(0, -5),
                               spreadRadius: 0,
                             )
                           ],
                         ),
-                        child: isDesktopLike
-                            ? Stack(
-                                children: [
-                                  Positioned.fill(
-                                    child: Padding(
-                                      padding: EdgeInsets.only(
-                                        left: m.dp(90, tabletFactor: 1.0) + m.dp(16, tabletFactor: 1.0),
-                                        top: m.dp(16, tabletFactor: 1.0),
-                                      ),
-                                      child: _buildPanelContent(m),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    left: 0,
-                                    top: 0,
-                                    bottom: 0,
-                                    child: _buildVerticalTabRail(m),
-                                  ),
-                                ],
-                              )
-                            : _buildPanelContent(m),
+                        child: _buildPanelContent(m),
                       ),
+                    ),
                     ),
                   );
                 },
             ),
             // (rien au-dessus: le bouton audio est rendu avant le panel)
-                          ],
-                        ),
-                      );
+          ],
+        );
       },
       ),
       ),
@@ -1190,16 +1079,16 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     _logReturnAnimation('🔄 Début animation retour...');
     setState(() => _isReturning = true);
 
-    // Fermeture rapide du panel pour préparer l'animation Hero
+    // Fermeture très rapide du panel pour préparer l'animation Hero
     _logReturnAnimation('📱 Fermeture du panel...');
     _panelController.animateTo(
       0.0, 
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInCubic,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOutCubic, // Même courbe que Hero pour cohérence
     );
 
-    // Délai minimal optimisé pour synchroniser avec l'animation
-    await Future.delayed(const Duration(milliseconds: 390));
+    // Délai court pour laisser le panel se fermer avant l'animation Hero
+    await Future.delayed(const Duration(milliseconds: 280));
     
     if (mounted) {
       _logReturnAnimation('🚪 Navigation pop - should trigger Hero...');
@@ -1220,133 +1109,96 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     // Respecter l'alignement calibré partout pour conserver le placement choisi
     final Alignment alignmentToUse = _optimalImageAlignment;
 
-    final imageWidget = SizedBox(
-      width: double.infinity,
-      height: screenHeight,
-      child: widget.bird.urlImage.isNotEmpty
-          ? CachedNetworkImage(
-              imageUrl: widget.bird.urlImage,
-              fit: BoxFit.cover,
-              alignment: alignmentToUse,
-              imageRenderMethodForWeb: ImageRenderMethodForWeb.HtmlImage,
-              fadeInDuration: Duration.zero,
-              fadeOutDuration: Duration.zero,
-              filterQuality: FilterQuality.high,
-              placeholder: (context, url) => Container(
-                color: const Color(0xFFD2DBB2),
-                child: const Center(
-                  child: Icon(
-                    Icons.image_outlined,
-                    color: Color(0xFF6A994E),
-                    size: 32,
-                  ),
-                ),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: const Color(0xFFD2DBB2),
-                child: const Center(
-                  child: Icon(
-                    Icons.image_not_supported,
-                    color: Color(0xFF6A994E),
-                    size: 32,
-                  ),
-                ),
-              ),
-            )
-          : Container(
+    final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    const panelColor = Color(0xFFF3F5F9);
+    // L'image occupe 75% de l'écran (plus grande et plus basse pour bien se chevaucher avec le panel)
+    // Le panel complémente avec ~30% en bas (avec chevauchement dû aux bords arrondis)
+    final double targetImageHeight = isTablet ? screenHeight : (screenHeight * 0.75);
+
+    Widget rawImage = widget.bird.urlImage.isNotEmpty
+        ? CachedNetworkImage(
+            imageUrl: widget.bird.urlImage,
+            fit: BoxFit.cover,
+            alignment: alignmentToUse,
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+            filterQuality: FilterQuality.high,
+            placeholder: (context, url) => Container(
               color: const Color(0xFFD2DBB2),
               child: const Center(
-                child: Icon(Icons.image, color: Color(0xFF6A994E), size: 32),
+                child: Icon(
+                  Icons.image_outlined,
+                  color: Color(0xFF6A994E),
+                  size: 32,
+                ),
               ),
             ),
-    );
-
-    final Widget baseImage = (!widget.useHero)
-        ? imageWidget
-        : Hero(
-            tag: 'bird-hero-${widget.bird.id}',
-            transitionOnUserGestures: true,
-            flightShuttleBuilder: (context, animation, direction, fromContext, toContext) {
-              final radiusValue = direction == HeroFlightDirection.push 
-                  ? 12.0 * (1.0 - animation.value)
-                  : 12.0 * animation.value;
-              // Éviter les couches animées avec opacité imbriquée sous Impeller
-              return Directionality(
-                textDirection: Directionality.of(context),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(radiusValue),
-                  child: imageWidget,
+            errorWidget: (context, url, error) => Container(
+              color: const Color(0xFFD2DBB2),
+              child: const Center(
+                child: Icon(
+                  Icons.image_not_supported,
+                  color: Color(0xFF6A994E),
+                  size: 32,
                 ),
-              );
-            },
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(0.0),
-              child: imageWidget,
+              ),
+            ),
+          )
+        : Container(
+            color: const Color(0xFFD2DBB2),
+            child: const Center(
+              child: Icon(Icons.image, color: Color(0xFF6A994E), size: 32),
             ),
           );
 
-    // Adapter dynamiquement la zone visible de l'image pour compléter la place disponible
-    final Size screen = MediaQuery.of(context).size;
-    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
+    // Pas d'animation supplémentaire sur l'image - juste l'image brute
+    // L'animation Hero s'occupe du zoom initial
+    Widget animatedRawImage = rawImage;
 
-    return AnimatedBuilder(
-      animation: _panelAnimation,
-      builder: (context, _) {
-        EdgeInsets padding = EdgeInsets.zero;
-        const double overlap = 60.0; // léger chevauchement pour éviter tout interstice aux arrondis
-        // L'image "retarde" très légèrement sa réservation d'espace puis rattrape vite
-        final double t = _panelAnimation.value; // 0..1
-        final double u = (t / 0.35).clamp(0.0, 1.0); // rattrapage plus tôt
-        final double catchUp = (1.0 - u) * (1.0 - u); // ease-out plus agressif
-        final double lagPx = catchUp * (isDesktopLike ? 6.0 : 4.0);
-        if (isDesktopLike) {
-          // Largeur du panel (mêmes bornes que le panel). On réserve la place palier et on chevauche très légèrement.
-          final double initialPanelWidth = (screen.width * 0.66).clamp(420.0, 840.0);
-          final double maxPanelWidth = (screen.width * 0.95).clamp(420.0, screen.width);
-          double currentPanelWidth;
-          if (_panelAnimation.value <= 0.5) {
-            currentPanelWidth = initialPanelWidth;
-          } else {
-            final double progress = ((_panelAnimation.value - 0.5) / 0.5).clamp(0.0, 1.0);
-            currentPanelWidth = initialPanelWidth + (progress * (maxPanelWidth - initialPanelWidth));
-          }
-          padding = EdgeInsets.only(right: (currentPanelWidth - overlap + lagPx).clamp(0.0, double.infinity));
-        } else {
-          // Hauteur du panel (mêmes bornes que le panel). On réserve la place palier et on chevauche très légèrement.
-          final double initialPanelHeight = screenHeight * 0.33; // 1/3 visible
-          final double maxPanelHeight = screenHeight * 0.95; // étendu
-          double currentPanelHeight;
-          if (_panelAnimation.value <= 0.5) {
-            currentPanelHeight = initialPanelHeight;
-          } else {
-            final double progress = ((_panelAnimation.value - 0.5) / 0.5).clamp(0.0, 1.0);
-            currentPanelHeight = initialPanelHeight + (progress * (maxPanelHeight - initialPanelHeight));
-          }
-          padding = EdgeInsets.only(bottom: (currentPanelHeight - overlap + lagPx).clamp(0.0, double.infinity));
-        }
-
-        // Arrondis complémentaires côté panel pour une jonction parfaite, sans déformation de l'image
-        final BorderRadius clipRadius = isDesktopLike
-            ? const BorderRadius.only(topRight: Radius.circular(65), bottomRight: Radius.circular(65))
-            : const BorderRadius.only(bottomLeft: Radius.circular(65), bottomRight: Radius.circular(65));
-
-        final double scale = isDesktopLike ? 1.012 : 1.004; // agrandissement très léger
-        final double dx = isDesktopLike ? 8.0 : 0.0; // petit décalage à droite (desktop)
-        return ClipRRect(
-          borderRadius: (_panelAnimation.value > 0.0) ? clipRadius : BorderRadius.zero,
-          child: Padding(
-            padding: padding,
-            child: Transform.translate(
-              offset: Offset(dx, 0),
-              child: Transform.scale(
-                scale: scale,
-                alignment: alignmentToUse,
-                child: baseImage,
-              ),
+    // L'image occupe juste sa hauteur définie en haut, le reste reste transparent pour voir la base ornithologique
+    final imageWidget = isTablet 
+        ? SizedBox(
+            width: double.infinity,
+            height: screenHeight,
+            child: animatedRawImage,
+          )
+        : Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: double.infinity,
+              height: targetImageHeight,
+              child: animatedRawImage,
             ),
-          ),
+          );
+
+    if (!widget.useHero) {
+      return imageWidget;
+    }
+
+    return Hero(
+      tag: 'bird-hero-${widget.bird.id}',
+      transitionOnUserGestures: true,
+      flightShuttleBuilder: (context, animation, direction, fromContext, toContext) {
+        // Animation simple et fluide - une seule courbe continue
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic, // Courbe douce pour ouverture
+          reverseCurve: Curves.easeInCubic, // Courbe douce pour fermeture
+        );
+        
+        final radiusValue = direction == HeroFlightDirection.push 
+            ? 12.0 * (1.0 - curvedAnimation.value)
+            : 12.0 * curvedAnimation.value;
+        
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(radiusValue),
+          child: imageWidget,
         );
       },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(0.0),
+        child: imageWidget,
+      ),
     );
   }
 
@@ -1362,9 +1214,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
             height: m.dp(50, tabletFactor: 1.1),
             child: Material(
               color: Colors.transparent,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: InkWell(
+              child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () => _animateReturn(),
                 child: SvgPicture.asset(
@@ -1373,7 +1223,6 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                   height: m.dp(50, tabletFactor: 1.1),
                   colorFilter: const ColorFilter.mode(Color(0xFFF3F5F9), BlendMode.srcIn),
                 ),
-              ),
               ),
             ),
           ),
@@ -1598,38 +1447,23 @@ class _BirdDetailPageState extends State<BirdDetailPage>
 
   // --- Fade d'harmonisation image/panel (animation progressive) ---
   Widget _buildImagePanelFade(ResponsiveMetrics m, double screenHeight) {
-    final Size screen = MediaQuery.of(context).size;
-    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
     return IgnorePointer(
       ignoring: true,
-      child: AnimatedBuilder(
-        animation: _panelAnimation,
-        builder: (context, _) {
-          final double t = _panelAnimation.value; // 0..1
-          // Opacité du voile corrélée au panel: disparaît encore plus tôt pour coller au panel
-          final double alpha = (t <= 0.35)
-              ? (1.0 - (t / 0.35)) // 1 -> 0 entre 0 et 0.35
-              : 0.0;
-          return Opacity(
-            opacity: alpha.clamp(0.0, 1.0),
-            child: Container(
-              width: double.infinity,
-              height: screenHeight,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: isDesktopLike ? Alignment.centerRight : Alignment.bottomCenter,
-                  end: isDesktopLike ? Alignment.centerLeft : Alignment.topCenter,
-                  colors: const [
-                    Color(0x80F3F5F9),
-                    Color(0x40F3F5F9),
-                    Color(0x00F3F5F9),
-                  ],
-                  stops: const [0.0, 0.2, 0.5],
-                ),
-              ),
-            ),
-          );
-        },
+      child: Container(
+        width: double.infinity,
+        height: screenHeight,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [
+              Color(0x80F3F5F9),
+              Color(0x40F3F5F9),
+              Color(0x00F3F5F9),
+            ],
+            stops: [0.0, 0.2, 0.5],
+          ),
+        ),
       ),
     );
   }
@@ -1639,39 +1473,24 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     const textColor = Color(0xFF606D7C);
 
     final showBasicInfo = _panelAnimation.value < 0.7 && _panelAnimation.value > 0.2; // infos visibles quand panel en position 1/3
-    final Size screen = MediaQuery.of(context).size;
-    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
 
-    return LayoutBuilder(builder: (context, panelConstraints) {
-      // Évite les overflows transitoires quand la hauteur du panel est encore trop faible
-      if (panelConstraints.maxHeight < m.dp(40, tabletFactor: 1.0)) {
-        return const SizedBox.shrink();
-      }
-
-      return Column(
+    return Column(
           children: [
-        // Poignée (mobile uniquement)
-        if (!isDesktopLike)
-          Container(
-            width: m.dp(40, tabletFactor: 1.1),
-            height: m.dp(4, tabletFactor: 1.0),
-            margin: EdgeInsets.symmetric(vertical: m.dp(12, tabletFactor: 1.0)),
-            decoration: BoxDecoration(
-              color: const Color(0x70344356),
-              borderRadius: BorderRadius.circular(2),
-            ),
+        // Poignée
+        Container(
+          width: m.dp(40, tabletFactor: 1.1),
+          height: m.dp(4, tabletFactor: 1.0),
+          margin: EdgeInsets.symmetric(vertical: m.dp(12, tabletFactor: 1.0)),
+          decoration: BoxDecoration(
+            color: const Color(0x70344356),
+            borderRadius: BorderRadius.circular(2),
           ),
+        ),
 
         // Contenu
         Expanded(
           child: NotificationListener<UserScrollNotification>(
             onNotification: (n) {
-              // En desktop: ne jamais étendre automatiquement via le scroll
-              final Size screen = MediaQuery.of(context).size;
-              final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
-              if (isDesktopLike) return false;
-
-              // Mobile/tablette: comportement original
               final isCompact = _panelAnimation.value < 0.75;
               if (isCompact && n.direction != ScrollDirection.idle) {
                 _panelController.animateTo(
@@ -1700,16 +1519,14 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                             SizedBox(height: showBasicInfo ? m.dp(2, tabletFactor: 1.0) : m.dp(0, tabletFactor: 1.0)),
                             if (showBasicInfo) _buildInfoSection(m),
                             if (showBasicInfo) SizedBox(height: m.dp(16, tabletFactor: 1.1)),
-                            if (!isDesktopLike)
-                              Transform.translate(
-                                offset: Offset(0, showBasicInfo ? 0 : -m.dp(0, tabletFactor: 1.1)),
-                                child: _buildTabButtons(m),
-                              ),
-                            if (!isDesktopLike)
-                              Transform.translate(
-                                offset: Offset(0, showBasicInfo ? -m.dp(16, tabletFactor: 1.0) : -m.dp(8, tabletFactor: 1.0)),
-                                child: _buildAnimatedTabTitle(m),
-                              ),
+                            Transform.translate(
+                              offset: Offset(0, showBasicInfo ? 0 : -m.dp(0, tabletFactor: 1.1)),
+                              child: _buildTabButtons(m),
+                            ),
+                            Transform.translate(
+                              offset: Offset(0, showBasicInfo ? -m.dp(16, tabletFactor: 1.0) : -m.dp(8, tabletFactor: 1.0)),
+                              child: _buildAnimatedTabTitle(m),
+                            ),
                             SizedBox(height: showBasicInfo ? m.dp(12, tabletFactor: 1.1) : m.dp(4, tabletFactor: 1.1)),
                             if (!showBasicInfo)
                               Container(
@@ -1721,20 +1538,19 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                                 ),
                               ),
                             SizedBox(height: showBasicInfo ? 0 : m.dp(4, tabletFactor: 1.1)),
-                            if (!isDesktopLike)
-                              Align(
-                                alignment: Alignment.center,
-                                child: Text(
-                                  _tabs[_selectedTabIndex]['title'],
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: textColor,
-                                    fontSize: m.font(32, tabletFactor: 1.1, min: 24, max: 40),
-                                    fontFamily: 'Quicksand',
-                                    fontWeight: FontWeight.w900,
-                                  ),
+                            Align(
+                              alignment: Alignment.center,
+                              child: Text(
+                                _tabs[_selectedTabIndex]['title'],
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: m.font(32, tabletFactor: 1.1, min: 24, max: 40),
+                                  fontFamily: 'Quicksand',
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
+                            ),
                             SizedBox(height: m.dp(16, tabletFactor: 1.1)),
                           ],
                         ),
@@ -1771,12 +1587,11 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                         SizedBox(height: showBasicInfo ? m.dp(2, tabletFactor: 1.0) : m.dp(0, tabletFactor: 1.0)),
                         if (showBasicInfo) _buildInfoSection(m),
                         if (showBasicInfo) SizedBox(height: m.dp(16, tabletFactor: 1.1)),
-                        if (!isDesktopLike) _buildTabButtons(m),
-                        if (!isDesktopLike)
-                          Transform.translate(
-                            offset: Offset(0, showBasicInfo ? -m.dp(16, tabletFactor: 1.0) : -m.dp(8, tabletFactor: 1.0)),
-                            child: _buildAnimatedTabTitle(m),
-                          ),
+                        _buildTabButtons(m),
+                        Transform.translate(
+                          offset: Offset(0, showBasicInfo ? -m.dp(16, tabletFactor: 1.0) : -m.dp(8, tabletFactor: 1.0)),
+                          child: _buildAnimatedTabTitle(m),
+                        ),
                         SizedBox(height: showBasicInfo ? m.dp(12, tabletFactor: 1.1) : m.dp(4, tabletFactor: 1.1)),
                         if (!showBasicInfo)
                           Container(
@@ -1788,20 +1603,19 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                             ),
                           ),
                         SizedBox(height: showBasicInfo ? 0 : m.dp(4, tabletFactor: 1.1)),
-                        if (!isDesktopLike)
-                          Align(
-                            alignment: _panelAnimation.value > 0.7 ? Alignment.center : Alignment.centerLeft,
-                            child: Text(
-                              _tabs[_selectedTabIndex]['title'],
-                              textAlign: _panelAnimation.value > 0.7 ? TextAlign.center : TextAlign.left,
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: m.font(32, tabletFactor: 1.1, min: 24, max: 40),
-                                fontFamily: 'Quicksand',
-                                fontWeight: FontWeight.w900,
-                              ),
+                        Align(
+                          alignment: _panelAnimation.value > 0.7 ? Alignment.center : Alignment.centerLeft,
+                          child: Text(
+                            _tabs[_selectedTabIndex]['title'],
+                            textAlign: _panelAnimation.value > 0.7 ? TextAlign.center : TextAlign.left,
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: m.font(32, tabletFactor: 1.1, min: 24, max: 40),
+                              fontFamily: 'Quicksand',
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
+                        ),
                         SizedBox(height: m.dp(16, tabletFactor: 1.1)),
                         _buildMainContent(m),
                         SizedBox(height: m.dp(40, tabletFactor: 1.1)),
@@ -1811,8 +1625,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
           ),
         ),
           ],
-      );
-    });
+    );
   }
 
   Widget _buildInfoSection(ResponsiveMetrics m) {
@@ -1948,18 +1761,16 @@ class _BirdDetailPageState extends State<BirdDetailPage>
             physics: const StableCarouselPhysics(),
             pageSnapping: true,
             allowImplicitScrolling: true,
-            clipBehavior: Clip.none,
+            clipBehavior: (_panelAnimation.value > 0.7) ? Clip.hardEdge : Clip.none,
             itemBuilder: (context, pageIndex) {
           final index = pageIndex % _nTabs;
           final tab = _tabs[index];
           final isSelected = index == _selectedTabIndex;
 
           return Center(
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () => _onTabSelected(index),
-                child: isSelected
+            child: GestureDetector(
+              onTap: () => _onTabSelected(index),
+              child: isSelected
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -2007,7 +1818,6 @@ class _BirdDetailPageState extends State<BirdDetailPage>
                         ),
                         const SizedBox.shrink(),
                       ],
-                    ),
                     ),
               ),
           );
@@ -2060,159 +1870,6 @@ class _BirdDetailPageState extends State<BirdDetailPage>
     );
   }
 
-  // --- Colonne d'onglets verticale (desktop) ---------------------------------
-  Widget _buildVerticalTabRail(ResponsiveMetrics m) {
-    final double railWidth = m.dp(90, tabletFactor: 1.0);
-    return Container(
-      width: railWidth,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F5F9),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(65),
-          bottomLeft: Radius.circular(65),
-        ),
-      ),
-      child: Stack(
-        children: [
-          // Colonne d'onglets
-          Align(
-            alignment: Alignment.center,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (int i = 0; i < _nTabs; i++)
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: m.dp(6, tabletFactor: 1.0)),
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: () {
-                          _scrollToSection(i);
-                        },
-                        child: _verticalTabItem(m, i, isSelected: i == _selectedTabIndex),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          // Séparateur vertical à droite du rail
-          Positioned(
-            right: 0,
-            top: m.dp(24, tabletFactor: 1.0),
-            bottom: m.dp(24, tabletFactor: 1.0),
-            child: Container(
-              width: 1.0,
-              color: const Color(0x70344356),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _verticalTabItem(ResponsiveMetrics m, int index, {required bool isSelected}) {
-    final tab = _tabs[index];
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      width: m.dp(60, tabletFactor: 1.0),
-      height: m.dp(60, tabletFactor: 1.0),
-      decoration: BoxDecoration(
-        color: (tab['color'] as Color).withValues(alpha: isSelected ? 0.8 : 0.3),
-        borderRadius: BorderRadius.circular(m.dp(16, tabletFactor: 1.0)),
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 5,
-                  offset: const Offset(0, 3),
-                ),
-              ]
-            : const [],
-      ),
-      child: Icon(
-        tab['icon'],
-        color: Colors.white,
-        size: m.dp(28, tabletFactor: 1.0),
-      ),
-    );
-  }
-
-  // --- Scroll vers section (desktop) ----------------------------------------
-  final ScrollController _desktopScrollController = ScrollController();
-  final Map<int, GlobalKey> _sectionKeys = {
-    0: GlobalKey(),
-    1: GlobalKey(),
-    2: GlobalKey(),
-    3: GlobalKey(),
-    4: GlobalKey(),
-  };
-
-  GlobalKey _sectionKeyFor(int index) {
-    return _sectionKeys.putIfAbsent(index, () => GlobalKey());
-  }
-
-  void _scrollToSection(int index) {
-    final ctx = _sectionKeyFor(index).currentContext;
-    if (ctx == null) return;
-    Scrollable.ensureVisible(
-      ctx,
-      duration: const Duration(milliseconds: 450),
-      curve: Curves.easeInOutCubic,
-      alignment: 0.0,
-    );
-    _changeSelection(index);
-  }
-
-  void _handleDesktopScroll() {
-    if (!mounted) return;
-    // Récupère la position des titres de sections et sélectionne celle la plus proche du haut
-    final Map<int, double> sectionTop = {};
-    for (int i = 0; i < _nTabs; i++) {
-      final ctx = _sectionKeyFor(i).currentContext;
-      if (ctx == null) continue;
-      final box = ctx.findRenderObject() as RenderBox?;
-      if (box == null) continue;
-      final Offset topLeft = box.localToGlobal(Offset.zero);
-      sectionTop[i] = topLeft.dy;
-    }
-    if (sectionTop.isEmpty) return;
-
-    final double targetY = MediaQuery.of(context).padding.top + 120.0;
-    int bestIndex = _selectedTabIndex;
-    double bestDist = double.infinity;
-    sectionTop.forEach((i, y) {
-      final double d = (y - targetY).abs();
-      if (d < bestDist) {
-        bestDist = d;
-        bestIndex = i;
-      }
-    });
-    if (bestIndex != _selectedTabIndex) {
-      _changeSelection(bestIndex);
-    }
-  }
-
-  // --- Titre de section (desktop) -------------------------------------------
-  Widget _sectionHeaderTitle(ResponsiveMetrics m, String title) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: m.dp(8, tabletFactor: 1.0)),
-      child: Center(
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: const Color(0xFF606D7C),
-            fontSize: m.font(24, tabletFactor: 1.0, min: 18, max: 32),
-            fontFamily: 'Quicksand',
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ),
-    );
-  }
-
   // Titre animé de l'onglet sélectionné - petit et toujours visible (disparaît après un délai en mode étendu)
   Widget _buildAnimatedTabTitle(ResponsiveMetrics m) {
     return SizedBox(
@@ -2258,9 +1915,7 @@ class _BirdDetailPageState extends State<BirdDetailPage>
   Widget _buildMainContent(ResponsiveMetrics m) {
     final showBasicInfo = _panelAnimation.value < 0.7 && _panelAnimation.value > 0.2;
     final bool isExtended = _panelAnimation.value > 0.7;
-    final Size screen = MediaQuery.of(context).size;
-    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
-    final double screenHeight = screen.height;
+    final double screenHeight = MediaQuery.of(context).size.height;
     // Hauteur visée du panel en mode étendu (alignée sur maxPanelHeight défini plus haut)
     final double extendedPanelHeight = screenHeight * 0.95;
     // Estimation de l'espace occupé au-dessus du contenu (poignée, infos, onglets, titres, marges)
@@ -2270,64 +1925,47 @@ class _BirdDetailPageState extends State<BirdDetailPage>
         ? dynamicHeight
         : (showBasicInfo ? 300.0 : 400.0);
 
-    if (isDesktopLike) {
-      // Desktop: contenu scrollable unique, sections cliquables dans la barre verticale
-      return SingleChildScrollView(
-        controller: _desktopScrollController,
-        padding: EdgeInsets.only(bottom: m.dp(40, tabletFactor: 1.0)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(key: _sectionKeyFor(0), child: _sectionHeaderTitle(m, 'Identification')),
-            _buildContentForTab(m, 0),
-            SizedBox(height: m.dp(28, tabletFactor: 1.0)),
-            Container(key: _sectionKeyFor(1), child: _sectionHeaderTitle(m, 'Habitat')),
-            _buildContentForTab(m, 1),
-            SizedBox(height: m.dp(28, tabletFactor: 1.0)),
-            Container(key: _sectionKeyFor(2), child: _sectionHeaderTitle(m, 'Alimentation')),
-            _buildContentForTab(m, 2),
-            SizedBox(height: m.dp(28, tabletFactor: 1.0)),
-            Container(key: _sectionKeyFor(3), child: _sectionHeaderTitle(m, 'Reproduction')),
-            _buildContentForTab(m, 3),
-            SizedBox(height: m.dp(28, tabletFactor: 1.0)),
-            Container(key: _sectionKeyFor(4), child: _sectionHeaderTitle(m, 'Protection et état actuel')),
-            _buildContentForTab(m, 4),
-          ],
-        ),
-      );
-    }
-
-    // Mobile/tablette: garder le PageView infini
     return SizedBox(
       height: baseHeight,
       child: PageView.builder(
         controller: _contentController,
         allowImplicitScrolling: true,
-        clipBehavior: Clip.none,
-        onPageChanged: (pageIndex) {
-          if (_programmaticAnimating) return; // éviter ping-pong
-          final actualIndex = pageIndex % _nTabs;
-          final currentIndex = _selectedTabIndex;
-          final diff = (actualIndex - currentIndex + _nTabs) % _nTabs;
-          if (diff == 1 || diff == (_nTabs - 1) || diff == 0) {
-            _changeSelection(actualIndex);
-            if (_tabController.hasClients) {
-              final t = _nearestPageForIndex(_tabController, actualIndex);
-              if (t != null) _tabController.jumpToPage(t);
-            }
-          } else if (diff != 0) {
-            final targetIndex = diff <= _nTabs ~/ 2
-                ? (currentIndex + 1) % _nTabs
-                : (currentIndex - 1 + _nTabs) % _nTabs;
-            _changeSelection(targetIndex);
-            final t = _nearestPageForIndex(_contentController, targetIndex);
-            if (t != null) _contentController.jumpToPage(t);
-            if (_tabController.hasClients) {
-              final tt = _nearestPageForIndex(_tabController, targetIndex);
-              if (tt != null) _tabController.jumpToPage(tt);
-            }
-          }
-        },
+        clipBehavior: (_panelAnimation.value > 0.7) ? Clip.hardEdge : Clip.none,
+                 onPageChanged: (pageIndex) {
+           if (_programmaticAnimating) return; // éviter ping-pong
+
+           final actualIndex = pageIndex % _nTabs;
+           final currentIndex = _selectedTabIndex;
+           final diff = (actualIndex - currentIndex + _nTabs) % _nTabs;
+
+           // Autorise adjacent + wrap SEULEMENT
+           if (diff == 1 || diff == (_nTabs - 1) || diff == 0) {
+             _changeSelection(actualIndex);
+
+             // Synchronise l'onglet INSTANTANÉMENT
+             if (_tabController.hasClients) {
+               final t = _nearestPageForIndex(_tabController, actualIndex);
+               if (t != null) _tabController.jumpToPage(t);
+             }
+           } else if (diff != 0) {
+             // Mouvement non autorisé → SNAP vers l'adjacent
+             final targetIndex = diff <= _nTabs ~/ 2
+                 ? (currentIndex + 1) % _nTabs
+                 : (currentIndex - 1 + _nTabs) % _nTabs;
+
+             _changeSelection(targetIndex);
+
+             // SNAP instantané pour éviter le wiggle
+             final t = _nearestPageForIndex(_contentController, targetIndex);
+             if (t != null) _contentController.jumpToPage(t);
+
+             if (_tabController.hasClients) {
+               final tt = _nearestPageForIndex(_tabController, targetIndex);
+               if (tt != null) _tabController.jumpToPage(tt);
+             }
+           }
+         },
+        // itemCount null => "infini"
         itemCount: null,
         itemBuilder: (context, pageIndex) {
           final index = pageIndex % _nTabs;
@@ -2832,59 +2470,38 @@ class _BirdDetailPageState extends State<BirdDetailPage>
 
   // --- Helpers panel ---------------------------------------------------------
   void _togglePanel() {
-    final Size screen = MediaQuery.of(context).size;
-    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
-    if (isDesktopLike) return; // Desktop: panel fixe
-
     if (_panelController.value < 0.75) {
-      _panelController.animateTo(
-        1.0,
-        duration: const Duration(milliseconds: 900),
-        curve: Curves.easeInOutCubic,
-      );
+      _panelController.animateTo(1.0,
+          duration: const Duration(milliseconds: 900),
+          curve: Curves.easeInOutCubic);
     } else {
-      _panelController.animateTo(
-        0.5, // Retour à la position 1/3 (palier basique mobile/tablette)
-        duration: const Duration(milliseconds: 700),
-        curve: Curves.easeInOutCubic,
-      );
+      _panelController.animateTo(0.5, // Retour à la position 1/3 au lieu de 0.0
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeInOutCubic);
     }
   }
 
   void _onPanelPanEnd(DragEndDetails details) {
-    final Size screen = MediaQuery.of(context).size;
-    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
-    if (isDesktopLike) return; // Desktop: panel fixe, ignorer
-
-    final double velocity = -details.velocity.pixelsPerSecond.dy; // mobile: vers le haut = ouverture
-
+    final velocity = details.velocity.pixelsPerSecond.dy;
     if (velocity.abs() > 500) {
-      if (velocity > 0) {
-        _panelController.animateTo(
-          1.0,
-          duration: const Duration(milliseconds: 900),
-          curve: Curves.easeInOutCubic,
-        );
+      if (velocity < 0) {
+        _panelController.animateTo(1.0,
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeInOutCubic);
       } else {
-        _panelController.animateTo(
-          0.5, // palier basique = 1/3
-          duration: const Duration(milliseconds: 700),
-          curve: Curves.easeInOutCubic,
-        );
+        _panelController.animateTo(0.5, // Retour à la position 1/3 (bloqué)
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.easeInOutCubic);
       }
     } else {
       if (_panelController.value < 0.75) {
-        _panelController.animateTo(
-          0.5,
-          duration: const Duration(milliseconds: 700),
-          curve: Curves.easeInOutCubic,
-        );
+        _panelController.animateTo(0.5, // Retour à la position 1/3 (bloqué)
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.easeInOutCubic);
       } else {
-        _panelController.animateTo(
-          1.0,
-          duration: const Duration(milliseconds: 900),
-          curve: Curves.easeInOutCubic,
-        );
+        _panelController.animateTo(1.0,
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeInOutCubic);
       }
     }
   }
@@ -2902,53 +2519,47 @@ class _BirdDetailPageState extends State<BirdDetailPage>
             top: m.dp(34, tabletFactor: 1.1),
             right: m.dp(36, tabletFactor: 1.1),
           ),
-          child: _audioDonut(m),
-        ),
-      ),
-    );
-  }
-
-  Widget _audioDonut(ResponsiveMetrics m) {
-    final bool hasAudio = widget.bird.urlMp3.isNotEmpty;
-    final Color iconColor = Colors.white;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: SizedBox(
-        width: m.dp(74, tabletFactor: 1.1),
-        height: m.dp(74, tabletFactor: 1.1),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: hasAudio ? _toggleAudio : null,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: m.dp(74, tabletFactor: 1.1),
-                  height: m.dp(74, tabletFactor: 1.1),
-                  child: CircularProgressIndicator(
-                    value: (_audioTotal != null && _audioTotal!.inMilliseconds > 0) ? _audioProgress : 0.0,
-                    strokeWidth: m.dp(5, tabletFactor: 1.0),
-                    backgroundColor: Colors.white,
-                    color: const Color(0xFFABC270),
-                  ),
+          child: SizedBox(
+            width: m.dp(74, tabletFactor: 1.1),
+            height: m.dp(74, tabletFactor: 1.1),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: hasAudio ? _toggleAudio : null,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Progression circulaire couvrant exactement la largeur du donut
+                    SizedBox(
+                      width: m.dp(74, tabletFactor: 1.1),
+                      height: m.dp(74, tabletFactor: 1.1),
+                      child: CircularProgressIndicator(
+                        value: (_audioTotal != null && _audioTotal!.inMilliseconds > 0) ? _audioProgress : 0.0,
+                        strokeWidth: m.dp(5, tabletFactor: 1.0),
+                        backgroundColor: Colors.white,
+                        color: const Color(0xFFABC270),
+                      ),
+                    ),
+                    // Assombrissement du trou (fond du donut)
+                    Container(
+                      width: m.dp(66, tabletFactor: 1.1),
+                      height: m.dp(66, tabletFactor: 1.1),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black.withValues(alpha: 0.10),
+                      ),
+                    ),
+                    // Icône micro
+                    SvgPicture.asset(
+                      'assets/PAGE/Detail especes/icon audio.svg',
+                      colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                      width: m.dp(40, tabletFactor: 1.0),
+                      height: m.dp(40, tabletFactor: 1.0),
+                    ),
+                  ],
                 ),
-                Container(
-                  width: m.dp(66, tabletFactor: 1.1),
-                  height: m.dp(66, tabletFactor: 1.1),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.black.withValues(alpha: 0.10),
-                  ),
-                ),
-                SvgPicture.asset(
-                  'assets/PAGE/Detail especes/icon audio.svg',
-                  colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-                  width: m.dp(40, tabletFactor: 1.0),
-                  height: m.dp(40, tabletFactor: 1.0),
-                ),
-              ],
+              ),
             ),
           ),
         ),

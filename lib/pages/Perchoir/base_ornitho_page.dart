@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
-import 'package:flutter/foundation.dart';
 import '../../ui/responsive/responsive.dart';
 import '../../models/bird.dart';
 import '../../services/Mission/communs/commun_gestionnaire_assets.dart';
@@ -662,29 +660,15 @@ class _SimpleBirdTile extends StatelessWidget {
     
     if (!context.mounted) return;
     
-    final Size screen = MediaQuery.of(context).size;
-    final bool isDesktopLike = (kIsWeb && screen.width >= 1024) || (!kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux));
-
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => BirdDetailPage(bird: bird),
-        transitionDuration: const Duration(milliseconds: 600),
-        reverseTransitionDuration: const Duration(milliseconds: 500),
+        transitionDuration: const Duration(milliseconds: 600), // Animation fluide
+        reverseTransitionDuration: const Duration(milliseconds: 450),
         opaque: false,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          if (!isDesktopLike) {
-            // Mobile/tablette: éviter toute transition d'opacité (Impeller)
-            return child;
-          }
-          return FadeTransition(
-            opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: const Interval(0.5, 1.0, curve: Curves.easeOutQuart),
-              ),
-            ),
-            child: child,
-          );
+          // Pas de fondu - on laisse le background transparent pour voir la base ornithologique
+          return child;
         },
       ),
     );
@@ -718,7 +702,6 @@ class _SimpleBirdTile extends StatelessWidget {
                             bird.genus,
                             bird.species,
                           ),
-                          imageRenderMethodForWeb: ImageRenderMethodForWeb.HtmlImage,
                           fadeInDuration: const Duration(milliseconds: 400),
                           filterQuality: FilterQuality.high,
                       placeholder: (context, url) => Container(
